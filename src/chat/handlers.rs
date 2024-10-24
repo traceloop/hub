@@ -1,9 +1,9 @@
 use crate::providers::Provider;
-use crate::{chat::models::ChatCompletionRequest, models::ModelProvider, utils::extract_provider};
 use crate::state::AppState;
+use crate::{chat::models::ChatCompletionRequest, models::ModelProvider, utils::extract_provider};
+use axum::http::StatusCode;
 use axum::{extract::State, Json};
 use std::sync::Arc;
-use axum::http::StatusCode;
 use tracing::error;
 
 use super::models::ChatCompletionResponse;

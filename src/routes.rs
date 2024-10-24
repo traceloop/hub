@@ -1,5 +1,5 @@
-use crate::{handlers, state::AppState};
 use crate::chat::handlers as chat_handlers;
+use crate::{handlers, state::AppState};
 use axum::{
     routing::{get, post},
     Router,

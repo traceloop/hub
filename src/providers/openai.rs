@@ -15,14 +15,23 @@ impl Provider for OpenAIProvider {
         let response = state
             .client
             .post("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not set")))
+            .header(
+                "Authorization",
+                format!(
+                    "Bearer {}",
+                    std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not set")
+                ),
+            )
             .json(&payload)
             .send()
             .await;
 
         match response {
             Ok(resp) => {
-                let body = resp.json::<ChatCompletionResponse>().await.expect("Failed to parse response");
+                let body = resp
+                    .json::<ChatCompletionResponse>()
+                    .await
+                    .expect("Failed to parse response");
                 body
             }
             Err(e) => {

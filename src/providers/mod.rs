@@ -1,7 +1,7 @@
+mod anthropic;
 mod base;
 mod openai;
-mod anthropic;
 
+pub use anthropic::AnthropicProvider;
 pub use base::Provider;
 pub use openai::OpenAIProvider;
-pub use anthropic::AnthropicProvider;
