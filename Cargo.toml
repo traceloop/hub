@@ -1,0 +1,22 @@
+[package]
+name = "gateway"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+reqwest = { version = "0.11", features = ["json"] }
+serde_json = "1.0"
+axum-extra = "0.9.4"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+serde_yaml = "0.9"
+tower = "0.5.1"
+anyhow = "1.0.92"
+tower-http = { version = "0.6.1", features = ["full"]}
+uuid = "1.11.0"
+chrono = "0.4.38"

@@ -1,0 +1,24 @@
+providers:
+  - name: openai
+    type: openai
+    api_key: "<your-openai-api-key>"
+
+models:
+  - name: gpt-4o-openai
+    type: gpt-4o
+    provider: openai
+
+pipelines:
+  - name: default
+    type: chat
+    plugins:
+      - logging:
+          enabled: true
+          level: info
+      - tracing:
+          enabled: true
+          endpoint: "https://api.traceloop.com/v1/traces"
+          api_key: "<your-traceloop-api-key>"
+      - model-router:
+          models:
+            - gpt-4o-openai
