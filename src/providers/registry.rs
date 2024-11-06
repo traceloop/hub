@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use anyhow::Result;
 
-use super::{Provider, OpenAIProvider, AnthropicProvider};
+use crate::providers::{anthropic::AnthropicProvider, openai::OpenAIProvider, provider::Provider};
 use crate::config::models::Provider as ProviderConfig;
 
 pub struct ProviderRegistry {
@@ -19,7 +19,6 @@ impl ProviderRegistry {
                 "anthropic" => Arc::new(AnthropicProvider::new(config)),
                 _ => continue,
             };
-            
             providers.insert(config.name.clone(), provider);
         }
         

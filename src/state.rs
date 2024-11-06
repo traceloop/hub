@@ -1,7 +1,7 @@
 use std::sync::Arc;
+use crate::ai_models::registry::ModelRegistry;
 use crate::config::models::Config;
-use crate::models::registry::ModelRegistry;
-use crate::providers::ProviderRegistry;
+use crate::providers::registry::ProviderRegistry;
 use reqwest::Client;
 use anyhow::Result;
 

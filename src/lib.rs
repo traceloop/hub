@@ -1,4 +1,4 @@
-pub mod chat;
+pub mod ai_models;
 pub mod config;
 pub mod handlers;
 pub mod models;

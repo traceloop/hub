@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 
 use crate::config::models::Model as ModelConfig;
-use crate::providers::ProviderRegistry;
+use crate::providers::registry::ProviderRegistry;
 use super::instance::ModelInstance;
 
 

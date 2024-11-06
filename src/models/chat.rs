@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Deserialize, Serialize)]
+use super::common::Usage;
+
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionRequest {
     pub model: String,
     pub messages: Vec<ChatCompletionMessage>,
@@ -27,7 +29,7 @@ pub struct ChatCompletionRequest {
     pub user: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: String,
     pub content: String,
@@ -35,7 +37,7 @@ pub struct ChatCompletionMessage {
     pub name: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionResponse {
     pub id: String,
     pub object: String,
@@ -44,7 +46,7 @@ pub struct ChatCompletionResponse {
     pub usage: Usage,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionChoice {
     pub index: u32,
     pub message: ChatCompletionMessage,
@@ -54,12 +56,12 @@ pub struct ChatCompletionChoice {
     pub logprobs: Option<LogProbs>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct LogProbs {
     pub content: Vec<LogProbContent>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct LogProbContent {
     pub token: String,
     pub logprob: f32,
@@ -67,16 +69,9 @@ pub struct LogProbContent {
     pub top_logprobs: Vec<TopLogProb>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct TopLogProb {
     pub token: String,
     pub logprob: f32,
     pub bytes: Vec<u8>,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct Usage {
-    pub prompt_tokens: u32,
-    pub completion_tokens: u32,
-    pub total_tokens: u32,
 }

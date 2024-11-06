@@ -1,19 +1,12 @@
 providers:
   - name: openai
     type: openai
-    api_key: ""
+    api_key: "<your-openai-api-key>"
 
 models:
   - name: gpt-4o-openai
     type: gpt-4o
     provider: openai
-  - name: gpt-4o-azure
-    type: gpt-4o
-    provider: azure
-    deployment: gpt-4o
-  - name: claude-sonnet-3.5-anthropic
-    type: claude-sonnet-3.5
-    provider: anthropic
 
 pipelines:
   - name: default
@@ -25,7 +18,7 @@ pipelines:
       - tracing:
           enabled: true
           endpoint: "https://api.traceloop.com/v1/traces"
-          api_key: "sk-traceloop-1234567890"
+          api_key: "<your-traceloop-api-key>"
       - model-router:
           models:
             - gpt-4o-openai
