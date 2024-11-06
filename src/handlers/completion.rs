@@ -1,4 +1,7 @@
-use crate::{models::completion::{CompletionRequest, CompletionResponse}, state::AppState};
+use crate::{
+    models::completion::{CompletionRequest, CompletionResponse},
+    state::AppState,
+};
 use axum::{extract::State, http::StatusCode, Json};
 use std::sync::Arc;
 

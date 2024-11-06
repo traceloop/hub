@@ -38,13 +38,11 @@ where
     fn call(&mut self, request: Request) -> Self::Future {
         if !self.plugin.enabled() {
             let future = self.inner.call(request);
-            return Box::pin(async move {
-                future.await
-            });
+            return Box::pin(async move { future.await });
         }
 
         let future = self.inner.call(request);
-        
+
         Box::pin(async move {
             let response = future.await?;
             // Here you can add post-processing logic

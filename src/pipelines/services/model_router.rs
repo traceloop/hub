@@ -1,12 +1,11 @@
-use std::sync::Arc;
-use tower::Service;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
+use tower::Service;
 
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::state::AppState;
-
 
 pub struct ModelRouterService {
     state: Arc<AppState>,
@@ -47,4 +46,4 @@ impl Service<ChatCompletionRequest> for ModelRouterService {
             Err(axum::http::StatusCode::SERVICE_UNAVAILABLE)
         })
     }
-} 
+}

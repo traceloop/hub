@@ -3,11 +3,13 @@ use axum::http::StatusCode;
 use std::sync::Arc;
 
 use super::provider::Provider;
+use crate::config::models::Provider as ProviderConfig;
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::common::Usage;
-use crate::models::completion::{CompletionRequest, CompletionResponse, CompletionChoice};
-use crate::models::embeddings::{Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
-use crate::config::models::Provider as ProviderConfig;
+use crate::models::completion::{CompletionChoice, CompletionRequest, CompletionResponse};
+use crate::models::embeddings::{
+    Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
+};
 use crate::state::AppState;
 
 pub struct AnthropicProvider {
@@ -31,7 +33,7 @@ impl Provider for AnthropicProvider {
     fn r#type(&self) -> String {
         "anthropic".to_string()
     }
-    
+
     async fn chat_completions(
         &self,
         state: Arc<AppState>,
@@ -54,12 +56,11 @@ impl Provider for AnthropicProvider {
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
         } else {
-            Err(StatusCode::from_u16(status.as_u16())
-                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
+            Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
 
-        async fn completions(
+    async fn completions(
         &self,
         state: Arc<AppState>,
         payload: CompletionRequest,
@@ -85,8 +86,9 @@ impl Provider for AnthropicProvider {
 
         let status = response.status();
         if !status.is_success() {
-            return Err(StatusCode::from_u16(status.as_u16())
-                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR));
+            return Err(
+                StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+            );
         }
 
         let anthropic_response: serde_json::Value = response
@@ -119,7 +121,7 @@ impl Provider for AnthropicProvider {
         })
     }
 
-        async fn embeddings(
+    async fn embeddings(
         &self,
         state: Arc<AppState>,
         payload: EmbeddingsRequest,
@@ -147,8 +149,9 @@ impl Provider for AnthropicProvider {
 
         let status = response.status();
         if !status.is_success() {
-            return Err(StatusCode::from_u16(status.as_u16())
-                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR));
+            return Err(
+                StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+            );
         }
 
         let anthropic_response: serde_json::Value = response

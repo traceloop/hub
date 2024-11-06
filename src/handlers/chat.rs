@@ -1,4 +1,7 @@
-use crate::{models::chat::{ChatCompletionRequest, ChatCompletionResponse}, state::AppState};
+use crate::{
+    models::chat::{ChatCompletionRequest, ChatCompletionResponse},
+    state::AppState,
+};
 use axum::{extract::State, http::StatusCode, Json};
 use std::sync::Arc;
 
@@ -8,7 +11,9 @@ pub async fn completions(
 ) -> Result<Json<ChatCompletionResponse>, StatusCode> {
     for model in state.config.models.iter() {
         if let Some(model) = state.model_registry.get(&model.name) {
-            let response = model.chat_completions(state.clone(), payload.clone()).await?;
+            let response = model
+                .chat_completions(state.clone(), payload.clone())
+                .await?;
             return Ok(Json(response));
         }
     }

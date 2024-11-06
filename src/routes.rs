@@ -5,13 +5,13 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use std::iter::once;
+use std::sync::Arc;
 use tower_http::compression::CompressionLayer;
 use tower_http::propagate_header::PropagateHeaderLayer;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::validate_request::ValidateRequestHeaderLayer;
-use std::iter::once;
-use std::sync::Arc;
 
 pub fn create_router(state: Arc<AppState>) -> Router {
     let v1_routes = Router::new()
@@ -21,7 +21,9 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .layer(SetSensitiveRequestHeadersLayer::new(once(AUTHORIZATION)))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
-        .layer(PropagateHeaderLayer::new(HeaderName::from_static("x-request-id")))
+        .layer(PropagateHeaderLayer::new(HeaderName::from_static(
+            "x-request-id",
+        )))
         .layer(ValidateRequestHeaderLayer::accept("application/json"));
 
     Router::new()

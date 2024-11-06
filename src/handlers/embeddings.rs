@@ -1,7 +1,10 @@
 use axum::{extract::State, http::StatusCode, Json};
 use std::sync::Arc;
 
-use crate::{models::embeddings::{EmbeddingsRequest, EmbeddingsResponse}, state::AppState};
+use crate::{
+    models::embeddings::{EmbeddingsRequest, EmbeddingsResponse},
+    state::AppState,
+};
 
 pub async fn embeddings(
     State(state): State<Arc<AppState>>,

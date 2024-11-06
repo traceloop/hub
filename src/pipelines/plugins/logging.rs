@@ -1,5 +1,5 @@
-use crate::pipelines::plugin::Plugin;
 use crate::config::models::PluginConfig;
+use crate::pipelines::plugin::Plugin;
 
 pub struct LoggingPlugin;
 
@@ -12,9 +12,7 @@ impl Plugin for LoggingPlugin {
         true
     }
 
-    fn init(&mut self, _config: &PluginConfig) -> () {
-
-    }
+    fn init(&mut self, _config: &PluginConfig) -> () {}
 
     fn clone_box(&self) -> Box<dyn Plugin> {
         Box::new(LoggingPlugin)

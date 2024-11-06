@@ -1,2 +1,2 @@
-pub mod models;
 pub mod lib;
+pub mod models;

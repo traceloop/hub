@@ -30,8 +30,6 @@ pub fn select_pipeline<'a>(
             .find(|p| p.name == pipeline_name)
     } else {
         // Default to pipeline named "default"
-        matching_pipelines
-            .into_iter()
-            .find(|p| p.name == "default")
+        matching_pipelines.into_iter().find(|p| p.name == "default")
     }
 }
