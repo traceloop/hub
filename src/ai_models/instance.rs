@@ -33,7 +33,9 @@ impl ModelInstance {
     ) -> Result<CompletionResponse, StatusCode> {
         payload.model = self.model_type.clone();
 
-        self.provider.completions(state, payload, &self.config).await
+        self.provider
+            .completions(state, payload, &self.config)
+            .await
     }
 
     pub async fn embeddings(

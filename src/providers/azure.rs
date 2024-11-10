@@ -52,7 +52,9 @@ impl Provider for AzureProvider {
         let api_version = self.api_version();
         let url = format!(
             "{}/{}/chat/completions?api-version={}",
-            self.endpoint(), deployment, api_version
+            self.endpoint(),
+            deployment,
+            api_version
         );
 
         let response = state
@@ -85,7 +87,9 @@ impl Provider for AzureProvider {
         let api_version = self.api_version();
         let url = format!(
             "{}/openai/deployments/{}/completions?api-version={}",
-            self.endpoint(), deployment, api_version
+            self.endpoint(),
+            deployment,
+            api_version
         );
 
         let response = state
@@ -118,7 +122,9 @@ impl Provider for AzureProvider {
         let api_version = self.api_version();
         let url = format!(
             "{}/openai/deployments/{}/embeddings?api-version={}",
-            self.endpoint(), deployment, api_version
+            self.endpoint(),
+            deployment,
+            api_version
         );
 
         let response = state
@@ -140,4 +146,4 @@ impl Provider for AzureProvider {
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
-} 
+}

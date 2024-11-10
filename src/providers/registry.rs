@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::config::models::Provider as ProviderConfig;
-use crate::providers::{anthropic::AnthropicProvider, azure::AzureProvider, openai::OpenAIProvider, provider::Provider};
+use crate::providers::{
+    anthropic::AnthropicProvider, azure::AzureProvider, openai::OpenAIProvider, provider::Provider,
+};
 
 pub struct ProviderRegistry {
     providers: HashMap<String, Arc<dyn Provider>>,
