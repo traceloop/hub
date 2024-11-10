@@ -10,9 +10,9 @@ async fn main() -> Result<(), anyhow::Error> {
     info!("Starting the application...");
 
     let config =
-        load_config("config.yaml").map_err(|_| anyhow::anyhow!("Failed to load configuration"))?;
+        load_config("config.yaml").map_err(|e| anyhow::anyhow!("Failed to load configuration: {}", e))?;
     let state =
-        Arc::new(AppState::new(config).map_err(|_| anyhow::anyhow!("Failed to create app state"))?);
+        Arc::new(AppState::new(config).map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?);
     let app = routes::create_router(state);
     let port: String = std::env::var("PORT").unwrap_or("3000".to_string());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))

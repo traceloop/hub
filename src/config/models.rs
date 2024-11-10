@@ -1,27 +1,30 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     pub providers: Vec<Provider>,
-    pub models: Vec<Model>,
+    pub models: Vec<ModelConfig>,
     pub pipelines: Vec<Pipeline>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Provider {
-    pub name: String,
+    pub key: String,
     pub r#type: String,
     pub api_key: String,
     #[serde(flatten)]
-    pub additional_config: HashMap<String, String>,
+    pub params: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Model {
-    pub name: String,
+pub struct ModelConfig {
+    pub key: String,
     pub r#type: String,
     pub provider: String,
+    #[serde(flatten)]
+    pub params: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]

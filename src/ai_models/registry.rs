@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::instance::ModelInstance;
-use crate::config::models::Model as ModelConfig;
+use crate::config::models::ModelConfig;
 use crate::providers::registry::ProviderRegistry;
 
 pub struct ModelRegistry {
@@ -20,12 +20,13 @@ impl ModelRegistry {
         for config in model_configs {
             if let Some(provider) = provider_registry.get(&config.provider) {
                 let model = Arc::new(ModelInstance {
-                    name: config.name.clone(),
+                    name: config.key.clone(),
                     model_type: config.r#type.clone(),
                     provider,
+                    config: config.clone(),
                 });
 
-                models.insert(config.name.clone(), model);
+                models.insert(config.key.clone(), model);
             }
         }
 

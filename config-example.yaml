@@ -1,15 +1,24 @@
 providers:
-  - name: openai
+  - key: azure-openai
+    type: azure
+    api_key: "<your-azure-api-key>"
+    resource_name: "<your-resource-name>"
+    api_version: "<your-api-version>"
+  - key: openai
     type: openai
     api_key: "<your-openai-api-key>"
 
 models:
-  - name: gpt-4o-openai
+  - key: gpt-4o-openai
     type: gpt-4o
     provider: openai
+  - key: gpt-4o-azure
+    type: gpt-4o
+    provider: azure-openai
+    deployment: "<your-deployment>"
 
 pipelines:
-  - name: default
+  - key: default
     type: chat
     plugins:
       - logging:
@@ -21,4 +30,5 @@ pipelines:
           api_key: "<your-traceloop-api-key>"
       - model-router:
           models:
+            - gpt-4o-azure
             - gpt-4o-openai

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::config::models::Provider as ProviderConfig;
-use crate::providers::{anthropic::AnthropicProvider, openai::OpenAIProvider, provider::Provider};
+use crate::providers::{anthropic::AnthropicProvider, azure::AzureProvider, openai::OpenAIProvider, provider::Provider};
 
 pub struct ProviderRegistry {
     providers: HashMap<String, Arc<dyn Provider>>,
@@ -17,9 +17,10 @@ impl ProviderRegistry {
             let provider: Arc<dyn Provider> = match config.r#type.as_str() {
                 "openai" => Arc::new(OpenAIProvider::new(config)),
                 "anthropic" => Arc::new(AnthropicProvider::new(config)),
+                "azure" => Arc::new(AzureProvider::new(config)),
                 _ => continue,
             };
-            providers.insert(config.name.clone(), provider);
+            providers.insert(config.key.clone(), provider);
         }
 
         Ok(Self { providers })
