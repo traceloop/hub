@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use std::sync::Arc;
 
 use super::provider::Provider;
-use crate::config::models::Provider as ProviderConfig;
+use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::common::Usage;
 use crate::models::completion::{CompletionChoice, CompletionRequest, CompletionResponse};
@@ -26,8 +26,8 @@ impl Provider for AnthropicProvider {
         }
     }
 
-    fn name(&self) -> String {
-        self.config.name.clone()
+    fn key(&self) -> String {
+        self.config.key.clone()
     }
 
     fn r#type(&self) -> String {
@@ -38,6 +38,7 @@ impl Provider for AnthropicProvider {
         &self,
         state: Arc<AppState>,
         payload: ChatCompletionRequest,
+        _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
         let response = state
             .http_client
@@ -64,6 +65,7 @@ impl Provider for AnthropicProvider {
         &self,
         state: Arc<AppState>,
         payload: CompletionRequest,
+        _model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
         let anthropic_payload = serde_json::json!({
             "model": payload.model,
@@ -125,6 +127,7 @@ impl Provider for AnthropicProvider {
         &self,
         state: Arc<AppState>,
         payload: EmbeddingsRequest,
+        _model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
         let anthropic_payload = match &payload.input {
             EmbeddingsInput::Single(text) => serde_json::json!({

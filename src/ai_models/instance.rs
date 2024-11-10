@@ -1,3 +1,4 @@
+use crate::config::models::ModelConfig;
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
@@ -10,6 +11,7 @@ pub struct ModelInstance {
     pub name: String,
     pub model_type: String,
     pub provider: Arc<dyn Provider>,
+    pub config: ModelConfig,
 }
 
 impl ModelInstance {
@@ -19,7 +21,9 @@ impl ModelInstance {
         mut payload: ChatCompletionRequest,
     ) -> Result<ChatCompletionResponse, StatusCode> {
         payload.model = self.model_type.clone();
-        self.provider.chat_completions(state, payload).await
+        self.provider
+            .chat_completions(state, payload, &self.config)
+            .await
     }
 
     pub async fn completions(
@@ -29,7 +33,9 @@ impl ModelInstance {
     ) -> Result<CompletionResponse, StatusCode> {
         payload.model = self.model_type.clone();
 
-        self.provider.completions(state, payload).await
+        self.provider
+            .completions(state, payload, &self.config)
+            .await
     }
 
     pub async fn embeddings(
@@ -38,6 +44,6 @@ impl ModelInstance {
         mut payload: EmbeddingsRequest,
     ) -> Result<EmbeddingsResponse, StatusCode> {
         payload.model = self.model_type.clone();
-        self.provider.embeddings(state, payload).await
+        self.provider.embeddings(state, payload, &self.config).await
     }
 }

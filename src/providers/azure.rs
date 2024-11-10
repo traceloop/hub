@@ -1,21 +1,33 @@
 use axum::async_trait;
 use axum::http::StatusCode;
+use std::sync::Arc;
 
+use super::provider::Provider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::state::AppState;
-use std::sync::Arc;
 
-use super::provider::Provider;
-
-pub struct OpenAIProvider {
+pub struct AzureProvider {
     config: ProviderConfig,
 }
 
+impl AzureProvider {
+    fn endpoint(&self) -> String {
+        format!(
+            "https://{}.openai.azure.com/openai/deployments",
+            self.config.params.get("resource_name").unwrap(),
+        )
+    }
+
+    fn api_version(&self) -> String {
+        self.config.params.get("api_version").unwrap().clone()
+    }
+}
+
 #[async_trait]
-impl Provider for OpenAIProvider {
+impl Provider for AzureProvider {
     fn new(config: &ProviderConfig) -> Self {
         Self {
             config: config.clone(),
@@ -27,19 +39,28 @@ impl Provider for OpenAIProvider {
     }
 
     fn r#type(&self) -> String {
-        "openai".to_string()
+        "azure".to_string()
     }
 
     async fn chat_completions(
         &self,
         state: Arc<AppState>,
         payload: ChatCompletionRequest,
-        _model_config: &ModelConfig,
+        model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
+        let deployment = model_config.params.get("deployment").unwrap();
+        let api_version = self.api_version();
+        let url = format!(
+            "{}/{}/chat/completions?api-version={}",
+            self.endpoint(),
+            deployment,
+            api_version
+        );
+
         let response = state
             .http_client
-            .post("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
+            .post(&url)
+            .header("api-key", &self.config.api_key)
             .json(&payload)
             .send()
             .await
@@ -60,12 +81,21 @@ impl Provider for OpenAIProvider {
         &self,
         state: Arc<AppState>,
         payload: CompletionRequest,
-        _model_config: &ModelConfig,
+        model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
+        let deployment = model_config.params.get("deployment").unwrap();
+        let api_version = self.api_version();
+        let url = format!(
+            "{}/openai/deployments/{}/completions?api-version={}",
+            self.endpoint(),
+            deployment,
+            api_version
+        );
+
         let response = state
             .http_client
-            .post("https://api.openai.com/v1/completions")
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
+            .post(&url)
+            .header("api-key", &self.config.api_key)
             .json(&payload)
             .send()
             .await
@@ -86,12 +116,21 @@ impl Provider for OpenAIProvider {
         &self,
         state: Arc<AppState>,
         payload: EmbeddingsRequest,
-        _model_config: &ModelConfig,
+        model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
+        let deployment = model_config.params.get("deployment").unwrap();
+        let api_version = self.api_version();
+        let url = format!(
+            "{}/openai/deployments/{}/embeddings?api-version={}",
+            self.endpoint(),
+            deployment,
+            api_version
+        );
+
         let response = state
             .http_client
-            .post("https://api.openai.com/v1/embeddings")
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
+            .post(&url)
+            .header("api-key", &self.config.api_key)
             .json(&payload)
             .send()
             .await
