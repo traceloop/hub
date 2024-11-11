@@ -1,35 +1,17 @@
-use crate::config::models::{Pipeline, PipelineType};
-use axum::http::HeaderMap;
+use std::sync::Arc;
 
-pub fn select_pipeline<'a>(
-    pipelines: &'a [Pipeline],
-    pipeline_type: PipelineType,
-    headers: &HeaderMap,
-) -> Option<&'a Pipeline> {
-    // Filter pipelines by type
-    let matching_pipelines: Vec<&Pipeline> = pipelines
-        .iter()
-        .filter(|p| p.r#type == pipeline_type)
-        .collect();
+use tower::ServiceBuilder;
+use tower_http::{classify::{ServerErrorsAsFailures, SharedClassifier}, trace::{Trace, TraceLayer}};
 
-    if matching_pipelines.is_empty() {
-        return None;
-    }
+use crate::state::AppState;
 
-    if matching_pipelines.len() == 1 {
-        return Some(matching_pipelines[0]);
-    }
+use super::services::model_router::ModelRouterService;
 
-    // Check for pipeline specification in headers
-    if let Some(pipeline_name) = headers
-        .get("x-traceloop-pipeline")
-        .and_then(|h| h.to_str().ok())
-    {
-        matching_pipelines
-            .into_iter()
-            .find(|p| p.name == pipeline_name)
-    } else {
-        // Default to pipeline named "default"
-        matching_pipelines.into_iter().find(|p| p.name == "default")
-    }
+
+pub fn create_pipeline(state: Arc<AppState>) -> Trace<ModelRouterService, SharedClassifier<ServerErrorsAsFailures>>{
+    return ServiceBuilder::new()
+        .layer(TraceLayer::new_for_http())
+        .service(ModelRouterService::new(state, vec![]));
 }
+
+

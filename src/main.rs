@@ -1,11 +1,10 @@
 use gateway::{config::lib::load_config, routes, state::AppState};
 use std::sync::Arc;
 use tracing::info;
-use tracing_subscriber::fmt::Subscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    Subscriber::builder().init();
+    tracing_subscriber::fmt::init();
 
     info!("Starting the application...");
 
@@ -21,7 +20,6 @@ async fn main() -> Result<(), anyhow::Error> {
         .unwrap();
 
     info!("Server is running on port {}", port);
-
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
