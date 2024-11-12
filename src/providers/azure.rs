@@ -1,16 +1,15 @@
 use axum::async_trait;
 use axum::http::StatusCode;
-use std::sync::Arc;
 
 use super::provider::Provider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
-use crate::state::AppState;
-
+use reqwest::Client;
 pub struct AzureProvider {
     config: ProviderConfig,
+    http_client: Client,
 }
 
 impl AzureProvider {
@@ -31,6 +30,7 @@ impl Provider for AzureProvider {
     fn new(config: &ProviderConfig) -> Self {
         Self {
             config: config.clone(),
+            http_client: Client::new(),
         }
     }
 
@@ -44,7 +44,6 @@ impl Provider for AzureProvider {
 
     async fn chat_completions(
         &self,
-        state: Arc<AppState>,
         payload: ChatCompletionRequest,
         model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
@@ -57,7 +56,7 @@ impl Provider for AzureProvider {
             api_version
         );
 
-        let response = state
+        let response = self
             .http_client
             .post(&url)
             .header("api-key", &self.config.api_key)
@@ -79,7 +78,6 @@ impl Provider for AzureProvider {
 
     async fn completions(
         &self,
-        state: Arc<AppState>,
         payload: CompletionRequest,
         model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
@@ -92,7 +90,7 @@ impl Provider for AzureProvider {
             api_version
         );
 
-        let response = state
+        let response = self
             .http_client
             .post(&url)
             .header("api-key", &self.config.api_key)
@@ -114,7 +112,6 @@ impl Provider for AzureProvider {
 
     async fn embeddings(
         &self,
-        state: Arc<AppState>,
         payload: EmbeddingsRequest,
         model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
@@ -127,7 +124,7 @@ impl Provider for AzureProvider {
             api_version
         );
 
-        let response = state
+        let response = self
             .http_client
             .post(&url)
             .header("api-key", &self.config.api_key)

@@ -1,17 +1,17 @@
 use axum::async_trait;
 use axum::http::StatusCode;
+use reqwest::Client;
 
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
-use crate::state::AppState;
-use std::sync::Arc;
 
 use super::provider::Provider;
 
 pub struct OpenAIProvider {
     config: ProviderConfig,
+    http_client: Client,
 }
 
 #[async_trait]
@@ -19,6 +19,7 @@ impl Provider for OpenAIProvider {
     fn new(config: &ProviderConfig) -> Self {
         Self {
             config: config.clone(),
+            http_client: Client::new(),
         }
     }
 
@@ -32,11 +33,10 @@ impl Provider for OpenAIProvider {
 
     async fn chat_completions(
         &self,
-        state: Arc<AppState>,
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-        let response = state
+        let response = self
             .http_client
             .post("https://api.openai.com/v1/chat/completions")
             .header("Authorization", format!("Bearer {}", self.config.api_key))
@@ -58,11 +58,10 @@ impl Provider for OpenAIProvider {
 
     async fn completions(
         &self,
-        state: Arc<AppState>,
         payload: CompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
-        let response = state
+        let response = self
             .http_client
             .post("https://api.openai.com/v1/completions")
             .header("Authorization", format!("Bearer {}", self.config.api_key))
@@ -84,11 +83,10 @@ impl Provider for OpenAIProvider {
 
     async fn embeddings(
         &self,
-        state: Arc<AppState>,
         payload: EmbeddingsRequest,
         _model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
-        let response = state
+        let response = self
             .http_client
             .post("https://api.openai.com/v1/embeddings")
             .header("Authorization", format!("Bearer {}", self.config.api_key))

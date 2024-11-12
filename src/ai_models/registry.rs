@@ -6,6 +6,7 @@ use super::instance::ModelInstance;
 use crate::config::models::ModelConfig;
 use crate::providers::registry::ProviderRegistry;
 
+#[derive(Clone)]
 pub struct ModelRegistry {
     models: HashMap<String, Arc<ModelInstance>>,
 }
