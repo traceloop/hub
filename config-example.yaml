@@ -27,7 +27,6 @@ pipelines:
       - tracing:
           enabled: true
           endpoint: "https://api.traceloop.com/v1/traces"
-          api_key: "<your-traceloop-api-key>"
       - model-router:
           models:
             - gpt-4o-azure

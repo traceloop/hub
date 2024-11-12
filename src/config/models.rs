@@ -39,38 +39,26 @@ pub enum PipelineType {
 pub struct Pipeline {
     pub name: String,
     pub r#type: PipelineType,
+    #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     pub plugins: Vec<PluginConfig>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(untagged)]
+#[serde(rename_all = "kebab-case")]
 pub enum PluginConfig {
     Logging {
-        logging: LoggingConfig,
+        #[serde(default = "default_log_level")]
+        level: String,
     },
     Tracing {
-        tracing: TracingConfig,
+        endpoint: String,
+        api_key: String,
     },
     ModelRouter {
-        #[serde(rename = "model-router")]
-        model_router: ModelRouterConfig,
+        models: Vec<String>,
     },
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct LoggingConfig {
-    pub enabled: bool,
-    pub level: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct TracingConfig {
-    pub enabled: bool,
-    pub endpoint: String,
-    pub api_key: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ModelRouterConfig {
-    pub models: Vec<String>,
+fn default_log_level() -> String {
+    "warning".to_string()
 }

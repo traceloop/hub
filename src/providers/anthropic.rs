@@ -1,6 +1,5 @@
 use axum::async_trait;
 use axum::http::StatusCode;
-use std::sync::Arc;
 
 use super::provider::Provider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -10,11 +9,12 @@ use crate::models::completion::{CompletionChoice, CompletionRequest, CompletionR
 use crate::models::embeddings::{
     Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
 };
-use crate::state::AppState;
+use reqwest::Client;
 
 pub struct AnthropicProvider {
     api_key: String,
     config: ProviderConfig,
+    http_client: Client,
 }
 
 #[async_trait]
@@ -23,6 +23,7 @@ impl Provider for AnthropicProvider {
         Self {
             api_key: config.api_key.clone(),
             config: config.clone(),
+            http_client: Client::new(),
         }
     }
 
@@ -36,11 +37,10 @@ impl Provider for AnthropicProvider {
 
     async fn chat_completions(
         &self,
-        state: Arc<AppState>,
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-        let response = state
+        let response = self
             .http_client
             .post("https://api.anthropic.com/v1/messages")
             .header("Authorization", format!("Bearer {}", self.api_key))
@@ -63,7 +63,6 @@ impl Provider for AnthropicProvider {
 
     async fn completions(
         &self,
-        state: Arc<AppState>,
         payload: CompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
@@ -76,7 +75,7 @@ impl Provider for AnthropicProvider {
             "stop_sequences": payload.stop.unwrap_or_default(),
         });
 
-        let response = state
+        let response = self
             .http_client
             .post("https://api.anthropic.com/v1/complete")
             .header("Authorization", format!("Bearer {}", self.api_key))
@@ -125,7 +124,6 @@ impl Provider for AnthropicProvider {
 
     async fn embeddings(
         &self,
-        state: Arc<AppState>,
         payload: EmbeddingsRequest,
         _model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
@@ -140,7 +138,7 @@ impl Provider for AnthropicProvider {
             }),
         };
 
-        let response = state
+        let response = self
             .http_client
             .post("https://api.anthropic.com/v1/embeddings")
             .header("Authorization", format!("Bearer {}", self.api_key))
