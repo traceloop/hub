@@ -53,7 +53,7 @@ pub async fn chat_completions(
         }
     }
 
-    Err(StatusCode::SERVICE_UNAVAILABLE)
+    Err(StatusCode::NOT_FOUND)
 }
 
 pub async fn completions(
@@ -71,7 +71,7 @@ pub async fn completions(
         }
     }
 
-    Err(StatusCode::SERVICE_UNAVAILABLE)
+    Err(StatusCode::NOT_FOUND)
 }
 
 pub async fn embeddings(
@@ -89,5 +89,5 @@ pub async fn embeddings(
         }
     }
 
-    Err(StatusCode::SERVICE_UNAVAILABLE)
+    Err(StatusCode::NOT_FOUND)
 }
