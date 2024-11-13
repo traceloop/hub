@@ -1,6 +1,8 @@
 use gateway::{config::lib::load_config, routes, state::AppState};
 use std::sync::Arc;
 use tracing::info;
+use sqlx::PgPool;
+use crate::config::{ConfigSource, DatabaseConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -13,7 +15,14 @@ async fn main() -> Result<(), anyhow::Error> {
     let state = Arc::new(
         AppState::new(config).map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?,
     );
-    let app = routes::create_router(state);
+    
+    let pg = if ConfigSource::from_env() == ConfigSource::Database {
+        PgPool::connect(&std::env::var("DATABASE_URL").unwrap()).await?
+    } else {
+        PgPool::connect(&std::env::var("DATABASE_URL").unwrap()).await?
+    };
+
+    let app = routes::create_router(state, pg);
     let port: String = std::env::var("PORT").unwrap_or("3000".to_string());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
@@ -23,4 +32,22 @@ async fn main() -> Result<(), anyhow::Error> {
     axum::serve(listener, app).await.unwrap();
 
     Ok(())
+}
+
+async fn load_configuration() -> Result<(Vec<Provider>, Vec<Model>, Vec<Pipeline>), Box<dyn std::error::Error>> {
+    match ConfigSource::from_env() {
+        ConfigSource::File(path) => {
+            let config = std::fs::read_to_string(path)?;
+            let config: Config = serde_yaml::from_str(&config)?;
+            Ok((config.providers, config.models, config.pipelines))
+        }
+        ConfigSource::Database(url) => {
+            let db_config = DatabaseConfig::new(&url).await?;
+            Ok((
+                db_config.load_providers().await?,
+                db_config.load_models().await?,
+                db_config.load_pipelines().await?,
+            ))
+        }
+    }
 }

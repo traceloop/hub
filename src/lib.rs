@@ -4,6 +4,7 @@ pub mod models;
 pub mod pipelines;
 pub mod providers;
 pub mod routes;
+pub mod routers;
 pub mod state;
 
 pub use axum;
