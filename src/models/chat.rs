@@ -30,9 +30,23 @@ pub struct ChatCompletionRequest {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
+#[serde(untagged)]
+pub enum ChatMessageContent {
+    String(String),
+    Array(Vec<ChatMessageContentPart>),
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ChatMessageContentPart {
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub text: String,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: String,
-    pub content: String,
+    pub content: ChatMessageContent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
@@ -40,8 +54,10 @@ pub struct ChatCompletionMessage {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionResponse {
     pub id: String,
-    pub object: String,
-    pub created: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created: Option<u64>,
     pub model: String,
     pub choices: Vec<ChatCompletionChoice>,
     pub usage: Usage,
