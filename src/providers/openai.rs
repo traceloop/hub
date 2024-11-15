@@ -43,7 +43,10 @@ impl Provider for OpenAIProvider {
             .json(&payload)
             .send()
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| {
+                eprintln!("OpenAI API request error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
         let status = response.status();
         if status.is_success() {
