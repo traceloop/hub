@@ -4,13 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use super::provider::Provider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
-use crate::models::chat::{
-    ChatCompletionChoice, ChatCompletionMessage, ChatCompletionRequest, ChatCompletionResponse,
-    ChatMessageContentPart,
-};
-use crate::models::common::Usage;
+use crate::models::chat::{ChatCompletionChoice, ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
+use crate::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMessageContentPart};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::usage::Usage;
 use reqwest::Client;
 
 pub struct AnthropicProvider {
@@ -90,7 +88,7 @@ impl Provider for AnthropicProvider {
                     message: ChatCompletionMessage {
                         name: None,
                         role: "assistant".to_string(),
-                        content: crate::models::chat::ChatMessageContent::Array(
+                        content: ChatMessageContent::Array(
                             anthropic_response
                                 .content
                                 .into_iter()
@@ -109,6 +107,8 @@ impl Provider for AnthropicProvider {
                     completion_tokens: anthropic_response.usage.output_tokens,
                     total_tokens: anthropic_response.usage.input_tokens
                         + anthropic_response.usage.output_tokens,
+                    completion_tokens_details: None,
+                    prompt_tokens_details: None,
                 },
             })
         } else {

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::common::Usage;
+use super::usage::Usage;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct CompletionRequest {

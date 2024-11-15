@@ -44,15 +44,25 @@ pub async fn chat_completions(
     model_keys: Vec<String>,
 ) -> Result<Json<ChatCompletionResponse>, StatusCode> {
     for model_key in model_keys {
-        let model = model_registry.get(&model_key).unwrap();
+        let model = model_registry.get(&model_key).ok_or_else(|| {
+            // Should never happen
+            eprintln!("Model key not found in model registry: {}", model_key);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         if payload.model == model.model_type {
-            let response = model.chat_completions(payload.clone()).await.unwrap();
+            let response = model
+                .chat_completions(payload.clone())
+                .await
+                .inspect_err(|e| {
+                    eprintln!("Chat completion error for model {}: {:?}", model_key, e);
+                })?;
 
             return Ok(Json(response));
         }
     }
 
+    eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
 
@@ -62,15 +72,22 @@ pub async fn completions(
     model_keys: Vec<String>,
 ) -> Result<Json<CompletionResponse>, StatusCode> {
     for model_key in model_keys {
-        let model = model_registry.get(&model_key).unwrap();
+        let model = model_registry.get(&model_key).ok_or_else(|| {
+            // Should never happen
+            eprintln!("Model key not found in model registry: {}", model_key);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         if payload.model == model.model_type {
-            let response = model.completions(payload.clone()).await.unwrap();
+            let response = model.completions(payload.clone()).await.inspect_err(|e| {
+                eprintln!("Completion error for model {}: {:?}", model_key, e);
+            })?;
 
             return Ok(Json(response));
         }
     }
 
+    eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
 
@@ -80,14 +97,21 @@ pub async fn embeddings(
     model_keys: Vec<String>,
 ) -> Result<Json<EmbeddingsResponse>, StatusCode> {
     for model_key in model_keys {
-        let model = model_registry.get(&model_key).unwrap();
+        let model = model_registry.get(&model_key).ok_or_else(|| {
+            // Should never happen
+            eprintln!("Model key not found in model registry: {}", model_key);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         if payload.model == model.model_type {
-            let response = model.embeddings(payload.clone()).await.unwrap();
+            let response = model.embeddings(payload.clone()).await.inspect_err(|e| {
+                eprintln!("Embeddings error for model {}: {:?}", model_key, e);
+            })?;
 
             return Ok(Json(response));
         }
     }
 
+    eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
