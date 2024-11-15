@@ -1,35 +1,26 @@
-ARG RUST_VERSION=1.82.0
-ARG APP_NAME=gateway
-FROM rust:${RUST_VERSION}-slim-bookworm AS build
-ARG APP_NAME
+FROM lukemathwalker/cargo-chef:0.1.68-rust-1.82-bookworm AS chef
 WORKDIR /app
 
-RUN --mount=type=bind,source=src,target=src \
-    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
-    --mount=type=cache,target=/app/target/ \
-    --mount=type=cache,target=/usr/local/cargo/registry/ \
-    <<EOF
-set -e
-cargo build --locked --release
-cp ./target/release/$APP_NAME /bin/server
-EOF
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-FROM debian:bookworm-slim AS final
+FROM chef AS builder 
+COPY --from=planner /app/recipe.json recipe.json
+# Build dependencies - this is the caching Docker layer!
+RUN cargo chef cook --release --recipe-path recipe.json
+# Build application
+COPY . .
+RUN cargo build --release --bin hub
 
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
-USER appuser
+# We do not need the Rust toolchain to run the binary!
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y openssl ca-certificates
+WORKDIR /app
+COPY --from=builder /app/target/release/hub /usr/local/bin
+WORKDIR /etc
 
-COPY --from=build /bin/server /bin/
-
+ENV PORT 3000
 EXPOSE 3000
 
-CMD ["/bin/server"]
+ENTRYPOINT ["/usr/local/bin/hub", "/etc/config.yaml"]
