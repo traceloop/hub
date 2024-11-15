@@ -44,10 +44,12 @@ Built and maintained by Traceloop under the Apache 2.0 license.
 
 ## 🚀 Getting Started
 
-You can run the hub locally by running `cargo run` in the root directory, or using the docker image:
+Make sure to copy a `config.yaml` file from `config-example.yaml` and set the correct values, following the [configuration](https://www.traceloop.com/docs/hub/configuration) instructions.
+
+You can then run the hub locally by running `cargo run` in the root directory, or using the docker image:
 
 ```
-docker run --rm -v $(pwd)/config.yaml:/etc/config.yaml:ro -t hub
+docker run --rm -p 3000:3000 -v $(pwd)/config.yaml:/etc/config.yaml:ro -t traceloop/hub
 ```
 
 ## 🌱 Contributing
