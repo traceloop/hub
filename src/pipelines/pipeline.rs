@@ -35,7 +35,7 @@ pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> R
         };
     }
 
-    return router.with_state(Arc::new(model_registry.clone()));
+    router.with_state(Arc::new(model_registry.clone()))
 }
 
 pub async fn chat_completions(
