@@ -1,4 +1,4 @@
-use gateway::{config::lib::load_config, routes, state::AppState};
+use hub::{config::lib::load_config, routes, state::AppState};
 use std::sync::Arc;
 use tracing::info;
 
@@ -6,9 +6,11 @@ use tracing::info;
 async fn main() -> Result<(), anyhow::Error> {
     tracing_subscriber::fmt::init();
 
-    info!("Starting the application...");
+    info!("Starting Traceloop Hub...");
 
-    let config = load_config("config.yaml")
+    let config_path = std::env::args().nth(1).unwrap_or("config.yaml".to_string());
+    info!("Loading configuration from {}", config_path);
+    let config = load_config(&config_path)
         .map_err(|e| anyhow::anyhow!("Failed to load configuration: {}", e))?;
     let state = Arc::new(
         AppState::new(config).map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?,
