@@ -2,11 +2,12 @@ use crate::pipelines::pipeline::create_pipeline;
 use crate::state::AppState;
 
 use axum::extract::Request;
+use axum::Router;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tower::steer::Steer;
 
-pub fn proxy_router(state: Arc<AppState>) -> Steer {
+pub fn proxy_router(state: Arc<AppState>) -> Router {
     let mut pipeline_idxs = HashMap::new();
     let mut routers = Vec::new();
 
@@ -19,8 +20,8 @@ pub fn proxy_router(state: Arc<AppState>) -> Steer {
         pipeline_idxs.insert(name, routers.len());
         routers.push(create_pipeline(&pipeline, &state.model_registry));
     }
-
-    let pipeline_router = Steer::new(routers, move |req: &Request, _services: &[_]| {
+     
+    Steer::new(routers, move |req: &Request, _services: &[_]| {
         *req.headers()
             .get("x-traceloop-pipeline")
             .and_then(|h| h.to_str().ok())

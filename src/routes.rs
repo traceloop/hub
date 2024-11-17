@@ -1,6 +1,3 @@
-use crate::{pipelines::pipeline::create_pipeline, state::AppState};
-use axum::{extract::Request, routing::get, Router};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::{routing::get, Router};
