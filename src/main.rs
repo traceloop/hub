@@ -8,7 +8,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
     info!("Starting Traceloop Hub...");
 
-    let config_path = std::env::args().nth(1).unwrap_or("config.yaml".to_string());
+    let config_path = std::env::var("CONFIG_FILE_PATH")
+        .unwrap_or("/etc/config/default.yaml".to_string());
+    
     info!("Loading configuration from {}", config_path);
     let config = load_config(&config_path)
         .map_err(|e| anyhow::anyhow!("Failed to load configuration: {}", e))?;
