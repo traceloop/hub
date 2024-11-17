@@ -13,4 +13,4 @@ WORKDIR /etc
 ENV PORT 3000
 EXPOSE 3000
 
-ENTRYPOINT ["/usr/local/bin/hub", "/etc/config.yaml"]
+ENTRYPOINT ["/usr/local/bin/hub"]
