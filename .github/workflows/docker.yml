@@ -65,19 +65,18 @@ jobs:
       - name: Install Octopus CLI
         uses: OctopusDeploy/install-octopus-cli-action@v3
         with:
-          version: '*'
+          version: "*"
 
       - name: Create Octopus Release
         env:
           OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
           OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
           OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
-        run: octopus release create --project web-app --version=${GITHUB_SHA::7} --packageVersion=${GITHUB_SHA::7} --no-prompt
-  
+        run: octopus release create --project hub --version=sha-${GITHUB_SHA::7} --packageVersion=sha-${GITHUB_SHA::7} --no-prompt
+
       - name: Deploy Octopus release
         env:
           OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
           OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
           OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
-        run: octopus release deploy --project web-app --version=${GITHUB_SHA::7} --environment Staging --no-prompt
-        
+        run: octopus release deploy --project hub --version=sha-${GITHUB_SHA::7} --environment Staging --no-prompt
