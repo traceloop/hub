@@ -1,4 +1,4 @@
-name: Rust
+name: Build and test
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
       - name: Check clippy
-        run: cargo clippy --verbose
+        run: cargo clippy -- -D warnings
       - name: Build
         run: cargo build --verbose
       - name: Run tests
