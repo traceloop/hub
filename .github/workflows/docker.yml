@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -56,3 +57,27 @@ jobs:
           labels: ${{ steps.docker-metadata.outputs.labels }}
           platforms: |
             linux/amd64, linux/arm64
+  deploy:
+    name: Deploy to Traceloop
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Install Octopus CLI
+        uses: OctopusDeploy/install-octopus-cli-action@v3
+        with:
+          version: '*'
+
+      - name: Create Octopus Release
+        env:
+          OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
+          OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
+          OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
+        run: octopus release create --project web-app --version=${GITHUB_SHA::7} --packageVersion=${GITHUB_SHA::7} --no-prompt
+  
+      - name: Deploy Octopus release
+        env:
+          OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
+          OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
+          OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
+        run: octopus release deploy --project web-app --version=${GITHUB_SHA::7} --environment Staging --no-prompt
+        
