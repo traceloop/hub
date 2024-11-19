@@ -49,7 +49,26 @@ Make sure to copy a `config.yaml` file from `config-example.yaml` and set the co
 You can then run the hub locally by running `cargo run` in the root directory, or using the docker image:
 
 ```
-docker run --rm -p 3000:3000 -v $(pwd)/config.yaml:/etc/config.yaml:ro -t traceloop/hub
+docker run --rm -p 3000:3000 -v $(pwd)/config.yaml:/usr/local/bin/config.yaml:ro -t traceloop/hub
+```
+
+Connect to the hub by using the OpenAI SDK on any language, and setting the base URL to:
+```
+http://localhost:3000/api/v1
+```
+
+For example, in Python:
+```
+client = OpenAI(
+    base_url="http://localhost:3000/api/v1",
+    api_key=os.getenv("OPENAI_API_KEY"),
+    # default_headers={"x-traceloop-pipeline": "azure-only"},
+)
+completion = client.chat.completions.create(
+    model="claude-3-5-sonnet-20241022",
+    messages=[{"role": "user", "content": "Tell me a joke about opentelemetry"}],
+    max_tokens=1000,
+)
 ```
 
 ## 🌱 Contributing
