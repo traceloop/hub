@@ -1,10 +1,17 @@
 use crate::{pipelines::pipeline::create_pipeline, state::AppState};
 use axum::{extract::Request, routing::get, Router};
+use axum_prometheus::PrometheusMetricLayerBuilder;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tower::steer::Steer;
 
 pub fn create_router(state: Arc<AppState>) -> Router {
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
+        .with_ignore_patterns(&["/metrics", "/health"])
+        .with_prefix("traceloop_hub")
+        .with_default_metrics()
+        .build_pair();
+
     let mut pipeline_idxs = HashMap::new();
     let mut routers = Vec::new();
 
@@ -29,5 +36,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         .nest_service("/api/v1", pipeline_router)
         .route("/health", get(|| async { "Working!" }))
+        .route("/metrics", get(|| async move { metric_handle.render() }))
+        .layer(prometheus_layer)
         .with_state(state)
 }
