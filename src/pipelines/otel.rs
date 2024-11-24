@@ -1,7 +1,9 @@
-use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse, ChatMessageContent};
-use crate::models::common::Usage;
+use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
+use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::streaming::ChatCompletionChunk;
+use crate::models::usage::Usage;
 use opentelemetry::global::{BoxedSpan, ObjectSafeSpan};
 use opentelemetry::trace::{SpanKind, Status, Tracer};
 use opentelemetry::{global, KeyValue};
@@ -18,6 +20,7 @@ pub trait RecordSpan {
 
 pub struct OtelTracer {
     span: BoxedSpan,
+    accumulated_completion: Option<ChatCompletion>,
 }
 
 impl OtelTracer {
@@ -49,7 +52,67 @@ impl OtelTracer {
 
         request.record_span(&mut span);
 
-        Self { span }
+        Self {
+            span,
+            accumulated_completion: None,
+        }
+    }
+
+    pub fn log_chunk(&mut self, chunk: &ChatCompletionChunk) {
+        if self.accumulated_completion.is_none() {
+            self.accumulated_completion = Some(ChatCompletion {
+                id: chunk.id.clone(),
+                object: None,
+                created: None,
+                model: chunk.model.clone(),
+                choices: vec![],
+                usage: Usage::default(),
+                system_fingerprint: chunk.system_fingerprint.clone(),
+            });
+        }
+
+        if let Some(completion) = &mut self.accumulated_completion {
+            for chunk_choice in &chunk.choices {
+                if let Some(existing_choice) =
+                    completion.choices.get_mut(chunk_choice.index as usize)
+                {
+                    if let Some(content) = &chunk_choice.delta.content {
+                        if let ChatMessageContent::String(existing_content) =
+                            &mut existing_choice.message.content
+                        {
+                            existing_content.push_str(content);
+                        }
+                    }
+                    if chunk_choice.finish_reason.is_some() {
+                        existing_choice.finish_reason = chunk_choice.finish_reason.clone();
+                    }
+                } else {
+                    completion.choices.push(ChatCompletionChoice {
+                        index: chunk_choice.index,
+                        message: ChatCompletionMessage {
+                            name: None,
+                            role: chunk_choice
+                                .delta
+                                .role
+                                .clone()
+                                .unwrap_or_else(|| "assistant".to_string()),
+                            content: ChatMessageContent::String(
+                                chunk_choice.delta.content.clone().unwrap_or_default(),
+                            ),
+                        },
+                        finish_reason: chunk_choice.finish_reason.clone(),
+                        logprobs: None,
+                    });
+                }
+            }
+        }
+    }
+
+    pub fn streaming_end(&mut self) {
+        if let Some(completion) = self.accumulated_completion.take() {
+            completion.record_span(&mut self.span);
+            self.span.set_status(Status::Ok);
+        }
     }
 
     pub fn log_success<T: RecordSpan>(&mut self, response: &T) {
@@ -57,8 +120,8 @@ impl OtelTracer {
         self.span.set_status(Status::Ok);
     }
 
-    pub fn log_error(&mut self) {
-        self.span.set_status(Status::error("Not Found"));
+    pub fn log_error(&mut self, description: String) {
+        self.span.set_status(Status::error(description));
     }
 }
 
@@ -104,7 +167,7 @@ impl RecordSpan for ChatCompletionRequest {
     }
 }
 
-impl RecordSpan for ChatCompletionResponse {
+impl RecordSpan for ChatCompletion {
     fn record_span(&self, span: &mut BoxedSpan) {
         span.set_attribute(KeyValue::new(GEN_AI_RESPONSE_MODEL, self.model.clone()));
         span.set_attribute(KeyValue::new(GEN_AI_RESPONSE_ID, self.id.clone()));

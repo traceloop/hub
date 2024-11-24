@@ -1,7 +1,12 @@
+use futures::stream::BoxStream;
+use reqwest_streams::error::StreamBodyError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::common::Usage;
+use super::content::ChatCompletionMessage;
+use super::logprob::LogProbs;
+use super::streaming::ChatCompletionChunk;
+use super::usage::Usage;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionRequest {
@@ -29,30 +34,13 @@ pub struct ChatCompletionRequest {
     pub user: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-#[serde(untagged)]
-pub enum ChatMessageContent {
-    String(String),
-    Array(Vec<ChatMessageContentPart>),
+pub enum ChatCompletionResponse {
+    Stream(BoxStream<'static, Result<ChatCompletionChunk, StreamBodyError>>),
+    NonStream(ChatCompletion),
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub struct ChatMessageContentPart {
-    #[serde(rename = "type")]
-    pub r#type: String,
-    pub text: String,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ChatCompletionMessage {
-    pub role: String,
-    pub content: ChatMessageContent,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ChatCompletionResponse {
+pub struct ChatCompletion {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -61,6 +49,7 @@ pub struct ChatCompletionResponse {
     pub model: String,
     pub choices: Vec<ChatCompletionChoice>,
     pub usage: Usage,
+    pub system_fingerprint: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -71,24 +60,4 @@ pub struct ChatCompletionChoice {
     pub finish_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logprobs: Option<LogProbs>,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct LogProbs {
-    pub content: Vec<LogProbContent>,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct LogProbContent {
-    pub token: String,
-    pub logprob: f32,
-    pub bytes: Vec<u8>,
-    pub top_logprobs: Vec<TopLogProb>,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct TopLogProb {
-    pub token: String,
-    pub logprob: f32,
-    pub bytes: Vec<u8>,
 }

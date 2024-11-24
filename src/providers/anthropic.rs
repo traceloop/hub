@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 use super::provider::Provider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{
-    ChatCompletionChoice, ChatCompletionMessage, ChatCompletionRequest, ChatCompletionResponse,
-    ChatMessageContentPart,
+    ChatCompletion, ChatCompletionChoice, ChatCompletionRequest, ChatCompletionResponse,
 };
-use crate::models::common::Usage;
 use crate::models::completion::{CompletionRequest, CompletionResponse};
+use crate::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMessageContentPart};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::usage::Usage;
 use reqwest::Client;
 
 pub struct AnthropicProvider {
@@ -71,47 +71,60 @@ impl Provider for AnthropicProvider {
             .json(&payload)
             .send()
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| {
+                eprintln!("Anthropic API request error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
         let status = response.status();
         if status.is_success() {
-            let anthropic_response: AnthropicChatCompletionResponse = response
-                .json()
-                .await
-                .expect("Failed to parse Anthropic response");
-
-            Ok(ChatCompletionResponse {
-                id: anthropic_response.id,
-                object: None,
-                created: None,
-                model: anthropic_response.model,
-                choices: vec![ChatCompletionChoice {
-                    index: 0,
-                    message: ChatCompletionMessage {
-                        name: None,
-                        role: "assistant".to_string(),
-                        content: crate::models::chat::ChatMessageContent::Array(
-                            anthropic_response
-                                .content
-                                .into_iter()
-                                .map(|content| ChatMessageContentPart {
-                                    r#type: content.r#type,
-                                    text: content.text,
-                                })
-                                .collect(),
-                        ),
+            if payload.stream.unwrap_or(false) {
+                unimplemented!()
+            } else {
+                let anthropic_response: AnthropicChatCompletionResponse = response
+                    .json()
+                    .await
+                    .expect("Failed to parse Anthropic response");
+                Ok(ChatCompletionResponse::NonStream(ChatCompletion {
+                    id: anthropic_response.id,
+                    object: None,
+                    created: None,
+                    model: anthropic_response.model,
+                    choices: vec![ChatCompletionChoice {
+                        index: 0,
+                        message: ChatCompletionMessage {
+                            name: None,
+                            role: "assistant".to_string(),
+                            content: ChatMessageContent::Array(
+                                anthropic_response
+                                    .content
+                                    .into_iter()
+                                    .map(|content| ChatMessageContentPart {
+                                        r#type: content.r#type,
+                                        text: content.text,
+                                    })
+                                    .collect(),
+                            ),
+                        },
+                        finish_reason: Some("stop".to_string()),
+                        logprobs: None,
+                    }],
+                    usage: Usage {
+                        prompt_tokens: anthropic_response.usage.input_tokens,
+                        completion_tokens: anthropic_response.usage.output_tokens,
+                        total_tokens: anthropic_response.usage.input_tokens
+                            + anthropic_response.usage.output_tokens,
+                        completion_tokens_details: None,
+                        prompt_tokens_details: None,
                     },
-                    finish_reason: Some("stop".to_string()),
-                    logprobs: None,
-                }],
-                usage: Usage {
-                    prompt_tokens: anthropic_response.usage.input_tokens,
-                    completion_tokens: anthropic_response.usage.output_tokens,
-                    total_tokens: anthropic_response.usage.input_tokens
-                        + anthropic_response.usage.output_tokens,
-                },
-            })
+                    system_fingerprint: None,
+                }))
+            }
         } else {
+            eprintln!(
+                "Anthropic API request error: {}",
+                response.text().await.unwrap()
+            );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
