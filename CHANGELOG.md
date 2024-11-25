@@ -1,3 +1,15 @@
+## v0.2.0 (2024-11-25)
+
+### Feat
+
+- **openai**: support streaming (#10)
+- add prometheus metrics (#13)
+- **cd**: deploy to traceloop on workflow distpatch (#11)
+
+### Fix
+
+- config file path from env var instead of command argument (#12)
+
 ## v0.1.0 (2024-11-16)
 
 ### Feat
