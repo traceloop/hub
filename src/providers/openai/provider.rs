@@ -1,10 +1,10 @@
-use super::provider::Provider;
 use crate::config::constants::stream_buffer_size_bytes;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
+use crate::providers::provider::Provider;
 use axum::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
