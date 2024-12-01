@@ -2,15 +2,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct CompletionTokensDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub accepted_prediction_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub audio_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rejected_prediction_tokens: Option<u32>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct PromptTokensDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub audio_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cached_tokens: Option<u32>,
 }
 

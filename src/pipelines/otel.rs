@@ -77,7 +77,7 @@ impl OtelTracer {
                     completion.choices.get_mut(chunk_choice.index as usize)
                 {
                     if let Some(content) = &chunk_choice.delta.content {
-                        if let ChatMessageContent::String(existing_content) =
+                        if let Some(ChatMessageContent::String(existing_content)) =
                             &mut existing_choice.message.content
                         {
                             existing_content.push_str(content);
@@ -85,6 +85,9 @@ impl OtelTracer {
                     }
                     if chunk_choice.finish_reason.is_some() {
                         existing_choice.finish_reason = chunk_choice.finish_reason.clone();
+                    }
+                    if let Some(tool_calls) = &chunk_choice.delta.tool_calls {
+                        existing_choice.message.tool_calls = Some(tool_calls.clone());
                     }
                 } else {
                     completion.choices.push(ChatCompletionChoice {
@@ -96,9 +99,10 @@ impl OtelTracer {
                                 .role
                                 .clone()
                                 .unwrap_or_else(|| "assistant".to_string()),
-                            content: ChatMessageContent::String(
+                            content: Some(ChatMessageContent::String(
                                 chunk_choice.delta.content.clone().unwrap_or_default(),
-                            ),
+                            )),
+                            tool_calls: chunk_choice.delta.tool_calls.clone(),
                         },
                         finish_reason: chunk_choice.finish_reason.clone(),
                         logprobs: None,
@@ -150,19 +154,21 @@ impl RecordSpan for ChatCompletionRequest {
         }
 
         for (i, message) in self.messages.iter().enumerate() {
-            span.set_attribute(KeyValue::new(
-                format!("gen_ai.prompt.{}.role", i),
-                message.role.clone(),
-            ));
-            span.set_attribute(KeyValue::new(
-                format!("gen_ai.prompt.{}.content", i),
-                match &message.content {
-                    ChatMessageContent::String(content) => content.clone(),
-                    ChatMessageContent::Array(content) => {
-                        serde_json::to_string(content).unwrap_or_default()
-                    }
-                },
-            ));
+            if let Some(content) = &message.content {
+                span.set_attribute(KeyValue::new(
+                    format!("gen_ai.prompt.{}.role", i),
+                    message.role.clone(),
+                ));
+                span.set_attribute(KeyValue::new(
+                    format!("gen_ai.prompt.{}.content", i),
+                    match &content {
+                        ChatMessageContent::String(content) => content.clone(),
+                        ChatMessageContent::Array(content) => {
+                            serde_json::to_string(content).unwrap_or_default()
+                        }
+                    },
+                ));
+            }
         }
     }
 }
@@ -175,19 +181,21 @@ impl RecordSpan for ChatCompletion {
         self.usage.record_span(span);
 
         for choice in &self.choices {
-            span.set_attribute(KeyValue::new(
-                format!("gen_ai.completion.{}.role", choice.index),
-                choice.message.role.clone(),
-            ));
-            span.set_attribute(KeyValue::new(
-                format!("gen_ai.completion.{}.content", choice.index),
-                match &choice.message.content {
-                    ChatMessageContent::String(content) => content.clone(),
-                    ChatMessageContent::Array(content) => {
-                        serde_json::to_string(content).unwrap_or_default()
-                    }
-                },
-            ));
+            if let Some(content) = &choice.message.content {
+                span.set_attribute(KeyValue::new(
+                    format!("gen_ai.completion.{}.role", choice.index),
+                    choice.message.role.clone(),
+                ));
+                span.set_attribute(KeyValue::new(
+                    format!("gen_ai.completion.{}.content", choice.index),
+                    match &content {
+                        ChatMessageContent::String(content) => content.clone(),
+                        ChatMessageContent::Array(content) => {
+                            serde_json::to_string(content).unwrap_or_default()
+                        }
+                    },
+                ));
+            }
             span.set_attribute(KeyValue::new(
                 format!("gen_ai.completion.{}.finish_reason", choice.index),
                 choice.finish_reason.clone().unwrap_or_default(),

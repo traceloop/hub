@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use super::content::ChatCompletionMessage;
 use super::logprob::LogProbs;
 use super::streaming::ChatCompletionChunk;
+use super::tool_choice::ToolChoice;
+use super::tool_definition::ToolDefinition;
 use super::usage::Usage;
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -25,11 +27,17 @@ pub struct ChatCompletionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub parallel_tool_calls: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub presence_penalty: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frequency_penalty: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logit_bias: Option<HashMap<String, i32>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<ToolChoice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ToolDefinition>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
 }

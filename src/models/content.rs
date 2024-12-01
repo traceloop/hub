@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::tool_calls::ChatMessageToolCall;
+
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(untagged)]
 pub enum ChatMessageContent {
@@ -17,7 +19,10 @@ pub struct ChatMessageContentPart {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: String,
-    pub content: ChatMessageContent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<ChatMessageContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ChatMessageToolCall>>,
 }

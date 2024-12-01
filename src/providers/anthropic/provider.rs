@@ -2,7 +2,7 @@ use axum::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
 
-use super::models::AnthropicChatCompletionResponse;
+use super::models::{AnthropicChatCompletionRequest, AnthropicChatCompletionResponse};
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
@@ -38,12 +38,13 @@ impl Provider for AnthropicProvider {
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
+        let request = AnthropicChatCompletionRequest::from(payload);
         let response = self
             .http_client
             .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
-            .json(&payload)
+            .json(&request)
             .send()
             .await
             .map_err(|e| {
@@ -53,7 +54,7 @@ impl Provider for AnthropicProvider {
 
         let status = response.status();
         if status.is_success() {
-            if payload.stream.unwrap_or(false) {
+            if request.stream.unwrap_or(false) {
                 unimplemented!()
             } else {
                 let anthropic_response: AnthropicChatCompletionResponse = response
