@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::logprob::ChoiceLogprobs;
-use super::tool_calls::ChoiceDeltaToolCall;
+use super::tool_calls::ChatMessageToolCall;
 use super::usage::Usage;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -11,7 +11,7 @@ pub struct ChoiceDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<ChoiceDeltaToolCall>>,
+    pub tool_calls: Option<Vec<ChatMessageToolCall>>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
