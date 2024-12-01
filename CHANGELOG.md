@@ -1,3 +1,10 @@
+## v0.2.1 (2024-12-01)
+
+### Fix
+
+- tool call support (#16)
+- restructure providers, separate request/response conversion (#15)
+
 ## v0.2.0 (2024-11-25)
 
 ### Feat
