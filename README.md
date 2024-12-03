@@ -49,7 +49,7 @@ Make sure to copy a `config.yaml` file from `config-example.yaml` and set the co
 You can then run the hub locally by running `cargo run` in the root directory, or using the docker image:
 
 ```
-docker run --rm -p 3000:3000 -v $(pwd)/config.yaml:/usr/local/bin/config.yaml:ro -t traceloop/hub
+docker run --rm -p 3000:3000 -v $(pwd)/config.yaml:/etc/hub/config.yaml:ro -e CONFIG_FILE_PATH='/etc/hub/config.yaml'  -t traceloop/hub
 ```
 
 Connect to the hub by using the OpenAI SDK on any language, and setting the base URL to:
