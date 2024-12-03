@@ -46,10 +46,15 @@ Built and maintained by Traceloop under the Apache 2.0 license.
 
 Make sure to copy a `config.yaml` file from `config-example.yaml` and set the correct values, following the [configuration](https://www.traceloop.com/docs/hub/configuration) instructions.
 
-You can then run the hub locally by running `cargo run` in the root directory, or using the docker image:
+You can then run the hub using the docker image:
 
 ```
 docker run --rm -p 3000:3000 -v $(pwd)/config.yaml:/etc/hub/config.yaml:ro -e CONFIG_FILE_PATH='/etc/hub/config.yaml'  -t traceloop/hub
+```
+
+You can also run it locally. Make sure you have `rust` v1.82 and above installed and then run:
+```
+cargo run
 ```
 
 Connect to the hub by using the OpenAI SDK on any language, and setting the base URL to:
