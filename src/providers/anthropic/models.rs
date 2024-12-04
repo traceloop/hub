@@ -18,6 +18,8 @@ pub(crate) struct AnthropicChatCompletionRequest {
     pub top_p: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -88,13 +90,31 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             ))
         );
 
+
+        let system = request.messages.iter()
+            .find(|msg| msg.role == "system")
+            .and_then(|message| match &message.content {
+                Some(ChatMessageContent::String(text)) => Some(text.clone()),
+                Some(ChatMessageContent::Array(parts)) => parts
+                    .iter()
+                    .find(|part| part.r#type == "text")
+                    .map(|part| part.text.clone()),
+                _ => None,
+            });
+
+        let messages: Vec<ChatCompletionMessage> = request.messages
+            .into_iter()
+            .filter(|msg| msg.role != "system")
+            .collect();
+
         AnthropicChatCompletionRequest {
             max_tokens: request.max_tokens.unwrap_or(default_max_tokens()),
             model: request.model,
-            messages: request.messages,
+            messages,
             temperature: request.temperature,
             top_p: request.top_p,
             stream: request.stream,
+            system,
             tool_choice: request.tool_choice.map(|choice| match choice {
                 crate::models::tool_choice::ToolChoice::Simple(simple) => match simple {
                     crate::models::tool_choice::SimpleToolChoice::None
