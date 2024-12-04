@@ -90,8 +90,9 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             ))
         );
 
-
-        let system = request.messages.iter()
+        let system = request
+            .messages
+            .iter()
             .find(|msg| msg.role == "system")
             .and_then(|message| match &message.content {
                 Some(ChatMessageContent::String(text)) => Some(text.clone()),
@@ -102,7 +103,8 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
                 _ => None,
             });
 
-        let messages: Vec<ChatCompletionMessage> = request.messages
+        let messages: Vec<ChatCompletionMessage> = request
+            .messages
             .into_iter()
             .filter(|msg| msg.role != "system")
             .collect();
