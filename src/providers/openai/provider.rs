@@ -86,15 +86,25 @@ impl Provider for OpenAIProvider {
             .json(&payload)
             .send()
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| {
+                eprintln!("OpenAI API request error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
         let status = response.status();
         if status.is_success() {
             response
                 .json()
                 .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+                .map_err(|e| {
+                    eprintln!("OpenAI API response error: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })
         } else {
+            eprintln!(
+                "OpenAI API request error: {}",
+                response.text().await.unwrap()
+            );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
@@ -111,15 +121,25 @@ impl Provider for OpenAIProvider {
             .json(&payload)
             .send()
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| {
+                eprintln!("OpenAI API request error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
         let status = response.status();
         if status.is_success() {
             response
                 .json()
                 .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+                .map_err(|e| {
+                    eprintln!("OpenAI API response error: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })
         } else {
+            eprintln!(
+                "OpenAI API request error: {}",
+                response.text().await.unwrap()
+            );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
