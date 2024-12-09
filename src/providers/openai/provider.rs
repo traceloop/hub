@@ -93,13 +93,10 @@ impl Provider for OpenAIProvider {
 
         let status = response.status();
         if status.is_success() {
-            response
-                .json()
-                .await
-                .map_err(|e| {
-                    eprintln!("OpenAI API response error: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
+            response.json().await.map_err(|e| {
+                eprintln!("OpenAI API response error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
         } else {
             eprintln!(
                 "OpenAI API request error: {}",
@@ -128,13 +125,10 @@ impl Provider for OpenAIProvider {
 
         let status = response.status();
         if status.is_success() {
-            response
-                .json()
-                .await
-                .map_err(|e| {
-                    eprintln!("OpenAI API response error: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
+            response.json().await.map_err(|e| {
+                eprintln!("OpenAI API response error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
         } else {
             eprintln!(
                 "OpenAI API request error: {}",

@@ -124,13 +124,10 @@ impl Provider for AzureProvider {
 
         let status = response.status();
         if status.is_success() {
-            response
-                .json()
-                .await
-                .map_err(|e| {
-                    eprintln!("Azure OpenAI API response error: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
+            response.json().await.map_err(|e| {
+                eprintln!("Azure OpenAI API response error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
         } else {
             eprintln!(
                 "Azure OpenAI API request error: {}",
@@ -168,13 +165,10 @@ impl Provider for AzureProvider {
 
         let status = response.status();
         if status.is_success() {
-            response
-                .json()
-                .await
-                .map_err(|e| {
-                    eprintln!("Azure OpenAI API response error: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })
+            response.json().await.map_err(|e| {
+                eprintln!("Azure OpenAI API response error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
         } else {
             eprintln!(
                 "Azure OpenAI API request error: {}",
