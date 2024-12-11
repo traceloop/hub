@@ -1,6 +1,11 @@
-<h1 align="center">
-Traceloop Hub
-</h1>
+<p align="center">
+<a href="https://www.traceloop.com/docs/hub#gh-light-mode-only">
+<img width="300" src="https://raw.githubusercontent.com/traceloop/hub/main/img/logo-light.png">
+</a>
+<a href="https://www.traceloop.com/docs/hub#gh-dark-mode-only">
+<img width="300" src="https://raw.githubusercontent.com/traceloop/hub/main/img/logo-dark.png">
+</a>
+</p>
 <p align="center">
   <p align="center">Open-source, high-performance LLM gateway written in Rust. Connect to any LLM provider with a single API. Observability Included.</p>
 </p>
@@ -53,16 +58,19 @@ docker run --rm -p 3000:3000 -v $(pwd)/config.yaml:/etc/hub/config.yaml:ro -e CO
 ```
 
 You can also run it locally. Make sure you have `rust` v1.82 and above installed and then run:
+
 ```
 cargo run
 ```
 
 Connect to the hub by using the OpenAI SDK on any language, and setting the base URL to:
+
 ```
 http://localhost:3000/api/v1
 ```
 
 For example, in Python:
+
 ```
 client = OpenAI(
     base_url="http://localhost:3000/api/v1",
