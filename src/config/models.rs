@@ -13,6 +13,7 @@ pub struct Config {
 pub struct Provider {
     pub key: String,
     pub r#type: String,
+    #[serde(default)]
     pub api_key: String,
     #[serde(flatten)]
     pub params: HashMap<String, String>,

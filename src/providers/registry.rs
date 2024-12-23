@@ -21,7 +21,7 @@ impl ProviderRegistry {
                 "openai" => Arc::new(OpenAIProvider::new(config)),
                 "anthropic" => Arc::new(AnthropicProvider::new(config)),
                 "azure" => Arc::new(AzureProvider::new(config)),
-                "vertexaai" => Arc::new(VertexAIProvider::new(config)),
+                "vertexai" => Arc::new(VertexAIProvider::new(config)),
                 _ => continue,
             };
             providers.insert(config.key.clone(), provider);

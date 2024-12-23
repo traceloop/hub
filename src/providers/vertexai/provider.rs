@@ -6,16 +6,19 @@ use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::providers::provider::Provider;
 use axum::async_trait;
 use axum::http::StatusCode;
-use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+use gcp_auth::{CustomServiceAccount, TokenProvider};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Client,
 };
 use serde_json::json;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 pub struct VertexAIProvider {
     config: ProviderConfig,
     http_client: Client,
+    token_provider: Arc<Mutex<Option<Arc<dyn TokenProvider>>>>,
 }
 
 #[async_trait]
@@ -24,6 +27,7 @@ impl Provider for VertexAIProvider {
         Self {
             config: config.clone(),
             http_client: Client::new(),
+            token_provider: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -40,8 +44,10 @@ impl Provider for VertexAIProvider {
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-        let request: VertexAIChatCompletionRequest = payload.into();
 
+        let model = payload.model.clone();
+        let token = self.get_token().await?;
+        let request: VertexAIChatCompletionRequest = payload.into();
         let project_id = self
             .config
             .params
@@ -52,39 +58,32 @@ impl Provider for VertexAIProvider {
             .params
             .get("location")
             .ok_or(StatusCode::BAD_REQUEST)?;
-        let model = request.model.clone();
 
         let url = format!(
-             "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models/{model}:predict",
+             "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models/{model}:generateContent",
             location = location,
             project_id = project_id,
              model = model
         );
 
         let mut headers = HeaderMap::new();
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", token))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        );
+        headers.insert("Content-Type", HeaderValue::from_static("application/json"));
 
-        if let Some(api_key) = Some(self.config.api_key.as_str()) {
-            headers.insert("x-goog-api-key", HeaderValue::from_str(api_key).unwrap());
-            headers.insert("Content-Type", HeaderValue::from_static("application/json"));
-        } else {
-            let token = self
-                .get_auth_token()
-                .await
-                .map_err(|_| StatusCode::UNAUTHORIZED)?;
-            headers.insert(
-                "Authorization",
-                HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
-            );
-            headers.insert("Content-Type", HeaderValue::from_static("application/json"));
-        }
+        let request_body = json!({
+            "contents": request.contents,
+            "generation_config": request.generation_config,
+        });
 
         let response = self
             .http_client
             .post(url)
             .headers(headers)
-            .json(&json!({
-                "instances": [request]
-            }))
+            .json(&request_body)
             .send()
             .await
             .map_err(|e| {
@@ -92,20 +91,26 @@ impl Provider for VertexAIProvider {
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
-        let status = response.status();
-
-        if status.is_success() {
-            let vertex_response: VertexAIChatCompletionResponse =
-                response.json().await.map_err(|e| {
+         let status = response.status();
+        let response_body = response.text().await.map_err(|e|{
                     eprintln!("VertexAI API response error: {}", e);
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
+
+        if status.is_success() {
+
+            let vertex_response: VertexAIChatCompletionResponse =
+                serde_json::from_str(&response_body).map_err(|e| {
+                    eprintln!("VertexAI API response error: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+
 
             Ok(ChatCompletionResponse::NonStream(vertex_response.into()))
         } else {
             eprintln!(
                 "VertexAI API request error: {}",
-                response.text().await.unwrap()
+                response_body
             );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
@@ -129,66 +134,49 @@ impl Provider for VertexAIProvider {
 }
 
 impl VertexAIProvider {
-    async fn get_auth_token(&self) -> Result<String, anyhow::Error> {
-        if let Some(credentials_path) = self.config.params.get("credentials_path") {
-            let sa_key: serde_json::Value =
-                serde_json::from_str(&std::fs::read_to_string(credentials_path)?)?;
-    
-            let token_uri = sa_key
-                .get("token_uri")
-                .and_then(serde_json::Value::as_str)
-                .ok_or(anyhow::anyhow!("token_uri not found"))?;
-    
-            let client_email = sa_key
-                .get("client_email")
-                .and_then(serde_json::Value::as_str)
-                .ok_or(anyhow::anyhow!("client_email not found"))?;
-    
-            let private_key = sa_key
-                .get("private_key")
-                .and_then(serde_json::Value::as_str)
-                .ok_or(anyhow::anyhow!("private_key not found"))?;
-    
-            let now = chrono::Utc::now();
-            let claims = json!({
-                "iss": client_email,
-                "sub": client_email,
-                "aud": token_uri,
-                "exp": (now + chrono::Duration::minutes(60)).timestamp(),
-                "iat": now.timestamp()
-            });
-    
-            let header = Header::new(Algorithm::RS256);
-            let signing_key = EncodingKey::from_rsa_pem(private_key.as_bytes())
-                .map_err(|e| anyhow::anyhow!("Error decoding private key: {}", e))?;
-            let jwt = encode(&header, &claims, &signing_key)
-                .map_err(|e| anyhow::anyhow!("Error signing JWT: {}", e))?;
-    
-            let client = reqwest::Client::new();
-            let params = [
-                ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
-                ("assertion", &jwt),
-            ];
+    async fn get_token(&self) -> Result<String, StatusCode> {
+        let provider = {
+            let guard = self.token_provider.lock().await;
             
-            let response = client
-                .post(token_uri)
-                .form(&params)
-                .send()
-                .await?
-                .json::<serde_json::Value>()
-                .await?;
-    
-            let token = response
-                .get("access_token")
-                .and_then(serde_json::Value::as_str)
-                .ok_or(anyhow::anyhow!("access_token not found"))?;
-    
-            Ok(token.to_string())
-        } else if !self.config.api_key.is_empty() {
-            Ok(self.config.api_key.clone())
-        } else {
-            Err(anyhow::anyhow!("No credentials or API key provided"))
+            match guard.as_ref() {
+                Some(p) => p.clone(),
+                None => {
+                    drop(guard);
+                    let new_provider = self.ensure_token_provider().await?;
+                    let mut guard = self.token_provider.lock().await;
+                    *guard = Some(new_provider.clone());
+                    new_provider
+                }
+            }
+        };
+
+        let token = provider
+            .token(&["https://www.googleapis.com/auth/cloud-platform"])
+            .await
+            .map_err(|e| {
+                eprintln!("Authentication error: {}", e);
+                StatusCode::UNAUTHORIZED
+            })?;
+
+        Ok(token.as_str().to_string())
+    }
+
+    async fn ensure_token_provider(&self) -> Result<Arc<dyn TokenProvider>, StatusCode> {
+        match self.config.params.get("credentials_path") {
+            Some(path) => {
+                let service_account = CustomServiceAccount::from_file(path).map_err(|e| {
+                    eprintln!("Failed to create service account from file: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+                Ok(Arc::new(service_account) as Arc<dyn TokenProvider>)
+            }
+            None => {
+                let provider = gcp_auth::provider().await.map_err(|e| {
+                    eprintln!("Failed to create default token provider: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+                Ok(provider)
+            }
         }
     }
 }
-

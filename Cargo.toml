@@ -39,5 +39,4 @@ axum-prometheus = "0.7.0"
 reqwest-streams = { version = "0.8.1", features = ["json"] }
 futures = "0.3.31"
 async-stream = "0.3.6"
-jsonwebtoken = "9.2.0"
-base64 = "0.21.7"
+gcp_auth = "0.12"
