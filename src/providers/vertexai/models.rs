@@ -40,7 +40,6 @@ pub(crate) struct Part {
     pub text: String,
 }
 
-
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub(crate) struct VertexAIChatCompletionResponse {
     pub candidates: Vec<GenerateContentResponse>,
@@ -50,7 +49,6 @@ pub(crate) struct VertexAIChatCompletionResponse {
     pub model_version: Option<String>,
 }
 
-
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub(crate) struct GenerateContentResponse {
     pub content: Content,
@@ -59,13 +57,12 @@ pub(crate) struct GenerateContentResponse {
     #[serde(rename = "safetyRatings")]
     pub safety_ratings: Option<Vec<SafetyRating>>,
     #[serde(rename = "avgLogprobs")]
-    pub avg_logprobs: Option<f32>
+    pub avg_logprobs: Option<f32>,
 }
-
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub(crate) struct UsageMetadata {
-     #[serde(rename = "promptTokenCount")]
+    #[serde(rename = "promptTokenCount")]
     pub prompt_token_count: i32,
     #[serde(rename = "candidatesTokenCount")]
     pub candidates_token_count: i32,
@@ -81,31 +78,35 @@ pub(crate) struct SafetyRating {
     pub probability_score: f32,
     pub severity: String,
     #[serde(rename = "severityScore")]
-    pub severity_score: f32
+    pub severity_score: f32,
 }
 
 impl From<crate::models::chat::ChatCompletionRequest> for VertexAIChatCompletionRequest {
     fn from(request: crate::models::chat::ChatCompletionRequest) -> Self {
-        let contents = request.messages.into_iter().map(|message| {
-            let text = match message.content {
-                Some(ChatMessageContent::String(text)) => text,
-                Some(ChatMessageContent::Array(parts)) => parts
-                    .into_iter()
-                    .map(|part| part.text)
-                    .collect::<Vec<_>>()
-                    .join(" "),
-                None => String::new(),
-            };
+        let contents = request
+            .messages
+            .into_iter()
+            .map(|message| {
+                let text = match message.content {
+                    Some(ChatMessageContent::String(text)) => text,
+                    Some(ChatMessageContent::Array(parts)) => parts
+                        .into_iter()
+                        .map(|part| part.text)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    None => String::new(),
+                };
 
-            Content {
-                role: match message.role.as_str() {
-                    "user" => "user".to_string(),
-                    "assistant" => "model".to_string(),
-                    _ => "user".to_string(),
-                },
-                parts: vec![Part { text }],
-            }
-        }).collect();
+                Content {
+                    role: match message.role.as_str() {
+                        "user" => "user".to_string(),
+                        "assistant" => "model".to_string(),
+                        _ => "user".to_string(),
+                    },
+                    parts: vec![Part { text }],
+                }
+            })
+            .collect();
 
         VertexAIChatCompletionRequest {
             contents,
@@ -122,25 +123,30 @@ impl From<crate::models::chat::ChatCompletionRequest> for VertexAIChatCompletion
 
 impl From<VertexAIChatCompletionResponse> for ChatCompletion {
     fn from(response: VertexAIChatCompletionResponse) -> Self {
-        let choices = response.candidates.into_iter().enumerate().map(|(index, candidate)| {
-              let content = if let Some(part) = candidate.content.parts.first() {
-                  ChatMessageContent::String(part.text.clone())
-              } else {
-                  ChatMessageContent::String(String::new())
-              };
-      
-              ChatCompletionChoice {
-                  index: index as u32,
-                  message: ChatCompletionMessage {
-                      role: "assistant".to_string(),
-                      content: Some(content),
-                      name: None,
-                      tool_calls: None,
-                  },
-                  finish_reason: Some(candidate.finish_reason),
-                  logprobs: None,
+        let choices = response
+            .candidates
+            .into_iter()
+            .enumerate()
+            .map(|(index, candidate)| {
+                let content = if let Some(part) = candidate.content.parts.first() {
+                    ChatMessageContent::String(part.text.clone())
+                } else {
+                    ChatMessageContent::String(String::new())
+                };
+
+                ChatCompletionChoice {
+                    index: index as u32,
+                    message: ChatCompletionMessage {
+                        role: "assistant".to_string(),
+                        content: Some(content),
+                        name: None,
+                        tool_calls: None,
+                    },
+                    finish_reason: Some(candidate.finish_reason),
+                    logprobs: None,
                 }
-        }).collect();
+            })
+            .collect();
 
         ChatCompletion {
             id: uuid::Uuid::new_v4().to_string(),

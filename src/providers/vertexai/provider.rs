@@ -44,7 +44,6 @@ impl Provider for VertexAIProvider {
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-
         let model = payload.model.clone();
         let token = self.get_token().await?;
         let request: VertexAIChatCompletionRequest = payload.into();
@@ -91,27 +90,22 @@ impl Provider for VertexAIProvider {
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
-         let status = response.status();
-        let response_body = response.text().await.map_err(|e|{
-                    eprintln!("VertexAI API response error: {}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })?;
+        let status = response.status();
+        let response_body = response.text().await.map_err(|e| {
+            eprintln!("VertexAI API response error: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         if status.is_success() {
-
             let vertex_response: VertexAIChatCompletionResponse =
                 serde_json::from_str(&response_body).map_err(|e| {
                     eprintln!("VertexAI API response error: {}", e);
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
 
-
             Ok(ChatCompletionResponse::NonStream(vertex_response.into()))
         } else {
-            eprintln!(
-                "VertexAI API request error: {}",
-                response_body
-            );
+            eprintln!("VertexAI API request error: {}", response_body);
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
@@ -137,7 +131,7 @@ impl VertexAIProvider {
     async fn get_token(&self) -> Result<String, StatusCode> {
         let provider = {
             let guard = self.token_provider.lock().await;
-            
+
             match guard.as_ref() {
                 Some(p) => p.clone(),
                 None => {
