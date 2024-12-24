@@ -2,6 +2,8 @@ use crate::config::constants::default_max_tokens;
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use serde::{Deserialize, Serialize};
+use crate::models::streaming::{ChatCompletionChunk, Choice, ChoiceDelta};
+
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub(crate) struct VertexAIChatCompletionRequest {
@@ -156,6 +158,47 @@ impl From<VertexAIChatCompletionResponse> for ChatCompletion {
             choices,
             usage: crate::models::usage::Usage::default(),
             system_fingerprint: None,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub(crate) struct VertexAIStreamChunk {
+    pub candidates: Vec<GenerateContentStreamResponse>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub(crate) struct GenerateContentStreamResponse {
+    pub content: Option<Content>,
+    #[serde(rename = "finishReason")]
+    pub finish_reason: Option<String>,
+}
+
+impl From<VertexAIStreamChunk> for ChatCompletionChunk {
+    fn from(chunk: VertexAIStreamChunk) -> Self {
+        ChatCompletionChunk {
+            id: uuid::Uuid::new_v4().to_string(),
+            choices: chunk
+                .candidates
+                .into_iter()
+                .enumerate()
+                .map(|(index, candidate)| Choice {
+                    delta: ChoiceDelta {
+                        content: candidate.content.and_then(|c| 
+                            c.parts.first().map(|p| p.text.clone())),
+                        role: Some("assistant".to_string()),
+                        tool_calls: None,
+                    },
+                    finish_reason: candidate.finish_reason,
+                    index: index as u32,
+                    logprobs: None,
+                })
+                .collect(),
+            created: chrono::Utc::now().timestamp(),
+            model: "gemini-pro".to_string(),
+            system_fingerprint: None,
+            service_tier: None,
+            usage: None,
         }
     }
 }
