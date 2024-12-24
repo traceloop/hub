@@ -139,6 +139,7 @@ impl Provider for VertexAIProvider {
         _payload: CompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
+        // this is not supported by gemini use chat_completion
         unimplemented!()
     }
 
