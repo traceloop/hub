@@ -1,4 +1,8 @@
-use super::models::{VertexAIChatCompletionRequest, VertexAIChatCompletionResponse, VertexAIStreamChunk};
+use super::models::{
+    VertexAIChatCompletionRequest, VertexAIChatCompletionResponse, VertexAIEmbeddingsRequest,
+    VertexAIEmbeddingsResponse, VertexAIStreamChunk,
+};
+use crate::config::constants::stream_buffer_size_bytes;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
@@ -6,18 +10,17 @@ use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::providers::provider::Provider;
 use axum::async_trait;
 use axum::http::StatusCode;
+use futures::StreamExt;
 use gcp_auth::{CustomServiceAccount, TokenProvider};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Client,
 };
+use reqwest_streams::error::{StreamBodyError, StreamBodyKind};
+use reqwest_streams::JsonStreamResponse;
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::config::constants::stream_buffer_size_bytes;
-use reqwest_streams::JsonStreamResponse;
-use reqwest_streams::error::{StreamBodyError, StreamBodyKind};
-use futures::StreamExt;
 
 pub struct VertexAIProvider {
     config: ProviderConfig,
@@ -44,111 +47,93 @@ impl Provider for VertexAIProvider {
     }
 
     async fn chat_completions(
-    &self,
-    payload: ChatCompletionRequest,
-    _model_config: &ModelConfig,
-) -> Result<ChatCompletionResponse, StatusCode> {
-    // Extract necessary information from the request and config
-    let model = payload.model.clone();
-    let token = self.get_token().await?;
-    let request: VertexAIChatCompletionRequest = payload.clone().into();
-    
-    // Get required configuration parameters
-    let project_id = self
-        .config
-        .params
-        .get("project_id")
-        .ok_or(StatusCode::BAD_REQUEST)?;
-    let location = self
-        .config
-        .params
-        .get("location")
-        .ok_or(StatusCode::BAD_REQUEST)?;
+        &self,
+        payload: ChatCompletionRequest,
+        _model_config: &ModelConfig,
+    ) -> Result<ChatCompletionResponse, StatusCode> {
+        let model = payload.model.clone();
+        let token = self.get_token().await?;
+        let request: VertexAIChatCompletionRequest = payload.clone().into();
 
-    // Choose the appropriate endpoint based on whether streaming is requested
-    // VertexAI has different endpoints for streaming vs non-streaming responses
-    let endpoint = if payload.stream.unwrap_or(false) {
-        "streamGenerateContent"
-    } else {
-        "generateContent"
-    };
+        let project_id = self
+            .config
+            .params
+            .get("project_id")
+            .ok_or(StatusCode::BAD_REQUEST)?;
+        let location = self
+            .config
+            .params
+            .get("location")
+            .ok_or(StatusCode::BAD_REQUEST)?;
 
-    // Construct the full API URL using the provided parameters
-    let url = format!(
+        let endpoint = if payload.stream.unwrap_or(false) {
+            "streamGenerateContent"
+        } else {
+            "generateContent"
+        };
+
+        let url = format!(
         "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models/{model}:{endpoint}",
         location = location,
         project_id = project_id,
         model = model
     );
 
-    // Set up request headers including authentication
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        "Authorization",
-        HeaderValue::from_str(&format!("Bearer {}", token))
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-    );
-    headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", token))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        );
+        headers.insert("Content-Type", HeaderValue::from_static("application/json"));
 
-    // Prepare the request body with the message contents and generation configuration
-    let request_body = json!({
-        "contents": request.contents,
-        "generation_config": request.generation_config,
-    });
+        let request_body = json!({
+            "contents": request.contents,
+            "generation_config": request.generation_config,
+        });
 
-    // Send the request to VertexAI
-    let response = self
-        .http_client
-        .post(url)
-        .headers(headers)
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| {
-            eprintln!("VertexAI API request error: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-    // Check if the request was successful
-    let status = response.status();
-    if !status.is_success() {
-        // If request failed, extract and log the error message
-        let error_text = response.text().await.unwrap_or_default();
-        eprintln!("VertexAI API request error: {}", error_text);
-        return Err(StatusCode::from_u16(status.as_u16())
-            .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR));
-    }
-
-    // Handle the response based on whether streaming was requested
-    if payload.stream.unwrap_or(false) {
-        // For streaming responses, set up a stream processor that:
-        // 1. Reads the response as a stream of JSON chunks
-        // 2. Maps each chunk to our common format
-        // 3. Handles any errors that occur during streaming
-        let buffer_size = stream_buffer_size_bytes() * 10;
-        let stream = response
-            .json_array_stream::<VertexAIStreamChunk>(buffer_size)
-            .map(|result| {
-                result.map(|chunk| chunk.into())
-                    .map_err(|e| StreamBodyError::new(
-                        StreamBodyKind::CodecError,
-                        Some(Box::new(e)),
-                        None
-                    ))
-            });
-        
-        Ok(ChatCompletionResponse::Stream(Box::pin(stream)))
-    } else {
-        // For non-streaming responses, parse the entire response as a single JSON object
-        let vertex_response: VertexAIChatCompletionResponse = response.json().await
+        let response = self
+            .http_client
+            .post(url)
+            .headers(headers)
+            .json(&request_body)
+            .send()
+            .await
             .map_err(|e| {
-                eprintln!("VertexAI API response error: {}", e);
+                eprintln!("VertexAI API request error: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
-        Ok(ChatCompletionResponse::NonStream(vertex_response.into()))
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            eprintln!("VertexAI API request error: {}", error_text);
+            return Err(
+                StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+            );
+        }
+
+        if payload.stream.unwrap_or(false) {
+            let buffer_size = stream_buffer_size_bytes() * 10;
+            let stream = response
+                .json_array_stream::<VertexAIStreamChunk>(buffer_size)
+                .map(|result| {
+                    result.map(|chunk| chunk.into()).map_err(|e| {
+                        StreamBodyError::new(StreamBodyKind::CodecError, Some(Box::new(e)), None)
+                    })
+                });
+
+            Ok(ChatCompletionResponse::Stream(Box::pin(stream)))
+        } else {
+            let vertex_response: VertexAIChatCompletionResponse =
+                response.json().await.map_err(|e| {
+                    eprintln!("VertexAI API response error: {}", e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+
+            Ok(ChatCompletionResponse::NonStream(vertex_response.into()))
+        }
     }
-}
     async fn completions(
         &self,
         _payload: CompletionRequest,
@@ -159,10 +144,80 @@ impl Provider for VertexAIProvider {
 
     async fn embeddings(
         &self,
-        _payload: EmbeddingsRequest,
+        payload: EmbeddingsRequest,
         _model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
-        unimplemented!()
+        let model = payload.model.clone();
+
+        let token = self.get_token().await?;
+
+        let request: VertexAIEmbeddingsRequest = payload.into();
+
+        let project_id = self
+            .config
+            .params
+            .get("project_id")
+            .ok_or(StatusCode::BAD_REQUEST)?;
+        let location = self
+            .config
+            .params
+            .get("location")
+            .ok_or(StatusCode::BAD_REQUEST)?;
+
+        let url = format!(
+            "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models/{model}:predict",
+            location = location,
+            project_id = project_id,
+            model = model
+        );
+
+        println!("Request {:?}", request);
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", token))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        );
+        headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+
+        let response = self
+            .http_client
+            .post(url)
+            .headers(headers)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| {
+                eprintln!("VertexAI API embeddings request error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+        let status = response.status();
+
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            eprintln!("VertexAI API embeddings error: {}", error_text);
+            return Err(
+                StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+            );
+        }
+
+        let response_bytes = response.bytes().await.map_err(|e| {
+            eprintln!("Failed to get response bytes: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        let vertex_response: VertexAIEmbeddingsResponse = serde_json::from_slice(&response_bytes)
+            .map_err(|e| {
+            eprintln!(
+                "Failed to parse response JSON: {}. Response was: {}",
+                e,
+                String::from_utf8_lossy(&response_bytes)
+            );
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        Ok(vertex_response.into())
     }
 }
 
