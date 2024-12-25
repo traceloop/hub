@@ -12,8 +12,8 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(config: Config) -> Result<Self> {
-        let provider_registry = Arc::new(ProviderRegistry::new(&config.providers)?);
+    pub async fn new(config: Config) -> Result<Self> {
+        let provider_registry = Arc::new(ProviderRegistry::new(&config.providers).await?);
         let model_registry = Arc::new(ModelRegistry::new(
             &config.models,
             provider_registry.clone(),

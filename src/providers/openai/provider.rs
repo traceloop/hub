@@ -17,7 +17,7 @@ pub struct OpenAIProvider {
 
 #[async_trait]
 impl Provider for OpenAIProvider {
-    fn new(config: &ProviderConfig) -> Self {
+    async fn new(config: &ProviderConfig) -> Self {
         Self {
             config: config.clone(),
             http_client: Client::new(),

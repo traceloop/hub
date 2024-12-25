@@ -8,7 +8,7 @@ use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 
 #[async_trait]
 pub trait Provider: Send + Sync {
-    fn new(config: &ProviderConfig) -> Self
+    async fn new(config: &ProviderConfig) -> Self
     where
         Self: Sized;
     fn key(&self) -> String;
