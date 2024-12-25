@@ -268,4 +268,41 @@ impl VertexAIProvider {
             }
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn construct_url(
+        &self,
+        model: &str,
+        endpoint: &str,
+        project_id: &str,
+        location: &str,
+    ) -> String {
+        format!(
+            "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models/{model}:{endpoint}",
+            location = location,
+            project_id = project_id,
+            model = model
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_endpoint(&self, request: &ChatCompletionRequest) -> String {
+        if request.stream.unwrap_or(false) {
+            "streamGenerateContent".to_string()
+        } else {
+            "generateContent".to_string()
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn create_headers(&self, token: &str) -> Result<HeaderMap, StatusCode> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", token))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        );
+        headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+        Ok(headers)
+    }
 }
