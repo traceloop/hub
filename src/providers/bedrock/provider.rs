@@ -9,13 +9,13 @@ use super::models::{
 };
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
+use crate::models::completion::CompletionChoice;
 use crate::models::completion::{CompletionRequest, CompletionResponse};
+use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::providers::provider::Provider;
 use aws_config::profile::profile_file::{ProfileFileKind, ProfileFiles};
 use aws_sdk_bedrockruntime::primitives::Blob;
-use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-use crate::models::completion::CompletionChoice;
 
 pub struct BedrockProvider {
     config: ProviderConfig,
@@ -109,7 +109,7 @@ impl Provider for BedrockProvider {
         model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
         let model_type = &model_config.r#type;
-        
+
         let response = match model_type {
             model if model.starts_with("anthropic.claude") => {
                 let request = ClaudeRequest::from_chat_request(&payload);
@@ -166,8 +166,11 @@ impl Provider for BedrockProvider {
 
         match chat_response {
             ChatCompletionResponse::NonStream(completion) => {
-                let choice = completion.choices.first().ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-                
+                let choice = completion
+                    .choices
+                    .first()
+                    .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+
                 Ok(CompletionResponse {
                     id: completion.id,
                     object: "text_completion".to_string(),
@@ -223,8 +226,8 @@ impl Provider for BedrockProvider {
         let response_str = String::from_utf8(result.body.into_inner())
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        let titan_response: TitanEmbeddingsResponse = serde_json::from_str(&response_str)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let titan_response: TitanEmbeddingsResponse =
+            serde_json::from_str(&response_str).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
         Ok(titan_response.into_embeddings_response(model_type.clone()))
     }

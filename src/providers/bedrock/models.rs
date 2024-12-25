@@ -1,6 +1,8 @@
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-use crate::models::embeddings::{Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::embeddings::{
+    Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
+};
 use crate::models::usage::Usage;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -133,17 +135,17 @@ impl BedrockRequestPayload for TitanRequest {
 impl BedrockRequestPayload for ClaudeRequest {
     fn from_chat_request(request: &ChatCompletionRequest) -> Self {
         let prompt = request
-        .messages
-        .iter()
-        .map(|msg| {
-            let content = msg.content.as_ref().map_or_else(
-                || "".to_string(),
-                |_| "text".to_string() 
-            );
-            format!("{}: {}", msg.role, content)
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+            .messages
+            .iter()
+            .map(|msg| {
+                let content = msg
+                    .content
+                    .as_ref()
+                    .map_or_else(|| "".to_string(), |_| "text".to_string());
+                format!("{}: {}", msg.role, content)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
         ClaudeRequest {
             prompt,
@@ -236,7 +238,10 @@ impl BedrockResponsePayload for ClaudeResponse {
 
 impl BedrockResponsePayload for JurassicResponse {
     fn into_chat_completion(self, model: String) -> ChatCompletion {
-        let completion = self.completions.first().expect("Expected at least one completion");
+        let completion = self
+            .completions
+            .first()
+            .expect("Expected at least one completion");
 
         ChatCompletion {
             id: Uuid::new_v4().to_string(),
