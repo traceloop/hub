@@ -5,6 +5,7 @@ use crate::models::embeddings::{
     Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
 };
 use crate::models::streaming::{ChatCompletionChunk, Choice, ChoiceDelta};
+use crate::models::tool_calls::{ChatMessageToolCall, FunctionCall};
 use crate::models::usage::Usage;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +15,9 @@ pub(crate) struct VertexAIChatCompletionRequest {
     pub contents: Vec<Content>,
     #[serde(rename = "generation_config")]
     pub generation_config: Option<GenerationConfig>,
+    #[serde(rename = "tools")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<VertexAITool>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -42,7 +46,10 @@ pub(crate) struct Content {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub(crate) struct Part {
-    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(rename = "functionCall", skip_serializing_if = "Option::is_none")]
+    pub function_call: Option<VertexFunctionCall>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -63,6 +70,8 @@ pub(crate) struct GenerateContentResponse {
     pub safety_ratings: Option<Vec<SafetyRating>>,
     #[serde(rename = "avgLogprobs")]
     pub avg_logprobs: Option<f32>,
+    #[serde(rename = "functionCall")]
+    pub function_call: Option<FunctionCall>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -140,6 +149,40 @@ pub(crate) struct VertexAIEmbeddingStatistics {
     pub token_count: u32,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub(crate) struct Tool {
+    pub function_declarations: Vec<FunctionDeclaration>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub(crate) struct FunctionDeclaration {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub(crate) struct VertexAITool {
+    pub function_declarations: Vec<VertexAIFunctionDeclaration>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub(crate) struct VertexAIFunctionDeclaration {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub(crate) struct VertexFunctionCall {
+    pub name: String,
+    pub args: serde_json::Value,
+}
+
 impl From<crate::models::chat::ChatCompletionRequest> for VertexAIChatCompletionRequest {
     fn from(request: crate::models::chat::ChatCompletionRequest) -> Self {
         let contents = request
@@ -162,10 +205,31 @@ impl From<crate::models::chat::ChatCompletionRequest> for VertexAIChatCompletion
                         "assistant" => "model".to_string(),
                         _ => "user".to_string(),
                     },
-                    parts: vec![Part { text }],
+                    parts: vec![Part {
+                        text: Some(text),
+                        function_call: None,
+                    }],
                 }
             })
             .collect();
+
+        let tools = if let Some(tools) = request.tools {
+            vec![VertexAITool {
+                function_declarations: tools
+                    .into_iter()
+                    .map(|tool| VertexAIFunctionDeclaration {
+                        name: tool.function.name,
+                        description: tool.function.description,
+                        parameters: tool
+                            .function
+                            .parameters
+                            .map(|p| serde_json::to_value(p).unwrap_or_default()),
+                    })
+                    .collect(),
+            }]
+        } else {
+            Vec::new()
+        };
 
         VertexAIChatCompletionRequest {
             contents,
@@ -176,6 +240,7 @@ impl From<crate::models::chat::ChatCompletionRequest> for VertexAIChatCompletion
                 candidate_count: request.n.map(|n| n as i32),
                 max_output_tokens: request.max_tokens.or(Some(default_max_tokens())),
             }),
+            tools,
         }
     }
 }
@@ -187,10 +252,24 @@ impl From<VertexAIChatCompletionResponse> for ChatCompletion {
             .into_iter()
             .enumerate()
             .map(|(index, candidate)| {
-                let content = if let Some(part) = candidate.content.parts.first() {
-                    ChatMessageContent::String(part.text.clone())
+                let (content, tool_calls) = if let Some(part) = candidate.content.parts.first() {
+                    match (&part.text, &part.function_call) {
+                        (Some(text), None) => (ChatMessageContent::String(text.clone()), None),
+                        (None, Some(func_call)) => (
+                            ChatMessageContent::String(String::new()),
+                            Some(vec![ChatMessageToolCall {
+                                id: uuid::Uuid::new_v4().to_string(),
+                                function: FunctionCall {
+                                    name: func_call.name.clone(),
+                                    arguments: func_call.args.to_string(),
+                                },
+                                r#type: "function".to_string(),
+                            }]),
+                        ),
+                        _ => (ChatMessageContent::String(String::new()), None),
+                    }
                 } else {
-                    ChatMessageContent::String(String::new())
+                    (ChatMessageContent::String(String::new()), None)
                 };
 
                 ChatCompletionChoice {
@@ -199,7 +278,7 @@ impl From<VertexAIChatCompletionResponse> for ChatCompletion {
                         role: "assistant".to_string(),
                         content: Some(content),
                         name: None,
-                        tool_calls: None,
+                        tool_calls,
                     },
                     finish_reason: Some(candidate.finish_reason),
                     logprobs: None,
@@ -207,13 +286,24 @@ impl From<VertexAIChatCompletionResponse> for ChatCompletion {
             })
             .collect();
 
+        let usage = response
+            .usage_metadata
+            .map(|metadata| Usage {
+                prompt_tokens: metadata.prompt_token_count as u32,
+                completion_tokens: metadata.candidates_token_count as u32,
+                total_tokens: metadata.total_token_count as u32,
+                completion_tokens_details: None,
+                prompt_tokens_details: None,
+            })
+            .unwrap_or_default();
+
         ChatCompletion {
             id: uuid::Uuid::new_v4().to_string(),
             object: None,
             created: None,
             model: "gemini-pro".to_string(),
             choices,
-            usage: crate::models::usage::Usage::default(),
+            usage,
             system_fingerprint: None,
         }
     }
@@ -231,7 +321,7 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
                     delta: ChoiceDelta {
                         content: candidate
                             .content
-                            .and_then(|c| c.parts.first().map(|p| p.text.clone())),
+                            .and_then(|c| c.parts.first().and_then(|p| p.text.clone())),
                         role: Some("assistant".to_string()),
                         tool_calls: None,
                     },

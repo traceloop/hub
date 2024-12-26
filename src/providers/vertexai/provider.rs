@@ -87,10 +87,19 @@ impl Provider for VertexAIProvider {
         );
         headers.insert("Content-Type", HeaderValue::from_static("application/json"));
 
-        let request_body = json!({
-            "contents": request.contents,
-            "generation_config": request.generation_config,
-        });
+        let request_body = if payload.stream.unwrap_or(false) {
+            json!({
+                "contents": request.contents,
+                "generation_config": request.generation_config,
+                "tools": request.tools,
+            })
+        } else {
+            json!({
+                "contents": request.contents,
+                "generation_config": request.generation_config,
+                "tools": request.tools,
+            })
+        };
 
         let response = self
             .http_client
@@ -125,9 +134,17 @@ impl Provider for VertexAIProvider {
 
             Ok(ChatCompletionResponse::Stream(Box::pin(stream)))
         } else {
+            let response_text = response.text().await.map_err(|e| {
+                eprintln!("Failed to get response text: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
             let vertex_response: VertexAIChatCompletionResponse =
-                response.json().await.map_err(|e| {
-                    eprintln!("VertexAI API response error: {}", e);
+                serde_json::from_str(&response_text).map_err(|e| {
+                    eprintln!(
+                        "Failed to parse response: {}. Response was: {}",
+                        e, response_text
+                    );
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
 
@@ -171,8 +188,6 @@ impl Provider for VertexAIProvider {
             project_id = project_id,
             model = model
         );
-
-        println!("Request {:?}", request);
 
         let mut headers = HeaderMap::new();
         headers.insert(

@@ -4,8 +4,10 @@ use hub::config::models::{ModelConfig, Provider as ProviderConfig};
 use hub::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use hub::models::content::{ChatCompletionMessage, ChatMessageContent};
 use hub::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
+use hub::models::tool_definition::{FunctionDefinition, ToolDefinition};
 use hub::providers::provider::Provider;
 use hub::providers::vertexai::VertexAIProvider;
+use serde_json::json;
 use std::collections::HashMap;
 use std::env;
 
@@ -198,4 +200,76 @@ async fn test_error_handling() {
 
     let response = provider.chat_completions(request, &model_config).await;
     assert!(response.is_err(), "Should fail with invalid model");
+}
+
+#[tokio::test]
+async fn test_function_calling_integration() {
+    let provider = create_live_provider().await;
+    let model_config = create_test_model_config();
+
+    let weather_function = ToolDefinition {
+        function: FunctionDefinition {
+            name: "get_weather".to_string(),
+            description: Some("Get the current weather in a location".to_string()),
+            parameters: Some(HashMap::from([
+                ("type".to_string(), json!("object")),
+                ("properties".to_string(), json!({
+                    "location": {
+                        "type": "string",
+                        "description": "The city name"
+                    }
+                })),
+                ("required".to_string(), json!(["location"]))
+            ])),
+            strict: None,
+        },
+        tool_type: "function".to_string(),
+    };
+
+    let request = ChatCompletionRequest {
+        model: "gemini-pro".to_string(),
+        messages: vec![ChatCompletionMessage {
+            role: "user".to_string(),
+            content: Some(ChatMessageContent::String(
+                "What's the weather like in Paris today?".to_string(),
+            )),
+            name: None,
+            tool_calls: None,
+        }],
+        temperature: Some(0.0),
+        stream: None,
+        max_tokens: Some(100),
+        tools: Some(vec![weather_function]),
+        top_p: None,
+        n: None,
+        stop: None,
+        presence_penalty: None,
+        frequency_penalty: None,
+        logit_bias: None,
+        user: None,
+        tool_choice: None, // Removed
+        parallel_tool_calls: None, // Removed
+    };
+
+    let response = provider.chat_completions(request, &model_config).await;
+    assert!(response.is_ok(), "Function calling request failed");
+
+    if let Ok(ChatCompletionResponse::NonStream(completion)) = response {
+        assert!(!completion.choices.is_empty(), "No choices in response");
+        match (&completion.choices[0].message.content, &completion.choices[0].message.tool_calls) {
+            (_, Some(tool_calls)) if !tool_calls.is_empty() => {
+                assert_eq!(tool_calls[0].function.name, "get_weather");
+                let args: serde_json::Value = serde_json::from_str(&tool_calls[0].function.arguments)
+                    .expect("Failed to parse function arguments");
+                assert!(args["location"].is_string(), "Location should be a string");
+            },
+            (Some(content), _) => {
+                if let ChatMessageContent::String(text) = content {
+                    println!("Got text response: {}", text);
+                    assert!(!text.is_empty(), "Response should not be empty");
+                }
+            },
+            _ => panic!("Expected either tool calls or text content in response"),
+        }
+    }
 }

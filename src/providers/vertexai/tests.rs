@@ -3,12 +3,14 @@ mod tests {
     use crate::models::chat::{ChatCompletion, ChatCompletionRequest};
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
     use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
+    use crate::models::tool_definition::{FunctionDefinition, ToolDefinition};
     use crate::providers::provider::Provider;
     use crate::providers::vertexai::models::{
         Content, GenerateContentResponse, Part, UsageMetadata, VertexAIChatCompletionRequest,
-        VertexAIChatCompletionResponse, VertexAIEmbeddingsRequest,
+        VertexAIChatCompletionResponse, VertexAIEmbeddingsRequest, VertexFunctionCall,
     };
     use crate::providers::vertexai::provider::VertexAIProvider;
+    use serde_json::json;
     use std::collections::HashMap;
 
     fn create_test_config() -> ProviderConfig {
@@ -33,7 +35,9 @@ mod tests {
             model: "gemini-pro".to_string(),
             messages: vec![ChatCompletionMessage {
                 role: "user".to_string(),
-                content: Some(ChatMessageContent::String("Test message".to_string())),
+                content: Some(ChatMessageContent::String(
+                    "What's the weather in London?".to_string(),
+                )),
                 name: None,
                 tool_calls: None,
             }],
@@ -90,9 +94,15 @@ mod tests {
 
         assert_eq!(vertex_request.contents.len(), 2);
         assert_eq!(vertex_request.contents[0].role, "user");
-        assert_eq!(vertex_request.contents[0].parts[0].text, "Hello");
+        assert_eq!(
+            vertex_request.contents[0].parts[0].text,
+            Some("Hello".to_string())
+        );
         assert_eq!(vertex_request.contents[1].role, "model");
-        assert_eq!(vertex_request.contents[1].parts[0].text, "Hi there!");
+        assert_eq!(
+            vertex_request.contents[1].parts[0].text,
+            Some("Hi there!".to_string())
+        );
 
         let gen_config = vertex_request.generation_config.unwrap();
         assert_eq!(gen_config.temperature, Some(0.7));
@@ -107,12 +117,14 @@ mod tests {
                 content: Content {
                     role: "model".to_string(),
                     parts: vec![Part {
-                        text: "Generated response".to_string(),
+                        text: Some("Generated response".to_string()),
+                        function_call: None,
                     }],
                 },
                 finish_reason: "stop".to_string(),
                 safety_ratings: None,
                 avg_logprobs: None,
+                function_call: None,
             }],
             usage_metadata: Some(UsageMetadata {
                 prompt_token_count: 10,
@@ -226,5 +238,77 @@ mod tests {
         let vertex_request: VertexAIEmbeddingsRequest = request.into();
         assert_eq!(vertex_request.instances[0].content, "test text");
         assert!(vertex_request.parameters.unwrap().auto_truncate.unwrap());
+    }
+
+    #[test]
+    fn test_function_calling_request() {
+        let mut chat_request = create_test_chat_request();
+        chat_request.tools = Some(vec![ToolDefinition {
+            function: FunctionDefinition {
+                name: "get_weather".to_string(),
+                description: Some("Get the current weather in a location".to_string()),
+                parameters: Some(HashMap::from([
+                    ("type".to_string(), json!("object")),
+                    (
+                        "properties".to_string(),
+                        json!({
+                            "location": {
+                                "type": "string",
+                                "description": "The city name"
+                            }
+                        }),
+                    ),
+                    ("required".to_string(), json!(["location"])),
+                ])),
+                strict: None,
+            },
+            tool_type: "function".to_string(),
+        }]);
+
+        let vertex_request: VertexAIChatCompletionRequest = chat_request.into();
+
+        assert!(!vertex_request.tools.is_empty());
+        assert_eq!(
+            vertex_request.tools[0].function_declarations[0].name,
+            "get_weather"
+        );
+        assert_eq!(
+            vertex_request.tools[0].function_declarations[0].description,
+            Some("Get the current weather in a location".to_string())
+        );
+    }
+
+    #[test]
+    fn test_function_calling_response() {
+        let vertex_response = VertexAIChatCompletionResponse {
+            candidates: vec![GenerateContentResponse {
+                content: Content {
+                    role: "model".to_string(),
+                    parts: vec![Part {
+                        text: None,
+                        function_call: Some(VertexFunctionCall {
+                            name: "get_weather".to_string(),
+                            args: json!({"location": "London"}),
+                        }),
+                    }],
+                },
+                finish_reason: "stop".to_string(),
+                safety_ratings: None,
+                avg_logprobs: None,
+                function_call: None,
+            }],
+            usage_metadata: None,
+            model_version: None,
+        };
+
+        let chat_completion: ChatCompletion = vertex_response.into();
+
+        let tool_calls = chat_completion.choices[0]
+            .message
+            .tool_calls
+            .as_ref()
+            .unwrap();
+        assert_eq!(tool_calls[0].function.name, "get_weather");
+        assert_eq!(tool_calls[0].function.arguments, r#"{"location":"London"}"#);
     }
 }
