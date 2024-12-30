@@ -60,12 +60,17 @@ impl ChatCompletionChunk {
                 logprobs: None,
                 delta: ChoiceDelta {
                     role: None,
-                    content: response.candidates.first()
+                    content: response
+                        .candidates
+                        .first()
                         .map(|c| c.content.parts.first().map(|p| p.text.clone()))
                         .flatten(),
                     tool_calls: None,
                 },
-                finish_reason: response.candidates.first().and_then(|c| c.finish_reason.clone()),
+                finish_reason: response
+                    .candidates
+                    .first()
+                    .and_then(|c| c.finish_reason.clone()),
             }],
             usage: None,
         }

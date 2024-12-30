@@ -4,7 +4,7 @@ use serde_json::Value;
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::tool_calls::{ChatMessageToolCall, FunctionCall};
-use crate::models::tool_choice::{ToolChoice, SimpleToolChoice};
+use crate::models::tool_choice::{SimpleToolChoice, ToolChoice};
 use crate::models::usage::Usage;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -116,21 +116,29 @@ pub struct UsageMetadata {
 
 impl GeminiChatRequest {
     pub fn from_openai(req: ChatCompletionRequest) -> Self {
-        let contents = req.messages.into_iter().map(|msg| GeminiContent {
-            role: match msg.role.as_str() {
-                "assistant" => "model".to_string(),
-                role => role.to_string(),
-            },
-            parts: vec![ContentPart {
-                text: match msg.content {
-                    Some(content) => match content {
-                        ChatMessageContent::String(text) => text,
-                        ChatMessageContent::Array(parts) => parts.into_iter().map(|p| p.text).collect::<Vec<_>>().join(" "),
-                    },
-                    None => String::new(),
+        let contents = req
+            .messages
+            .into_iter()
+            .map(|msg| GeminiContent {
+                role: match msg.role.as_str() {
+                    "assistant" => "model".to_string(),
+                    role => role.to_string(),
                 },
-            }],
-        }).collect();
+                parts: vec![ContentPart {
+                    text: match msg.content {
+                        Some(content) => match content {
+                            ChatMessageContent::String(text) => text,
+                            ChatMessageContent::Array(parts) => parts
+                                .into_iter()
+                                .map(|p| p.text)
+                                .collect::<Vec<_>>()
+                                .join(" "),
+                        },
+                        None => String::new(),
+                    },
+                }],
+            })
+            .collect();
 
         let generation_config = Some(GenerationConfig {
             temperature: req.temperature,
@@ -142,13 +150,15 @@ impl GeminiChatRequest {
 
         let tools = req.tools.map(|tools| {
             vec![GeminiTool {
-                function_declarations: tools.into_iter().map(|tool| {
-                    GeminiFunctionDeclaration {
+                function_declarations: tools
+                    .into_iter()
+                    .map(|tool| GeminiFunctionDeclaration {
                         name: tool.function.name,
                         description: tool.function.description,
-                        parameters: serde_json::to_value(tool.function.parameters).unwrap_or_default(),
-                    }
-                }).collect(),
+                        parameters: serde_json::to_value(tool.function.parameters)
+                            .unwrap_or_default(),
+                    })
+                    .collect(),
             }]
         });
 
@@ -173,44 +183,59 @@ impl GeminiChatRequest {
 
 impl GeminiChatResponse {
     pub fn to_openai(self, model: String) -> ChatCompletion {
-        let choices = self.candidates.into_iter().enumerate().map(|(i, candidate)| {
-            ChatCompletionChoice {
+        let choices = self
+            .candidates
+            .into_iter()
+            .enumerate()
+            .map(|(i, candidate)| ChatCompletionChoice {
                 index: i as u32,
                 message: ChatCompletionMessage {
                     role: "assistant".to_string(),
                     content: Some(ChatMessageContent::String(
-                        candidate.content.parts.into_iter().map(|p| p.text).collect::<Vec<_>>().join("")
+                        candidate
+                            .content
+                            .parts
+                            .into_iter()
+                            .map(|p| p.text)
+                            .collect::<Vec<_>>()
+                            .join(""),
                     )),
                     name: None,
                     tool_calls: candidate.tool_calls.map(|calls| {
-                        calls.into_iter().map(|call| ChatMessageToolCall {
-                            id: format!("call_{}", uuid::Uuid::new_v4()),
-                            r#type: "function".to_string(),
-                            function: FunctionCall {
-                                name: call.function.name,
-                                arguments: call.function.arguments,
-                            }
-                        }).collect()
+                        calls
+                            .into_iter()
+                            .map(|call| ChatMessageToolCall {
+                                id: format!("call_{}", uuid::Uuid::new_v4()),
+                                r#type: "function".to_string(),
+                                function: FunctionCall {
+                                    name: call.function.name,
+                                    arguments: call.function.arguments,
+                                },
+                            })
+                            .collect()
                     }),
                 },
                 finish_reason: candidate.finish_reason,
                 logprobs: None,
-            }
-        }).collect();
+            })
+            .collect();
 
-        let usage = self.usage_metadata.map_or(Usage {
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: 0,
-            prompt_tokens_details: None,
-            completion_tokens_details: None,
-        }, |m| Usage {
-            prompt_tokens: m.prompt_token_count as u32,
-            completion_tokens: m.candidates_token_count as u32,
-            total_tokens: m.total_token_count as u32,
-            prompt_tokens_details: None,
-            completion_tokens_details: None,
-        });
+        let usage = self.usage_metadata.map_or(
+            Usage {
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                prompt_tokens_details: None,
+                completion_tokens_details: None,
+            },
+            |m| Usage {
+                prompt_tokens: m.prompt_token_count as u32,
+                completion_tokens: m.candidates_token_count as u32,
+                total_tokens: m.total_token_count as u32,
+                prompt_tokens_details: None,
+                completion_tokens_details: None,
+            },
+        );
 
         ChatCompletion {
             id: format!("chatcmpl-{}", uuid::Uuid::new_v4()),
@@ -222,4 +247,4 @@ impl GeminiChatResponse {
             system_fingerprint: None,
         }
     }
-} 
+}

@@ -1,25 +1,19 @@
-use std::path::PathBuf;
-use surf_vcr::{VcrMode, VcrMiddleware};
-use surf::{Client, Config};
 use serde_json::json;
+use std::path::PathBuf;
+use surf::{Client, Config};
+use surf_vcr::{VcrMiddleware, VcrMode};
 
+use super::provider::VertexAIProvider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse, ChatMessage};
 use crate::models::completion::CompletionRequest;
-use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsInput};
+use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
 use crate::providers::provider::Provider;
-use super::provider::VertexAIProvider;
 
 fn setup_test_client() -> Client {
-    let vcr = VcrMiddleware::new(
-        PathBuf::from("tests/cassettes/vertexai"),
-        VcrMode::Replay
-    );
-    
-    Config::new()
-        .add(vcr)
-        .try_into()
-        .unwrap()
+    let vcr = VcrMiddleware::new(PathBuf::from("tests/cassettes/vertexai"), VcrMode::Replay);
+
+    Config::new().add(vcr).try_into().unwrap()
 }
 
 fn create_test_provider() -> VertexAIProvider {
@@ -33,7 +27,7 @@ fn create_test_provider() -> VertexAIProvider {
         ]),
         ..Default::default()
     };
-    
+
     VertexAIProvider::new(&config)
 }
 
@@ -72,12 +66,15 @@ async fn test_chat_completions() {
         parallel_tool_calls: None,
     };
 
-    let response = provider.chat_completions(request, &model_config).await.unwrap();
+    let response = provider
+        .chat_completions(request, &model_config)
+        .await
+        .unwrap();
     match response {
         ChatCompletionResponse::NonStream(resp) => {
             assert_eq!(resp["object"], "chat.completion");
             assert!(!resp["choices"].as_array().unwrap().is_empty());
-        },
+        }
         _ => panic!("Expected non-stream response"),
     }
 }
@@ -190,29 +187,35 @@ async fn test_chat_completions_with_tools() {
         parallel_tool_calls: Some(1),
     };
 
-    let response = provider.chat_completions(request, &model_config).await.unwrap();
+    let response = provider
+        .chat_completions(request, &model_config)
+        .await
+        .unwrap();
     match response {
         ChatCompletionResponse::NonStream(resp) => {
             assert_eq!(resp["object"], "chat.completion");
             let choices = resp["choices"].as_array().unwrap();
             assert!(!choices.is_empty());
-            
+
             let first_choice = &choices[0];
             let message = first_choice["message"].as_object().unwrap();
-            
+
             // Verify tool calls are present
             if let Some(tool_calls) = message.get("tool_calls") {
                 let tool_calls = tool_calls.as_array().unwrap();
                 assert!(!tool_calls.is_empty());
-                
+
                 let first_call = &tool_calls[0];
                 assert_eq!(first_call["type"], "function");
-                
+
                 let function = first_call["function"].as_object().unwrap();
                 assert_eq!(function["name"], "get_weather");
-                assert!(function["arguments"].as_str().unwrap().contains("San Francisco"));
+                assert!(function["arguments"]
+                    .as_str()
+                    .unwrap()
+                    .contains("San Francisco"));
             }
-        },
+        }
         _ => panic!("Expected non-stream response"),
     }
-} 
+}
