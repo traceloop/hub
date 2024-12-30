@@ -39,3 +39,6 @@ axum-prometheus = "0.7.0"
 reqwest-streams = { version = "0.8.1", features = ["json"] }
 futures = "0.3.31"
 async-stream = "0.3.6"
+aws-config = "1.5.12"
+aws-sdk-bedrockruntime = "1.66.0"
+aws-credential-types = "1.2.1"
