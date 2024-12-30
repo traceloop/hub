@@ -15,11 +15,6 @@ use crate::providers::provider::Provider;
 // https://www.shuttle.dev/blog/2024/05/10/prompting-aws-bedrock-rust
 pub struct BedrockProvider {
     config: ProviderConfig,
-    // TODO: remove what is below
-    // I would not use this but using azure as template
-    // I will be use the aws sdk directly this is not needed
-    http_client: Client,
-    // using azure sdk instead of request
     client :  BedrockRuntimeClient
 }
 
@@ -40,10 +35,6 @@ impl BedrockProvider {
             .get("AWS_SECRET_ACCESS_KEY")
             .clone();
 
-        let endpoint_url = config
-            .get("AWS_ENDPOINT_URL")
-            .clone();
-
         let session_token = config
             .get("AWS_SESSION_TOKEN")
             .clone();
@@ -58,31 +49,30 @@ impl BedrockProvider {
 
         let sdk_config = aws_config::defaults(BehaviorVersion::latest())
             .region(region)
-            .endpoint_url(endpoint_url)
             .credentials_provider(credentials)
             .load()
             .await;
 
-        Ok(BedrockRuntimeClient::new(sdk_config))
+        Ok(BedrockRuntimeClient::new(&sdk_config))
     }
 }
 
 
 #[async_trait]
 impl Provider for BedrockProvider {
-    fn new(config: &ProviderConfig) -> Self
-    where
-        Self: Sized
-    {
-        todo!()
+    fn new(config: &ProviderConfig) -> Self {
+        Self {
+            config: config.clone(),
+            client: BedrockProvider::create_client(config).unwrap()
+        }
     }
 
     fn key(&self) -> String {
-        todo!()
+        self.config.key.clone()
     }
 
     fn r#type(&self) -> String {
-        todo!()
+        "bedrock".to_string()
     }
 
     async fn chat_completions(&self, payload: ChatCompletionRequest, model_config: &ModelConfig) -> Result<ChatCompletionResponse, StatusCode> {
