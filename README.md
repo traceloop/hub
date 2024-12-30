@@ -99,3 +99,100 @@ Not sure where to get started? You can:
 - [GitHub Discussions](https://github.com/traceloop/hub/discussions) (For help with building and deeper conversations about features)
 - [GitHub Issues](https://github.com/traceloop/hub/issues) (For any bugs and errors you encounter using OpenLLMetry)
 - [Twitter](https://twitter.com/traceloopdev) (Get news fast)
+
+# Hub
+
+A unified API interface for routing LLM requests to various providers.
+
+## Supported Providers
+
+- OpenAI
+- Anthropic
+- Azure OpenAI
+- Google VertexAI (Gemini)
+
+## Configuration
+
+See `config-example.yaml` for a complete configuration example.
+
+### Provider Configuration
+
+#### OpenAI
+
+```yaml
+providers:
+  - key: openai
+    type: openai
+    api_key: "<your-openai-api-key>"
+```
+
+#### Azure OpenAI
+
+```yaml
+providers:
+  - key: azure-openai
+    type: azure
+    api_key: "<your-azure-api-key>"
+    resource_name: "<your-resource-name>"
+    api_version: "<your-api-version>"
+```
+
+#### Google VertexAI (Gemini)
+
+```yaml
+providers:
+  - key: vertexai
+    type: vertexai
+    api_key: "<your-gcp-api-key>"
+    project_id: "<your-gcp-project-id>"
+    location: "<your-gcp-region>"
+    credentials_path: "/path/to/service-account.json" # Optional
+```
+
+Authentication can be done in two ways:
+1. API Key: Set the `api_key` field with your GCP API key
+2. Service Account: Set the `credentials_path` field with the path to your service account JSON file. If not specified, the default GCP credentials will be used.
+
+### Model Configuration
+
+```yaml
+models:
+  - key: gemini-pro
+    type: gemini-pro
+    provider: vertexai
+```
+
+### Pipeline Configuration
+
+```yaml
+pipelines:
+  - name: default
+    type: chat
+    plugins:
+      - model-router:
+          models:
+            - gemini-pro
+```
+
+## Development
+
+### Running Tests
+
+The test suite uses `surf-vcr` to record and replay HTTP interactions, making tests reproducible without requiring actual API credentials.
+
+To run tests:
+```bash
+cargo test
+```
+
+To record new test cassettes:
+1. Set up your API credentials in the environment
+2. Delete the existing cassette files in `tests/cassettes/`
+3. Run the tests with `VCR_MODE=record`:
+```bash
+VCR_MODE=record cargo test
+```
+
+## License
+
+See LICENSE file.

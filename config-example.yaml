@@ -7,6 +7,12 @@ providers:
   - key: openai
     type: openai
     api_key: "<your-openai-api-key>"
+  - key: vertexai
+    type: vertexai
+    api_key: "<your-gcp-api-key>"
+    project_id: "<your-gcp-project-id>"
+    location: "<your-gcp-region>"
+    credentials_path: "/path/to/service-account.json" # Optional, uses GCP default credentials if not specified
 
 models:
   - key: gpt-4o-openai
@@ -16,6 +22,9 @@ models:
     type: gpt-4o
     provider: azure-openai
     deployment: "<your-deployment>"
+  - key: gemini-pro
+    type: gemini-pro
+    provider: vertexai
 
 pipelines:
   - name: default
@@ -30,3 +39,4 @@ pipelines:
           models:
             - gpt-4o-openai
             - gpt-4o-azure
+            - gemini-pro

@@ -3,6 +3,15 @@ use serde::{Deserialize, Serialize};
 use super::logprob::ChoiceLogprobs;
 use super::tool_calls::ChatMessageToolCall;
 use super::usage::Usage;
+use crate::models::vertexai::GeminiChatResponse;
+
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+pub struct Delta {
+    pub role: Option<String>,
+    pub content: Option<String>,
+    pub function_call: Option<serde_json::Value>,
+    pub tool_calls: Option<Vec<ChatMessageToolCall>>,
+}
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct ChoiceDelta {
@@ -36,4 +45,29 @@ pub struct ChatCompletionChunk {
     pub system_fingerprint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<Usage>,
+}
+
+impl ChatCompletionChunk {
+    pub fn from_gemini(response: GeminiChatResponse, model: String) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            service_tier: None,
+            system_fingerprint: None,
+            created: chrono::Utc::now().timestamp() as i64,
+            model,
+            choices: vec![Choice {
+                index: 0,
+                logprobs: None,
+                delta: ChoiceDelta {
+                    role: None,
+                    content: response.candidates.first()
+                        .map(|c| c.content.parts.first().map(|p| p.text.clone()))
+                        .flatten(),
+                    tool_calls: None,
+                },
+                finish_reason: response.candidates.first().and_then(|c| c.finish_reason.clone()),
+            }],
+            usage: None,
+        }
+    }
 }
