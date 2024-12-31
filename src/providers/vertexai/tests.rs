@@ -14,6 +14,10 @@ use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
 use crate::models::tool_definition::{FunctionDefinition, ToolDefinition};
 use crate::providers::provider::Provider;
 
+// Test constants
+const TEST_PROJECT_ID: &str = "heavenya";
+const TEST_LOCATION: &str = "us-central1";
+
 async fn setup_test_client(test_name: &str) -> reqwest::Client {
     // Create the cassettes directory if it doesn't exist
     let cassettes_dir = PathBuf::from("tests/cassettes/vertexai");
@@ -97,8 +101,8 @@ async fn save_to_cassette(test_name: &str, response: &Value) {
 
 fn create_test_provider(client: reqwest::Client) -> VertexAIProvider {
     let mut params = HashMap::new();
-    params.insert("project_id".to_string(), "heavenya".to_string());
-    params.insert("location".to_string(), "us-central1".to_string());
+    params.insert("project_id".to_string(), TEST_PROJECT_ID.to_string());
+    params.insert("location".to_string(), TEST_LOCATION.to_string());
 
     // Default to service account auth
     params.insert("auth_type".to_string(), "service_account".to_string());
@@ -122,8 +126,8 @@ fn create_test_provider(client: reqwest::Client) -> VertexAIProvider {
 // Separate function for API key tests
 fn create_test_provider_with_api_key(client: reqwest::Client, api_key: String) -> VertexAIProvider {
     let mut params = HashMap::new();
-    params.insert("project_id".to_string(), "heavenya".to_string());
-    params.insert("location".to_string(), "us-central1".to_string());
+    params.insert("project_id".to_string(), TEST_PROJECT_ID.to_string());
+    params.insert("location".to_string(), TEST_LOCATION.to_string());
     params.insert("auth_type".to_string(), "api_key".to_string());
 
     VertexAIProvider::with_test_client(

@@ -75,11 +75,13 @@ impl Provider for VertexAIProvider {
         let project_id = config
             .params
             .get("project_id")
-            .map_or_else(|| "test-project".to_string(), |v| v.to_string());
+            .expect("project_id is required for VertexAI provider")
+            .to_string();
         let location = config
             .params
             .get("location")
-            .map_or_else(|| "us-central1".to_string(), |v| v.to_string());
+            .unwrap_or(&"us-central1".to_string())
+            .to_string();
 
         Self {
             config: config.clone(),
@@ -103,8 +105,8 @@ impl Provider for VertexAIProvider {
     ) -> Result<ChatCompletionResponse, StatusCode> {
         let auth_token = self.get_auth_token().await?;
         let endpoint = format!(
-            "https://us-central1-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:streamGenerateContent",
-            self.project_id, self.location, payload.model
+            "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:streamGenerateContent",
+            self.location, self.project_id, self.location, payload.model
         );
 
         let response = self
@@ -285,8 +287,8 @@ impl Provider for VertexAIProvider {
     ) -> Result<EmbeddingsResponse, StatusCode> {
         let auth_token = self.get_auth_token().await?;
         let endpoint = format!(
-            "https://us-central1-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:predict",
-            self.project_id, self.location, payload.model
+            "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:predict",
+            self.location, self.project_id, self.location, payload.model
         );
 
         let response = self
