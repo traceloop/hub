@@ -1,0 +1,24 @@
+[
+  {
+    "choices": [
+      {
+        "finish_reason": "STOP",
+        "index": 0,
+        "message": {
+          "content": "",
+          "role": "assistant"
+        }
+      }
+    ],
+    "created": 1735633514,
+    "id": "chatcmpl-a513c04e-4300-416f-bc7c-5933229027d6",
+    "model": "gemini-1.5-flash",
+    "object": "chat.completion",
+    "system_fingerprint": null,
+    "usage": {
+      "completion_tokens": 6,
+      "prompt_tokens": 27,
+      "total_tokens": 33
+    }
+  }
+]

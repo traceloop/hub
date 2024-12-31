@@ -146,20 +146,60 @@ providers:
     api_key: "<your-gcp-api-key>"
     project_id: "<your-gcp-project-id>"
     location: "<your-gcp-region>"
-    credentials_path: "/path/to/service-account.json" # Optional
+    credentials_path: "/path/to/service-account.json"
 ```
 
-Authentication can be done in two ways:
-1. API Key: Set the `api_key` field with your GCP API key
-2. Service Account: Set the `credentials_path` field with the path to your service account JSON file. If not specified, the default GCP credentials will be used.
+Authentication Methods:
+1. API Key Authentication:
+   - Set the `api_key` field with your GCP API key
+   - Leave `credentials_path` empty
+2. Service Account Authentication:
+   - Set `credentials_path` to your service account JSON file path
+   - Can also use `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+   - Leave `api_key` empty when using service account auth
 
-### Model Configuration
+Supported Features:
+- Chat Completions (with Gemini models)
+- Text Completions
+- Embeddings
+- Streaming Support
+- Function/Tool Calling
+- Multi-modal Inputs (images + text)
 
+Example Model Configuration:
 ```yaml
 models:
-  - key: gemini-pro
-    type: gemini-pro
+  # Chat and Completion model
+  - key: gemini-1.5-flash
+    type: gemini-1.5-flash
     provider: vertexai
+  
+  # Embeddings model
+  - key: textembedding-gecko
+    type: textembedding-gecko
+    provider: vertexai
+```
+
+Example Usage with OpenAI SDK:
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:3000/api/v1",
+    api_key="not-needed-for-vertexai"
+)
+
+# Chat completion
+response = client.chat.completions.create(
+    model="gemini-1.5-flash",
+    messages=[{"role": "user", "content": "Tell me a joke"}]
+)
+
+# Embeddings
+response = client.embeddings.create(
+    model="textembedding-gecko",
+    input="Sample text for embedding"
+)
 ```
 
 ### Pipeline Configuration
@@ -178,7 +218,7 @@ pipelines:
 
 ### Running Tests
 
-The test suite uses `surf-vcr` to record and replay HTTP interactions, making tests reproducible without requiring actual API credentials.
+The test suite uses recorded HTTP interactions (cassettes) to make tests reproducible without requiring actual API credentials.
 
 To run tests:
 ```bash
@@ -186,12 +226,20 @@ cargo test
 ```
 
 To record new test cassettes:
-1. Set up your API credentials in the environment
-2. Delete the existing cassette files in `tests/cassettes/`
-3. Run the tests with `VCR_MODE=record`:
+1. Set up your API credentials:
+   - For service account auth: Set `VERTEXAI_CREDENTIALS_PATH` to your service account key file path
+   - For API key auth: Use the test with API key (currently marked as ignored)
+2. Delete the existing cassette files in `tests/cassettes/vertexai/`
+3. Run the tests with recording enabled:
 ```bash
-VCR_MODE=record cargo test
+RECORD_MODE=1 cargo test
 ```
+
+Additional test configurations:
+- `RETRY_DELAY`: Set the delay in seconds between retries when hitting quota limits (default: 60)
+- Tests automatically retry up to 3 times when hitting quota limits
+
+Note: Some tests may be marked as `#[ignore]` if they require specific credentials or are not ready for general use.
 
 ## License
 

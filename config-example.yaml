@@ -1,42 +1,84 @@
 providers:
+  # Azure OpenAI configuration
   - key: azure-openai
     type: azure
     api_key: "<your-azure-api-key>"
     resource_name: "<your-resource-name>"
     api_version: "<your-api-version>"
+
+  # OpenAI configuration
   - key: openai
     type: openai
     api_key: "<your-openai-api-key>"
+
+  # Vertex AI configuration
+  # Uses service account authentication
   - key: vertexai
     type: vertexai
-    api_key: "<your-gcp-api-key>"
+    api_key: ""  # Required field but not used with service account auth
     project_id: "<your-gcp-project-id>"
-    location: "<your-gcp-region>"
-    credentials_path: "/path/to/service-account.json" # Optional, uses GCP default credentials if not specified
+    location: "<your-gcp-region>"  # e.g., us-central1
+    credentials_path: "/path/to/service-account.json"  # Path to your service account key file
 
 models:
-  - key: gpt-4o-openai
-    type: gpt-4o
+  # OpenAI Models
+  - key: gpt-4
+    type: gpt-4
     provider: openai
-  - key: gpt-4o-azure
-    type: gpt-4o
+  - key: gpt-3.5-turbo
+    type: gpt-3.5-turbo
+    provider: openai
+
+  # Azure OpenAI Models
+  - key: gpt-4-azure
+    type: gpt-4
     provider: azure-openai
-    deployment: "<your-deployment>"
-  - key: gemini-pro
-    type: gemini-pro
+    deployment: "<your-deployment-name>"
+  - key: gpt-35-turbo-azure
+    type: gpt-35-turbo
+    provider: azure-openai
+    deployment: "<your-deployment-name>"
+
+  # Vertex AI Models
+  # Chat and Completion model
+  - key: gemini-1.5-flash
+    type: gemini-1.5-flash  # Supports both chat and completion endpoints
+    provider: vertexai
+  # Embeddings model
+  - key: textembedding-gecko
+    type: textembedding-gecko  # Supports embeddings endpoint
     provider: vertexai
 
 pipelines:
+  # Default pipeline for chat completions
   - name: default
     type: chat
     plugins:
       - logging:
-          level: info
-      - tracing:
+          level: info  # Supported levels: debug, info, warning, error
+      - tracing:  # Optional tracing configuration
           endpoint: "https://api.traceloop.com/v1/traces"
           api_key: "<your-traceloop-api-key>"
       - model-router:
-          models:
-            - gpt-4o-openai
-            - gpt-4o-azure
-            - gemini-pro
+          models:  # List the models you want to use for chat
+            - gpt-4
+            - gpt-4-azure
+            - gemini-1.5-flash
+
+  # Pipeline for text completions
+  - name: completions
+    type: completion
+    plugins:
+      - model-router:
+          models:  # List the models you want to use for completions
+            - gpt-3.5-turbo
+            - gpt-35-turbo-azure
+            - gemini-1.5-flash
+
+  # Pipeline for embeddings
+  - name: embeddings
+    type: embeddings
+    plugins:
+      - model-router:
+          models:  # List the models you want to use for embeddings
+            - textembedding-gecko

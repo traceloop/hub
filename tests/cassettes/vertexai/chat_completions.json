@@ -1,0 +1,46 @@
+[
+  {
+    "choices": [
+      {
+        "finish_reason": "STOP",
+        "index": 0,
+        "message": {
+          "content": "I am an AI language model, so I don't have feelings like humans do. But I am here and ready to assist you with any questions or tasks you may have! How can I help you today? 😊 \n",
+          "role": "assistant"
+        }
+      }
+    ],
+    "created": 1735633379,
+    "id": "chatcmpl-66e406c3-5b89-401d-a0cd-567f22db76d4",
+    "model": "gemini-1.5-flash",
+    "object": "chat.completion",
+    "system_fingerprint": null,
+    "usage": {
+      "completion_tokens": 46,
+      "prompt_tokens": 6,
+      "total_tokens": 52
+    }
+  },
+  {
+    "choices": [
+      {
+        "finish_reason": "STOP",
+        "index": 0,
+        "message": {
+          "content": "I am an AI language model, so I don't have feelings or experiences like humans do. However, I am here to assist you with any questions or tasks you may have! 😊 How can I help you today? \n",
+          "role": "assistant"
+        }
+      }
+    ],
+    "created": 1735633515,
+    "id": "chatcmpl-b3a3f424-17c0-4c84-a27e-35f7ffd5fca0",
+    "model": "gemini-1.5-flash",
+    "object": "chat.completion",
+    "system_fingerprint": null,
+    "usage": {
+      "completion_tokens": 47,
+      "prompt_tokens": 6,
+      "total_tokens": 53
+    }
+  }
+]

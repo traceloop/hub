@@ -1,0 +1,20 @@
+[
+  {
+    "choices": [
+      {
+        "finish_reason": "STOP",
+        "index": 0,
+        "text": "Once upon a time, in a village nestled between rolling hills and a whispering river, lived a young girl named Elara. Elara wasn't like the other children. While they played with dolls and chased butterflies, Elara spent her days lost in the pages of dusty old books, her imagination soaring with tales of faraway lands and fantastical creatures. \n\nWhat would you like to happen next? \n"
+      }
+    ],
+    "created": 1735633515,
+    "id": "chatcmpl-99881c18-33ac-430b-b788-4a5cea4dce3e",
+    "model": "gemini-1.5-flash",
+    "object": "text_completion",
+    "usage": {
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "total_tokens": 0
+    }
+  }
+]

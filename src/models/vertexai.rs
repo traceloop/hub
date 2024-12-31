@@ -90,12 +90,12 @@ pub struct GeminiCandidate {
     pub tool_calls: Option<Vec<GeminiToolCall>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GeminiToolCall {
     pub function: GeminiFunctionCall,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GeminiFunctionCall {
     pub name: String,
     pub arguments: String,

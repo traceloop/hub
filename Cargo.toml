@@ -39,7 +39,9 @@ axum-prometheus = "0.7.0"
 reqwest-streams = { version = "0.8.1", features = ["json"] }
 futures = "0.3.31"
 async-stream = "0.3.6"
+yup-oauth2 = "8.3.0"
 
 [dev-dependencies]
 surf = "2.3.2"
 surf-vcr = "0.2.0"
+wiremock = "0.5"
