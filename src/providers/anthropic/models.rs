@@ -5,7 +5,7 @@ use crate::models::tool_calls::{ChatMessageToolCall, FunctionCall};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct AnthropicChatCompletionRequest {
+pub struct AnthropicChatCompletionRequest {
     pub max_tokens: u32,
     pub model: String,
     pub messages: Vec<ChatCompletionMessage>,
@@ -23,7 +23,7 @@ pub(crate) struct AnthropicChatCompletionRequest {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct AnthropicChatCompletionResponse {
+pub struct AnthropicChatCompletionResponse {
     pub id: String,
     pub model: String,
     pub content: Vec<ContentBlock>,
