@@ -20,8 +20,10 @@ use crate::providers::anthropic::models::{
 };
 
 use aws_sdk_bedrockruntime::primitives::Blob;
-
+use crate::providers::bedrock::models::{TitanChatCompletionRequest, TitanChatCompletionResponse};
 // https://www.shuttle.dev/blog/2024/05/10/prompting-aws-bedrock-rust
+
+// diff -> https://stackoverflow.com/questions/76192496/openai-v1-completions-vs-v1-chat-completions-end-points
 
 /*
 Support all major Bedrock models:
@@ -59,7 +61,11 @@ titan takes only one input text , not sure why enum has an option for multiple
 
 I will forward control to antripic if the chatcompletion is from antropic
 
+note : chat completions accepts role with completion does not
  */
+
+
+
 
 
 pub struct BedrockProvider {
@@ -135,34 +141,15 @@ impl Provider for BedrockProvider {
 
     async fn chat_completions(&self, payload: ChatCompletionRequest, model_config: &ModelConfig) -> Result<ChatCompletionResponse, StatusCode> {
 
-        // Curently focusing on just andropic models in bedrock
-
         let client = self.create_client().await.map_err(|e| {
             eprintln!("Failed to create Bedrock client: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        let anthropic_request = AnthropicChatCompletionRequest::from(payload.clone());
 
-        // Convert to Value for modification
-        let mut request_value = serde_json::to_value(&anthropic_request).map_err(|e| {
-            eprintln!("Failed to serialize request to value: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+        let titan_request =  TitanChatCompletionRequest::from(payload.clone());
 
-        // Modify the JSON structure for Bedrock
-        if let serde_json::Value::Object(ref mut map) = request_value {
-            map.remove("model"); // Remove model field
-            map.insert("anthropic_version".to_string(),
-                       serde_json::Value::String("bedrock-2023-05-31".to_string()));
-        }
-
-        // Print the modified JSON for debugging
-        println!("Debug - Modified Request JSON for Bedrock:\n{}",
-                 serde_json::to_string_pretty(&request_value).unwrap_or_default());
-
-        // Convert to bytes for the actual request
-        let request_json = serde_json::to_vec(&request_value).map_err(|e| {
+        let request_json = serde_json::to_vec(&titan_request).map_err(|e| {
             eprintln!("Failed to serialize final request: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
@@ -170,7 +157,7 @@ impl Provider for BedrockProvider {
         let res = client
             .invoke_model()
             .body(Blob::new(request_json))
-            .model_id("us.anthropic.claude-3-haiku-20240307-v1:0")
+            .model_id(&payload.model)
             .send()
             .await
             .map_err(|e| {
@@ -179,16 +166,67 @@ impl Provider for BedrockProvider {
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
-        let anthropic_response: AnthropicChatCompletionResponse =
+        let titan_response: TitanChatCompletionResponse =
             serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
                 eprintln!("Failed to deserialize response: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
-
         println!("dev:now : Successfully processed chat completion");
 
-        Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
+
+        Ok(ChatCompletionResponse::NonStream(titan_response.into()))
+
+
+        // // ANTROPIC WORKS FINE - IGNORE
+        //
+        // let anthropic_request = AnthropicChatCompletionRequest::from(payload.clone());
+        //
+        // // Convert to Value for modification
+        // let mut request_value = serde_json::to_value(&anthropic_request).map_err(|e| {
+        //     eprintln!("Failed to serialize request to value: {}", e);
+        //     StatusCode::INTERNAL_SERVER_ERROR
+        // })?;
+        //
+        // // Modify the JSON structure for Bedrock
+        // if let serde_json::Value::Object(ref mut map) = request_value {
+        //     map.remove("model"); // Remove model field
+        //     map.insert("anthropic_version".to_string(),
+        //                serde_json::Value::String("bedrock-2023-05-31".to_string()));
+        // }
+        //
+        // // Print the modified JSON for debugging
+        // println!("Debug - Modified Request JSON for Bedrock:\n{}",
+        //          serde_json::to_string_pretty(&request_value).unwrap_or_default());
+        //
+        // // Convert to bytes for the actual request
+        // let request_json = serde_json::to_vec(&request_value).map_err(|e| {
+        //     eprintln!("Failed to serialize final request: {}", e);
+        //     StatusCode::INTERNAL_SERVER_ERROR
+        // })?;
+        //
+        // let res = client
+        //     .invoke_model()
+        //     .body(Blob::new(request_json))
+        //     .model_id(&payload.model)
+        //     .send()
+        //     .await
+        //     .map_err(|e| {
+        //         eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
+        //         eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
+        //         StatusCode::INTERNAL_SERVER_ERROR
+        //     })?;
+        //
+        // let anthropic_response: AnthropicChatCompletionResponse =
+        //     serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
+        //         eprintln!("Failed to deserialize response: {}", e);
+        //         StatusCode::INTERNAL_SERVER_ERROR
+        //     })?;
+        //
+        //
+        // println!("dev:now : Successfully processed chat completion");
+        //
+        // Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
 
 
     }
@@ -198,6 +236,10 @@ impl Provider for BedrockProvider {
     }
 
     async fn embeddings(&self, _payload: EmbeddingsRequest, _model_config: &ModelConfig) -> Result<EmbeddingsResponse, StatusCode> {
+
+
+        // titan needs nomalize and dimensions
+        // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
         todo!()
     }
 }
