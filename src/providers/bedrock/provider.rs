@@ -20,7 +20,7 @@ use crate::providers::anthropic::models::{
 };
 
 use aws_sdk_bedrockruntime::primitives::Blob;
-use crate::providers::bedrock::models::{TitanChatCompletionRequest, TitanChatCompletionResponse};
+use crate::providers::bedrock::models::{Ai21ChatCompletionRequest, Ai21ChatCompletionResponse, TitanChatCompletionRequest, TitanChatCompletionResponse};
 // https://www.shuttle.dev/blog/2024/05/10/prompting-aws-bedrock-rust
 
 // diff -> https://stackoverflow.com/questions/76192496/openai-v1-completions-vs-v1-chat-completions-end-points
@@ -29,7 +29,10 @@ use crate::providers::bedrock::models::{TitanChatCompletionRequest, TitanChatCom
 Support all major Bedrock models:
 Anthropic Claude models
 Amazon Titan models
-AI21 Jurassic models
+AI21 Jurassic models - us east 1 not 2
+
+    the lagacy versons seem to be different
+    Jamba 1.5 Large  Jamba 1.5 Mini jamba-Instruct
 Stability.ai models
 
 
@@ -146,10 +149,18 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
+        // AI21 WORKS FINE - IGNORE
+        // NOTE  : it follows openai format but aws sdk will throw validation when additonal fields are passed
 
-        let titan_request =  TitanChatCompletionRequest::from(payload.clone());
+        let ai21_request = Ai21ChatCompletionRequest::from(payload.clone());
 
-        let request_json = serde_json::to_vec(&titan_request).map_err(|e| {
+        println!("dev:now : Successfully processed chat completion");
+
+        // print ai21_request
+        println!("Debug - AI21 Request JSON for Bedrock:\n{}",
+                 serde_json::to_string_pretty(&ai21_request).unwrap_or_default());
+
+        let request_json = serde_json::to_vec(&ai21_request).map_err(|e| {
             eprintln!("Failed to serialize final request: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
@@ -166,7 +177,7 @@ impl Provider for BedrockProvider {
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
-        let titan_response: TitanChatCompletionResponse =
+        let ai21_response: Ai21ChatCompletionResponse =
             serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
                 eprintln!("Failed to deserialize response: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -175,7 +186,43 @@ impl Provider for BedrockProvider {
         println!("dev:now : Successfully processed chat completion");
 
 
-        Ok(ChatCompletionResponse::NonStream(titan_response.into()))
+        Ok(ChatCompletionResponse::NonStream(ai21_response.into()))
+        //
+        //
+        //
+        // // TITAN WORKS FINE - IGNORE
+        //
+        // // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.nova-micro-v1:0
+        //
+        // let titan_request =  TitanChatCompletionRequest::from(payload.clone());
+        //
+        // let request_json = serde_json::to_vec(&titan_request).map_err(|e| {
+        //     eprintln!("Failed to serialize final request: {}", e);
+        //     StatusCode::INTERNAL_SERVER_ERROR
+        // })?;
+        //
+        // let res = client
+        //     .invoke_model()
+        //     .body(Blob::new(request_json))
+        //     .model_id(&payload.model)
+        //     .send()
+        //     .await
+        //     .map_err(|e| {
+        //         eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
+        //         eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
+        //         StatusCode::INTERNAL_SERVER_ERROR
+        //     })?;
+        //
+        // let titan_response: TitanChatCompletionResponse =
+        //     serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
+        //         eprintln!("Failed to deserialize response: {}", e);
+        //         StatusCode::INTERNAL_SERVER_ERROR
+        //     })?;
+        //
+        // println!("dev:now : Successfully processed chat completion");
+        //
+        //
+        // Ok(ChatCompletionResponse::NonStream(titan_response.into()))
 
 
         // // ANTROPIC WORKS FINE - IGNORE
