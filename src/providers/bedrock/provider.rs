@@ -20,7 +20,7 @@ use crate::providers::anthropic::models::{
 };
 
 use aws_sdk_bedrockruntime::primitives::Blob;
-use crate::providers::bedrock::models::{Ai21ChatCompletionRequest, Ai21ChatCompletionResponse, TitanChatCompletionRequest, TitanChatCompletionResponse};
+use crate::providers::bedrock::models::{Ai21ChatCompletionRequest, Ai21ChatCompletionResponse, TitanChatCompletionRequest, TitanChatCompletionResponse, TitanEmbeddingRequest, TitanEmbeddingResponse};
 // https://www.shuttle.dev/blog/2024/05/10/prompting-aws-bedrock-rust
 
 // diff -> https://stackoverflow.com/questions/76192496/openai-v1-completions-vs-v1-chat-completions-end-points
@@ -282,11 +282,44 @@ impl Provider for BedrockProvider {
         todo!()
     }
 
-    async fn embeddings(&self, _payload: EmbeddingsRequest, _model_config: &ModelConfig) -> Result<EmbeddingsResponse, StatusCode> {
+    async fn embeddings(&self, payload: EmbeddingsRequest, _model_config: &ModelConfig) -> Result<EmbeddingsResponse, StatusCode> {
+
+
+        let client = self.create_client().await.map_err(|e| {
+            eprintln!("Failed to create Bedrock client: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        let titan_request = TitanEmbeddingRequest::from(payload.clone());
+
+        let request_json = serde_json::to_vec(&titan_request).map_err(|e| {
+            eprintln!("Failed to serialize final request: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        let res = client
+            .invoke_model()
+            .body(Blob::new(request_json))
+            .model_id(&payload.model)
+            .send()
+            .await
+            .map_err(|e| {
+                eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
+                eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+        let titan_response: TitanEmbeddingResponse = serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
+            eprintln!("Failed to deserialize response: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        println!("dev:now : Successfully processed chat completion");
+
+        Ok(EmbeddingsResponse::from(titan_response))
 
 
         // titan needs nomalize and dimensions
         // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
-        todo!()
     }
 }
