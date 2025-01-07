@@ -13,3 +13,18 @@ pub fn default_max_tokens() -> u32 {
         .parse()
         .unwrap_or(4096)
 }
+
+// Required field for the TitanEmbeddingRequest
+pub fn default_embedding_dimension() -> u32 {
+    env::var("DEFAULT_EMBEDDING_DIMENSION")
+        .unwrap_or_else(|_| "512".to_string())
+        .parse()
+        .unwrap_or(512)
+}
+// Required field for the TitanEmbeddingRequest
+pub fn default_embedding_normalize() -> bool {
+    env::var("DEFAULT_EMBEDDING_NORMALIZE")
+        .unwrap_or_else(|_| "true".to_string())
+        .parse()
+        .unwrap_or(true)
+}

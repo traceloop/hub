@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 fn get_test_provider_config() -> crate::config::models::Provider {
     let mut params = HashMap::new();
-    params.insert("region".to_string(), "us-east-1".to_string());
+    params.insert("region".to_string(), "us-east-2".to_string());
 
 
     crate::config::models::Provider {
@@ -106,6 +106,8 @@ mod titan_tests {
     use crate::providers::bedrock::test::get_test_provider_config;
     use crate::providers::provider::Provider;
     use std::collections::HashMap;
+    use crate::models::embeddings::EmbeddingsInput::Single;
+    use crate::models::embeddings::EmbeddingsRequest;
 
     #[test]
     fn test_titan_provider_new() {
@@ -114,6 +116,46 @@ mod titan_tests {
 
         assert_eq!(provider.key(), "test_key");
         assert_eq!(provider.r#type(), "bedrock");
+    }
+
+    #[tokio::test]
+    async fn test_titan_provider_embeddings(){
+
+        let config = get_test_provider_config();
+        let provider = BedrockProvider::new(&config);
+
+        let model_config = ModelConfig {
+            key: "test-model".to_string(),
+            r#type: "amazon.titan-embed-text-v2:0".to_string(),
+            provider: "bedrock".to_string(),
+            params: HashMap::new(),
+        };
+
+        let payload = EmbeddingsRequest {
+            model: "amazon.titan-embed-text-v2:0".to_string(),
+            user: None,
+            input: Single("this is where you place your input text".to_string()),
+            encoding_format: None,
+        };
+
+        let result = provider.embeddings(payload, &model_config).await;
+
+        match result {
+            Ok(response) => {
+                println!("Embeddings generation successful!");
+                // Pretty print the response
+                let json = serde_json::to_string_pretty(&response).unwrap_or_else(|e| {
+                    format!("Failed to serialize response to JSON: {}", e)
+                });
+                println!("Response JSON:\n{}", json);
+            },
+            Err(e) => {
+                println!("Error occurred during embeddings generation: {:?}", e);
+                panic!("Embeddings generation failed with error: {:?}", e);
+            }
+        }
+
+
     }
 
     #[tokio::test]
