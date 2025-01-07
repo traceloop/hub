@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 use crate::config::constants::{default_max_tokens , default_embedding_dimension , default_embedding_normalize};
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
+use crate::models::completion::{CompletionChoice, CompletionRequest, CompletionResponse, LogProbs};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::embeddings::{Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::usage::Usage;
@@ -216,7 +217,7 @@ pub struct Ai21ChatCompletionRequest {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct Ai21ChatCompletionResponse {
+pub struct Ai21ChatCompletionResponse {
     pub id: String,
     pub choices: Vec<Ai21Choice>,
     pub model: String,
@@ -225,20 +226,20 @@ pub(crate) struct Ai21ChatCompletionResponse {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct Ai21Choice {
+pub struct Ai21Choice {
     pub finish_reason: String,
     pub index: u32,
     pub message: Ai21Message,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct Ai21Meta {
+pub struct Ai21Meta {
     #[serde(rename = "requestDurationMillis")]
     pub request_duration_millis: u64,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct Ai21Usage {
+pub struct Ai21Usage {
     pub completion_tokens: u32,
     pub prompt_tokens: u32,
     pub total_tokens: u32,
@@ -303,6 +304,170 @@ impl From<Ai21ChatCompletionResponse> for ChatCompletion {
                 prompt_tokens_details: None,
             },
             system_fingerprint: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ai21CompletionsRequest {
+    pub prompt: String,
+    #[serde(rename = "maxTokens")]
+    pub max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    #[serde(rename = "topP", skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f32>,
+    #[serde(rename = "stopSequences")]
+    pub stop_sequences: Vec<String>,
+    #[serde(rename = "countPenalty")]
+    pub count_penalty: PenaltyConfig,
+    #[serde(rename = "presencePenalty")]
+    pub presence_penalty: PenaltyConfig,
+    #[serde(rename = "frequencyPenalty")]
+    pub frequency_penalty: PenaltyConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PenaltyConfig {
+    pub scale: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ai21CompletionsResponse {
+    pub id: i64,
+    pub prompt: Ai21Prompt,
+    pub completions: Vec<Ai21CompletionWrapper>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ai21CompletionWrapper {
+    pub data: Ai21CompletionData,
+    #[serde(rename = "finishReason")]
+    pub finish_reason: Ai21FinishReason,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ai21Prompt {
+    pub text: String,
+    pub tokens: Vec<Ai21Token>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ai21CompletionData {
+    pub text: String,
+    pub tokens: Vec<Ai21Token>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ai21Token {
+    #[serde(rename = "generatedToken")]
+    pub generated_token: Option<GeneratedToken>,
+    #[serde(rename = "textRange")]
+    pub text_range: TextRange,
+    #[serde(rename = "topTokens")]
+    pub top_tokens: Option<Vec<TopToken>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GeneratedToken {
+    pub token: String,
+    #[serde(rename = "logprob")]
+    pub log_prob: f64,
+    #[serde(rename = "raw_logprob")]
+    pub raw_log_prob: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TextRange {
+    pub start: i32,
+    pub end: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TopToken {
+    pub token: String,
+    pub logprob: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Ai21FinishReason {
+    pub reason: String,
+}
+
+impl From<CompletionRequest> for Ai21CompletionsRequest {
+    fn from(request: CompletionRequest) -> Self {
+        Self {
+            prompt: request.prompt,
+            max_tokens: request.max_tokens.unwrap_or(default_max_tokens()),
+            temperature: request.temperature,
+            top_p: request.top_p,
+            stop_sequences: request.stop.unwrap_or_default(),
+            count_penalty: PenaltyConfig { scale: 0 },
+            presence_penalty: PenaltyConfig {
+                scale: if let Some(penalty) = request.presence_penalty {
+                    penalty as i32
+                } else {
+                    0
+                }
+            },
+            frequency_penalty: PenaltyConfig {
+                scale: if let Some(penalty) = request.frequency_penalty {
+                    penalty as i32
+                } else {
+                    0
+                }
+            },
+        }
+    }
+}
+
+impl From<Ai21CompletionsResponse> for CompletionResponse {
+    fn from(response: Ai21CompletionsResponse) -> Self {
+        let total_prompt_tokens = response.prompt.tokens.len() as u32;
+        let total_completion_tokens = response.completions
+            .iter()
+            .map(|c| c.data.tokens.len() as u32)
+            .sum();
+
+        CompletionResponse {
+            id: response.id.to_string(),
+            object: "".to_string(),
+            created:chrono::Utc::now().timestamp() as u64,
+            model: "".to_string(),
+            choices: response.completions
+                .into_iter()
+                .enumerate()
+                .map(|(index, completion)| CompletionChoice {
+                    text: completion.data.text,
+                    index: index as u32,
+                    logprobs: Some(LogProbs {
+                        tokens: completion.data.tokens.iter()
+                            .filter_map(|t| t.generated_token.as_ref().map(|gt| gt.token.clone()))
+                            .collect(),
+                        token_logprobs: completion.data.tokens.iter()
+                            .filter_map(|t| t.generated_token.as_ref().map(|gt| gt.log_prob as f32))
+                            .collect(),
+                        top_logprobs: completion.data.tokens.iter()
+                            .map(|t| t.top_tokens.clone()
+                                .map(|tt| tt.into_iter()
+                                    .map(|top| (top.token, top.logprob as f32))
+                                    .collect())
+                                .unwrap_or_default())
+                            .collect(),
+                        text_offset: completion.data.tokens.iter()
+                            .map(|t| t.text_range.start as usize)
+                            .collect(),
+                    }),
+                    finish_reason: Some(completion.finish_reason.reason),
+                })
+                .collect(),
+            usage: Usage {
+                prompt_tokens: total_prompt_tokens,
+                completion_tokens: total_completion_tokens,
+                total_tokens: total_prompt_tokens + total_completion_tokens,
+                completion_tokens_details: None,
+                prompt_tokens_details: None,
+            },
         }
     }
 }
