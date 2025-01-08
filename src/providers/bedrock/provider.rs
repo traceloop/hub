@@ -152,45 +152,9 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        AI21Implementation.chat_completion(&client, payload).await
+        // AI21Implementation.chat_completion(&client, payload).await
 
-        //
-        //
-        //
-        // // TITAN WORKS FINE - IGNORE
-        //
-        // // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.nova-micro-v1:0
-        //
-        // let titan_request =  TitanChatCompletionRequest::from(payload.clone());
-        //
-        // let request_json = serde_json::to_vec(&titan_request).map_err(|e| {
-        //     eprintln!("Failed to serialize final request: {}", e);
-        //     StatusCode::INTERNAL_SERVER_ERROR
-        // })?;
-        //
-        // let res = client
-        //     .invoke_model()
-        //     .body(Blob::new(request_json))
-        //     .model_id(&payload.model)
-        //     .send()
-        //     .await
-        //     .map_err(|e| {
-        //         eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
-        //         eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
-        //         StatusCode::INTERNAL_SERVER_ERROR
-        //     })?;
-        //
-        // let titan_response: TitanChatCompletionResponse =
-        //     serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
-        //         eprintln!("Failed to deserialize response: {}", e);
-        //         StatusCode::INTERNAL_SERVER_ERROR
-        //     })?;
-        //
-        // println!("dev:now : Successfully processed chat completion");
-        //
-        //
-        // Ok(ChatCompletionResponse::NonStream(titan_response.into()))
-
+        TitanImplementation.chat_completion(&client, payload).await
 
         // // ANTROPIC WORKS FINE - IGNORE
         //
@@ -263,35 +227,8 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        let titan_request = TitanEmbeddingRequest::from(payload.clone());
+        TitanImplementation.embedding(&client, payload).await
 
-        let request_json = serde_json::to_vec(&titan_request).map_err(|e| {
-            eprintln!("Failed to serialize final request: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-        let res = client
-            .invoke_model()
-            .body(Blob::new(request_json))
-            .model_id(&payload.model)
-            .send()
-            .await
-            .map_err(|e| {
-                eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
-                eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-        let titan_response: TitanEmbeddingResponse = serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
-            eprintln!("Failed to deserialize response: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-        println!("dev:now : Successfully processed chat completion");
-
-        Ok(EmbeddingsResponse::from(titan_response))
-
-        // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
     }
 }
 
@@ -416,3 +353,44 @@ impl BedrockModelImplementation for AI21Implementation {
 /**
         TITAN IMPLEMENTATION
 */
+
+#[async_trait]
+impl BedrockModelImplementation for TitanImplementation {
+    async fn chat_completion(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: ChatCompletionRequest,
+    ) -> Result<ChatCompletionResponse, StatusCode> {
+        let titan_request = TitanChatCompletionRequest::from(payload.clone());
+        let titan_response: TitanChatCompletionResponse = self
+            .handle_bedrock_request(
+                client,
+                &payload.model,
+                titan_request,
+                "Titan chat completion"
+            )
+            .await?;
+
+        Ok(ChatCompletionResponse::NonStream(titan_response.into()))
+    }
+
+    async fn embedding(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: EmbeddingsRequest,
+    ) -> Result<EmbeddingsResponse, StatusCode> {
+        let titan_request = TitanEmbeddingRequest::from(payload.clone());
+        let titan_response: TitanEmbeddingResponse = self
+            .handle_bedrock_request(
+                client,
+                &payload.model,
+                titan_request,
+                "Titan embedding"
+            )
+            .await?;
+
+        Ok(EmbeddingsResponse::from(titan_response))
+        // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
+    }
+}
+
