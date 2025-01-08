@@ -68,9 +68,9 @@ note : chat completions accepts role with completion does not
  */
 
 
-pub struct AI21Implementation;
-pub struct TitanImplementation;
-pub struct  AnthropicImplementation;
+struct AI21Implementation;
+struct TitanImplementation;
+struct  AnthropicImplementation;
 
 
 
@@ -152,44 +152,8 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        // AI21 WORKS FINE - IGNORE
-        // NOTE  : it follows openai format but aws sdk will throw validation when additonal fields are passed
+        AI21Implementation.chat_completion(&client, payload).await
 
-        let ai21_request = Ai21ChatCompletionRequest::from(payload.clone());
-
-        println!("dev:now : Successfully processed chat completion");
-
-        // print ai21_request
-        println!("Debug - AI21 Request JSON for Bedrock:\n{}",
-                 serde_json::to_string_pretty(&ai21_request).unwrap_or_default());
-
-        let request_json = serde_json::to_vec(&ai21_request).map_err(|e| {
-            eprintln!("Failed to serialize final request: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-        let res = client
-            .invoke_model()
-            .body(Blob::new(request_json))
-            .model_id(&payload.model)
-            .send()
-            .await
-            .map_err(|e| {
-                eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
-                eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-        let ai21_response: Ai21ChatCompletionResponse =
-            serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
-                eprintln!("Failed to deserialize response: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-        println!("dev:now : Successfully processed chat completion");
-
-
-        Ok(ChatCompletionResponse::NonStream(ai21_response.into()))
         //
         //
         //
@@ -288,39 +252,7 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        let ai21_request = Ai21CompletionsRequest::from(payload.clone());
-
-        println!("Debug - AI21 Request JSON for Bedrock:\n{}",
-                 serde_json::to_string_pretty(&ai21_request).unwrap_or_default());
-
-        let request_json = serde_json::to_vec(&ai21_request).map_err(|e| {
-            eprintln!("Failed to serialize final request: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-        let res = client
-            .invoke_model()
-            .body(Blob::new(request_json))
-            .model_id(&payload.model)
-            .send()
-            .await
-            .map_err(|e| {
-                eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
-                eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-        let ai21_response: Ai21CompletionsResponse =
-            serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
-                eprintln!("Failed to deserialize response: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-        println!("dev:now : Successfully processed chat completion");
-
-        Ok(CompletionResponse::from(ai21_response))
-
-
+        AI21Implementation.completion(&client, payload).await
     }
 
     async fn embeddings(&self, payload: EmbeddingsRequest, _model_config: &ModelConfig) -> Result<EmbeddingsResponse, StatusCode> {
@@ -369,7 +301,7 @@ impl Provider for BedrockProvider {
 */
 
 #[async_trait]
-pub trait BedrockModelImplementation: Send + Sync {
+trait BedrockModelImplementation: Send + Sync {
     /// Required method for chat completions - all models must implement this
     async fn chat_completion(
         &self,
@@ -406,7 +338,7 @@ pub trait BedrockModelImplementation: Send + Sync {
         error_context: &str,
     ) -> Result<U, StatusCode>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + std::marker::Send,
         U: for<'de> serde::Deserialize<'de>,
     {
         // Serialize request
@@ -418,7 +350,7 @@ pub trait BedrockModelImplementation: Send + Sync {
         // Make API call
         let response = client
             .invoke_model()
-            .body(aws_sdk_bedrockruntime::primitives::Blob::new(request_json))
+            .body(Blob::new(request_json))
             .model_id(model_id)
             .send()
             .await
@@ -441,22 +373,46 @@ pub trait BedrockModelImplementation: Send + Sync {
         AI21 IMPLEMENTATION
 */
 
-impl AI21Implementation {
-    pub fn new() -> Self {
-        Self
+#[async_trait]
+impl BedrockModelImplementation for AI21Implementation {
+    async fn chat_completion(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: ChatCompletionRequest,
+    ) -> Result<ChatCompletionResponse, StatusCode> {
+        let ai21_request = Ai21ChatCompletionRequest::from(payload.clone());
+        let ai21_response: Ai21ChatCompletionResponse = self
+            .handle_bedrock_request(
+                client,
+                &payload.model,
+                ai21_request,
+                "AI21 chat completion"
+            )
+            .await?;
+
+        Ok(ChatCompletionResponse::NonStream(ai21_response.into()))
+    }
+
+    async fn completion(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: CompletionRequest,
+    ) -> Result<CompletionResponse, StatusCode> {
+        // Bedrock AI21 supports completions in legacy models similar to openai
+        let ai21_request = Ai21CompletionsRequest::from(payload.clone());
+        let ai21_response: Ai21CompletionsResponse = self
+            .handle_bedrock_request(
+                client,
+                &payload.model,
+                ai21_request,
+                "AI21 completion"
+            )
+            .await?;
+
+        Ok(CompletionResponse::from(ai21_response))
     }
 }
 
-
-
-
-
-
-
 /**
         TITAN IMPLEMENTATION
-*/
-
-/**
-        ANTROPIC IMPLEMENTATION
 */
