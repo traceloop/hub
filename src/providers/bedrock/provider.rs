@@ -14,12 +14,9 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::providers::provider::Provider;
 
-use crate::providers::anthropic::models::{
-    AnthropicChatCompletionRequest,
-    AnthropicChatCompletionResponse,
-};
 
 use aws_sdk_bedrockruntime::primitives::Blob;
+use crate::providers::anthropic::{AnthropicChatCompletionRequest, AnthropicChatCompletionResponse};
 use crate::providers::bedrock::models::{Ai21ChatCompletionRequest, Ai21ChatCompletionResponse, Ai21CompletionsRequest, Ai21CompletionsResponse, TitanChatCompletionRequest, TitanChatCompletionResponse, TitanEmbeddingRequest, TitanEmbeddingResponse};
 // https://www.shuttle.dev/blog/2024/05/10/prompting-aws-bedrock-rust
 
@@ -83,39 +80,19 @@ pub struct BedrockProvider {
 impl BedrockProvider {
     async fn create_client(&self) -> Result<BedrockRuntimeClient, String> {
 
-        let region = self.config
-            .params
-            .get("region")
-            .unwrap()
-            .clone();
+        let region = self.config.params.get("region").unwrap().clone();
+        let access_key_id = self.config.params.get("AWS_ACCESS_KEY_ID").unwrap().clone();
+        let secret_access_key = self.config.params.get("AWS_SECRET_ACCESS_KEY").unwrap().clone();
+        let session_token = self.config.params.get("AWS_SESSION_TOKEN").cloned();
 
-        let access_key_id = self.config
-            .params
-            .get("AWS_ACCESS_KEY_ID")
-            .unwrap()
-            .clone();
-
-        let secret_access_key = self.config
-            .params
-            .get("AWS_SECRET_ACCESS_KEY")
-            .unwrap()
-            .clone();
-
-        let session_token = self.config
-            .params
-            .get("AWS_SESSION_TOKEN")
-            .cloned();
-
-        //TODO : need to remember that session token is optional
-
-        let credentials =Credentials::from_keys(
-            access_key_id.clone(),
-            secret_access_key.clone(),
+        let credentials = Credentials::from_keys(
+            access_key_id,
+            secret_access_key,
             session_token,
         );
 
         let sdk_config = aws_config::defaults(BehaviorVersion::latest())
-            .region(Region::new(region.clone()))
+            .region(Region::new(region))
             .credentials_provider(credentials)
             .load()
             .await;
@@ -129,11 +106,8 @@ impl BedrockProvider {
 impl Provider for BedrockProvider {
     fn new(config: &ProviderConfig) -> Self {
 
-        // let client = BedrockProvider::create_client(config);
-
         Self {
             config: config.clone(),
-            // client
         }
     }
 
@@ -190,15 +164,12 @@ impl Provider for BedrockProvider {
 
 #[async_trait]
 trait BedrockModelImplementation: Send + Sync {
-    /// Required method for chat completions - all models must implement this
     async fn chat_completion(
         &self,
         client: &BedrockRuntimeClient,
         payload: ChatCompletionRequest,
     ) -> Result<ChatCompletionResponse, StatusCode>;
 
-    /// Optional method for completions - default returns NOT_IMPLEMENTED
-    /// Only AI21 currently implements this
     async fn completion(
         &self,
         client: &BedrockRuntimeClient,
@@ -207,8 +178,6 @@ trait BedrockModelImplementation: Send + Sync {
         Err(StatusCode::NOT_IMPLEMENTED)
     }
 
-    /// Optional method for embeddings - default returns NOT_IMPLEMENTED
-    /// Only Titan currently implements this
     async fn embedding(
         &self,
         client: &BedrockRuntimeClient,
@@ -217,7 +186,6 @@ trait BedrockModelImplementation: Send + Sync {
         Err(StatusCode::NOT_IMPLEMENTED)
     }
 
-    /// Helper method to handle common error cases with Bedrock client calls
     async fn handle_bedrock_request<T, U>(
         &self,
         client: &BedrockRuntimeClient,
@@ -341,7 +309,6 @@ impl BedrockModelImplementation for TitanImplementation {
             .await?;
 
         Ok(EmbeddingsResponse::from(titan_response))
-        // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
     }
 }
 
