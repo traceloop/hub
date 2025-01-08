@@ -154,58 +154,9 @@ impl Provider for BedrockProvider {
 
         // AI21Implementation.chat_completion(&client, payload).await
 
-        TitanImplementation.chat_completion(&client, payload).await
+        // TitanImplementation.chat_completion(&client, payload).await
 
-        // // ANTROPIC WORKS FINE - IGNORE
-        //
-        // let anthropic_request = AnthropicChatCompletionRequest::from(payload.clone());
-        //
-        // // Convert to Value for modification
-        // let mut request_value = serde_json::to_value(&anthropic_request).map_err(|e| {
-        //     eprintln!("Failed to serialize request to value: {}", e);
-        //     StatusCode::INTERNAL_SERVER_ERROR
-        // })?;
-        //
-        // // Modify the JSON structure for Bedrock
-        // if let serde_json::Value::Object(ref mut map) = request_value {
-        //     map.remove("model"); // Remove model field
-        //     map.insert("anthropic_version".to_string(),
-        //                serde_json::Value::String("bedrock-2023-05-31".to_string()));
-        // }
-        //
-        // // Print the modified JSON for debugging
-        // println!("Debug - Modified Request JSON for Bedrock:\n{}",
-        //          serde_json::to_string_pretty(&request_value).unwrap_or_default());
-        //
-        // // Convert to bytes for the actual request
-        // let request_json = serde_json::to_vec(&request_value).map_err(|e| {
-        //     eprintln!("Failed to serialize final request: {}", e);
-        //     StatusCode::INTERNAL_SERVER_ERROR
-        // })?;
-        //
-        // let res = client
-        //     .invoke_model()
-        //     .body(Blob::new(request_json))
-        //     .model_id(&payload.model)
-        //     .send()
-        //     .await
-        //     .map_err(|e| {
-        //         eprintln!("Bedrock API request error: {:?}", e);  // Using {:?} debug formatter
-        //         eprintln!("Error details - Source: {}, Raw error: {:?}", e.source().unwrap_or(&e), e.raw_response());
-        //         StatusCode::INTERNAL_SERVER_ERROR
-        //     })?;
-        //
-        // let anthropic_response: AnthropicChatCompletionResponse =
-        //     serde_json::from_slice(&res.body.into_inner()).map_err(|e| {
-        //         eprintln!("Failed to deserialize response: {}", e);
-        //         StatusCode::INTERNAL_SERVER_ERROR
-        //     })?;
-        //
-        //
-        // println!("dev:now : Successfully processed chat completion");
-        //
-        // Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
-
+        AnthropicImplementation.chat_completion(&client, payload).await
 
     }
 
@@ -391,6 +342,46 @@ impl BedrockModelImplementation for TitanImplementation {
 
         Ok(EmbeddingsResponse::from(titan_response))
         // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
+    }
+}
+
+/**
+        ANTHROPIC IMPLEMENTATION
+*/
+
+#[async_trait]
+impl BedrockModelImplementation for AnthropicImplementation {
+    async fn chat_completion(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: ChatCompletionRequest,
+    ) -> Result<ChatCompletionResponse, StatusCode> {
+        let anthropic_request = AnthropicChatCompletionRequest::from(payload.clone());
+
+        // Convert to Value for Bedrock-specific modifications
+        let mut request_value = serde_json::to_value(&anthropic_request).map_err(|e| {
+            eprintln!("Failed to serialize Anthropic request: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        if let serde_json::Value::Object(ref mut map) = request_value {
+            map.remove("model");
+            map.insert(
+                "anthropic_version".to_string(),
+                serde_json::Value::String("bedrock-2023-05-31".to_string()),
+            );
+        }
+
+        let anthropic_response: AnthropicChatCompletionResponse = self
+            .handle_bedrock_request(
+                client,
+                &payload.model,
+                request_value,
+                "Anthropic chat completion"
+            )
+            .await?;
+
+        Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
     }
 }
 
