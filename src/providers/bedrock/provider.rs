@@ -68,6 +68,9 @@ note : chat completions accepts role with completion does not
  */
 
 
+pub struct AI21Implementation;
+pub struct TitanImplementation;
+pub struct  AnthropicImplementation;
 
 
 
@@ -359,3 +362,101 @@ impl Provider for BedrockProvider {
         // https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
     }
 }
+
+
+/**
+        BEDROCK IMPLEMENTATION TEMPLATE - WILL SERVE AS LAYOUT FOR OTHER IMPLEMENTATIONS
+*/
+
+#[async_trait]
+pub trait BedrockModelImplementation: Send + Sync {
+    /// Required method for chat completions - all models must implement this
+    async fn chat_completion(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: ChatCompletionRequest,
+    ) -> Result<ChatCompletionResponse, StatusCode>;
+
+    /// Optional method for completions - default returns NOT_IMPLEMENTED
+    /// Only AI21 currently implements this
+    async fn completion(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: CompletionRequest,
+    ) -> Result<CompletionResponse, StatusCode> {
+        Err(StatusCode::NOT_IMPLEMENTED)
+    }
+
+    /// Optional method for embeddings - default returns NOT_IMPLEMENTED
+    /// Only Titan currently implements this
+    async fn embedding(
+        &self,
+        client: &BedrockRuntimeClient,
+        payload: EmbeddingsRequest,
+    ) -> Result<EmbeddingsResponse, StatusCode> {
+        Err(StatusCode::NOT_IMPLEMENTED)
+    }
+
+    /// Helper method to handle common error cases with Bedrock client calls
+    async fn handle_bedrock_request<T, U>(
+        &self,
+        client: &BedrockRuntimeClient,
+        model_id: &str,
+        request: T,
+        error_context: &str,
+    ) -> Result<U, StatusCode>
+    where
+        T: serde::Serialize,
+        U: for<'de> serde::Deserialize<'de>,
+    {
+        // Serialize request
+        let request_json = serde_json::to_vec(&request).map_err(|e| {
+            eprintln!("Failed to serialize {}: {}", error_context, e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        // Make API call
+        let response = client
+            .invoke_model()
+            .body(aws_sdk_bedrockruntime::primitives::Blob::new(request_json))
+            .model_id(model_id)
+            .send()
+            .await
+            .map_err(|e| {
+                eprintln!("Bedrock API error for {}: {:?}", error_context, e);
+                eprintln!("Error details - Source: {}, Raw error: {:?}",
+                          e.source().unwrap_or(&e), e.raw_response());
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+
+        // Deserialize response
+        serde_json::from_slice(&response.body.into_inner()).map_err(|e| {
+            eprintln!("Failed to deserialize {} response: {}", error_context, e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
+    }
+}
+
+/**
+        AI21 IMPLEMENTATION
+*/
+
+impl AI21Implementation {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+
+
+
+
+
+
+/**
+        TITAN IMPLEMENTATION
+*/
+
+/**
+        ANTROPIC IMPLEMENTATION
+*/
