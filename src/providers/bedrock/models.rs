@@ -1,9 +1,3 @@
-
-
-
-// I should be able to reuse a lot of the code from antropic's modles
-
-
 use serde::{Deserialize, Serialize};
 use crate::config::constants::{default_max_tokens , default_embedding_dimension , default_embedding_normalize};
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
@@ -112,7 +106,7 @@ impl From<TitanChatCompletionResponse> for ChatCompletion {
         };
 
         ChatCompletion {
-            id: uuid::Uuid::new_v4().to_string(), // _response.id is private in aws sdk , can't access
+            id: "".to_string(), // _response.id is private in aws sdk , can't access
             object: None,
             created: None,
             model: "".to_string(),

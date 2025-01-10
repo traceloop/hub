@@ -5,6 +5,15 @@ fn get_test_provider_config(region: &str) -> Provider {
     let mut params = HashMap::new();
     params.insert("region".to_string(), region.to_string());
 
+    let aws_access_key_id = std::env::var("AWS_ACCESS_KEY_ID")
+        .expect("AWS_ACCESS_KEY_ID must be set for tests");
+    let aws_secret_access_key = std::env::var("AWS_SECRET_ACCESS_KEY")
+        .expect("AWS_SECRET_ACCESS_KEY must be set for tests");
+
+    params.insert("AWS_ACCESS_KEY_ID".to_string(), aws_access_key_id);
+    params.insert("AWS_SECRET_ACCESS_KEY".to_string(), aws_secret_access_key);
+
+
     Provider {
         key: "test_key".to_string(),
         r#type: "".to_string(),
@@ -97,7 +106,6 @@ mod antropic_tests {
 
 #[cfg(test)]
 mod titan_tests {
-    use crate::config::models::{ModelConfig};
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::providers::bedrock::BedrockProvider;
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
