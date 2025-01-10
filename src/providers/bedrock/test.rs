@@ -1,11 +1,11 @@
 use std::collections::HashMap;
+use crate::config::models::{ModelConfig, Provider};
 
-fn get_test_provider_config(region: &str) -> crate::config::models::Provider {
+fn get_test_provider_config(region: &str) -> Provider {
     let mut params = HashMap::new();
     params.insert("region".to_string(), region.to_string());
 
-
-    crate::config::models::Provider {
+    Provider {
         key: "test_key".to_string(),
         r#type: "".to_string(),
         api_key: "".to_string(),
@@ -13,15 +13,25 @@ fn get_test_provider_config(region: &str) -> crate::config::models::Provider {
     }
 }
 
+fn get_test_model_config(model_type: &str, provider_type: &str) ->ModelConfig {
+    let mut params = HashMap::new();
+    params.insert("model_provider".to_string(), provider_type.to_string());
+
+    ModelConfig {
+        key: "test-model".to_string(),
+        r#type: model_type.to_string(),
+        provider: "bedrock".to_string(),
+        params,
+    }
+}
+
 #[cfg(test)]
 mod antropic_tests {
-    use crate::config::models::ModelConfig;
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::providers::bedrock::BedrockProvider;
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-    use crate::providers::bedrock::test::get_test_provider_config;
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::provider::Provider;
-    use std::collections::HashMap;
 
 
 
@@ -39,12 +49,10 @@ mod antropic_tests {
         let config = get_test_provider_config("us-east-2");
         let provider = BedrockProvider::new(&config);
 
-        let model_config = ModelConfig {
-            key: "test-model".to_string(),
-            r#type: "us.anthropic.claude-3-haiku-20240307-v1:0".to_string(),
-            provider: "bedrock".to_string(),
-            params: HashMap::new(),
-        };
+        let model_config = get_test_model_config(
+            "us.anthropic.claude-3-haiku-20240307-v1:0",
+            "anthropic"
+        );
 
         let payload = ChatCompletionRequest {
             model: "us.anthropic.claude-3-haiku-20240307-v1:0".to_string(),
@@ -84,27 +92,6 @@ mod antropic_tests {
             assert!(first_choice.message.content.is_some(), "Expected message content");
             assert_eq!(first_choice.message.role, "assistant", "Expected assistant role");
         }
-        //
-        // match result {
-        //     Ok(response) => {
-        //         println!("Chat completion successful!");
-        //         match response {
-        //             ChatCompletionResponse::Stream(_stream) => {
-        //                 println!("Received streaming response - stream data available");
-        //             },
-        //             ChatCompletionResponse::NonStream(completion) => {
-        //                 let json = serde_json::to_string_pretty(&completion).unwrap_or_else(|e| {
-        //                     format!("Failed to serialize response to JSON: {}", e)
-        //                 });
-        //                 println!("Response JSON:\n{}", json);
-        //             }
-        //         }
-        //     },
-        //     Err(e) => {
-        //         println!("Error occurred during chat completion: {:?}", e);
-        //         panic!("Chat completion failed with error: {:?}", e);
-        //     }
-        // }
     }
 }
 
@@ -114,20 +101,11 @@ mod titan_tests {
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::providers::bedrock::BedrockProvider;
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-    use crate::providers::bedrock::test::get_test_provider_config;
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::provider::Provider;
-    use std::collections::HashMap;
     use crate::models::embeddings::EmbeddingsInput::Single;
     use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
 
-    fn get_test_model_config(model_type: &str) -> ModelConfig {
-        ModelConfig {
-            key: "test-model".to_string(),
-            r#type: model_type.to_string(),
-            provider: "bedrock".to_string(),
-            params: HashMap::new(),
-        }
-    }
 
     #[test]
     fn test_titan_provider_new() {
@@ -143,8 +121,10 @@ mod titan_tests {
 
         let config = get_test_provider_config("us-east-2");
         let provider = BedrockProvider::new(&config);
-
-        let model_config = get_test_model_config("amazon.titan-embed-text-v2:0");
+        let model_config = get_test_model_config(
+            "amazon.titan-embed-text-v2:0",
+            "titan"
+        );
 
         let payload = EmbeddingsRequest {
             model: "amazon.titan-embed-text-v2:0".to_string(),
@@ -159,28 +139,16 @@ mod titan_tests {
         assert!(!response.data.is_empty(), "Expected non-empty embeddings data");
         assert!(!response.data[0].embedding.is_empty(), "Expected non-empty embedding vector");
         assert!(response.usage.prompt_tokens > 0, "Expected non-zero token usage");
-        // match result {
-        //     Ok(response) => {
-        //         println!("Embeddings generation successful!");
-        //         // Pretty print the response
-        //         let json = serde_json::to_string_pretty(&response).unwrap_or_else(|e| {
-        //             format!("Failed to serialize response to JSON: {}", e)
-        //         });
-        //         println!("Response JSON:\n{}", json);
-        //     },
-        //     Err(e) => {
-        //         println!("Error occurred during embeddings generation: {:?}", e);
-        //         panic!("Embeddings generation failed with error: {:?}", e);
-        //     }
-        // }
-
-
     }
 
     #[tokio::test]
     async fn test_embeddings_invalid_input() {
-        let provider = BedrockProvider::new(&get_test_provider_config("us-east-2"));
-        let model_config = get_test_model_config("amazon.titan-embed-text-v2:0");
+        let config = get_test_provider_config("us-east-2");
+        let provider = BedrockProvider::new(&config);
+        let model_config = get_test_model_config(
+            "amazon.titan-embed-text-v2:0",
+            "titan"
+        );
 
         let payload = EmbeddingsRequest {
             model: model_config.r#type.clone(),
@@ -198,7 +166,10 @@ mod titan_tests {
         let config = get_test_provider_config("us-east-2");
         let provider = BedrockProvider::new(&config);
 
-        let model_config = get_test_model_config("us.amazon.nova-lite-v1:0");
+        let model_config = get_test_model_config(
+            "amazon.titan-embed-text-v2:0",
+            "titan"
+        );
 
         let payload = ChatCompletionRequest {
             model: "us.amazon.nova-lite-v1:0".to_string(),
@@ -238,28 +209,6 @@ mod titan_tests {
             assert!(first_choice.message.content.is_some(), "Expected message content");
             assert_eq!(first_choice.message.role, "assistant", "Expected assistant role");
         }
-        // match result {
-        //     Ok(response) => {
-        //         println!("Chat completion successful!");
-        //         match response {
-        //             ChatCompletionResponse::Stream(_stream) => {
-        //                 println!("Received streaming response - stream data available");
-        //             },
-        //             ChatCompletionResponse::NonStream(completion) => {
-        //                 let json = serde_json::to_string_pretty(&completion).unwrap_or_else(|e| {
-        //                     format!("Failed to serialize response to JSON: {}", e)
-        //                 });
-        //                 println!("Response JSON:\n{}", json);
-        //             }
-        //         }
-        //     },
-        //     Err(e) => {
-        //         println!("Error occurred during chat completion: {:?}", e);
-        //         panic!("Chat completion failed with error: {:?}", e);
-        //     }
-        // }
-
-
     }
 
     #[tokio::test]
@@ -267,7 +216,10 @@ mod titan_tests {
         let config = get_test_provider_config("us-east-2");
         let provider = BedrockProvider::new(&config);
 
-        let model_config = get_test_model_config("invalid-model");
+        let model_config = get_test_model_config(
+            "amazon.titan-embed-text-v2:0",
+            "titan"
+        );
 
         let payload = ChatCompletionRequest {
             model: model_config.r#type.clone(),
@@ -303,23 +255,13 @@ mod titan_tests {
 
 #[cfg(test)]
 mod ai21_tests {
-    use crate::config::models::ModelConfig;
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::providers::bedrock::BedrockProvider;
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-    use crate::providers::bedrock::test::get_test_provider_config;
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::provider::Provider;
-    use std::collections::HashMap;
     use crate::models::completion::CompletionRequest;
 
-    fn get_test_model_config(model_type: &str) -> ModelConfig {
-        ModelConfig {
-            key: "test-model".to_string(),
-            r#type: model_type.to_string(),
-            provider: "bedrock".to_string(),
-            params: HashMap::new(),
-        }
-    }
 
     #[test]
     fn test_ai21_provider_new() {
@@ -335,7 +277,10 @@ mod ai21_tests {
         let config = get_test_provider_config("us-east-1");
         let provider = BedrockProvider::new(&config);
 
-        let model_config = get_test_model_config("ai21.j2-mid-v1");
+        let model_config = get_test_model_config(
+            "ai21.j2-mid-v1",
+            "ai21"
+        );
 
         let payload = CompletionRequest{
             model: "ai21.j2-mid-v1".to_string(),
@@ -366,21 +311,6 @@ mod ai21_tests {
         let first_choice = &response.choices[0];
         assert!(!first_choice.text.is_empty(), "Expected non-empty completion text");
         assert!(first_choice.logprobs.is_some(), "Expected logprobs to be present");
-
-        // match result {
-        //     Ok(response) => {
-        //         println!("Ai21 Completions successful!");
-        //         // Pretty print the response
-        //         let json = serde_json::to_string_pretty(&response).unwrap_or_else(|e| {
-        //             format!("Failed to serialize response to JSON: {}", e)
-        //         });
-        //         println!("Response JSON:\n{}", json);
-        //     },
-        //     Err(e) => {
-        //         println!("Error occurred during Ai21 Completions: {:?}", e);
-        //         panic!("Ai21 Completions failed with error: {:?}", e);
-        //     }
-        // }
     }
 
     #[tokio::test]
@@ -388,7 +318,10 @@ mod ai21_tests {
         let config = get_test_provider_config("us-east-1");
         let provider = BedrockProvider::new(&config);
 
-        let model_config = get_test_model_config("ai21.jamba-1-5-mini-v1:0");
+        let model_config = get_test_model_config(
+            "ai21.jamba-1-5-mini-v1:0",
+            "ai21"
+        );
 
         let payload = ChatCompletionRequest {
             model: "ai21.jamba-1-5-mini-v1:0".to_string(),
@@ -428,25 +361,5 @@ mod ai21_tests {
             assert!(first_choice.message.content.is_some(), "Expected message content");
             assert_eq!(first_choice.message.role, "assistant", "Expected assistant role");
         }
-        // match result {
-        //     Ok(response) => {
-        //         println!("Chat completion successful!");
-        //         match response {
-        //             ChatCompletionResponse::Stream(_stream) => {
-        //                 println!("Received streaming response - stream data available");
-        //             },
-        //             ChatCompletionResponse::NonStream(completion) => {
-        //                 let json = serde_json::to_string_pretty(&completion).unwrap_or_else(|e| {
-        //                     format!("Failed to serialize response to JSON: {}", e)
-        //                 });
-        //                 println!("Response JSON:\n{}", json);
-        //             }
-        //         }
-        //     },
-        //     Err(e) => {
-        //         println!("Error occurred during chat completion: {:?}", e);
-        //         panic!("Chat completion failed with error: {:?}", e);
-        //     }
-        // }
     }
 }
