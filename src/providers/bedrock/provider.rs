@@ -73,7 +73,6 @@ struct  AnthropicImplementation;
 
 pub struct BedrockProvider {
     config: ProviderConfig,
-    // client :  BedrockRuntimeClient
 }
 
 
@@ -99,6 +98,23 @@ impl BedrockProvider {
 
         Ok(BedrockRuntimeClient::new(&sdk_config))
     }
+
+    fn get_provider_implementation(&self, model_config: &ModelConfig) -> Box<dyn BedrockModelImplementation> {
+
+        let bedrock_model_provider = model_config.params
+            .get("model_provider")
+            .unwrap();
+
+        let provider_implementation: Box<dyn BedrockModelImplementation> = match bedrock_model_provider.as_str() {
+            "ai21" => Box::new(AI21Implementation),
+            "titan" => Box::new(TitanImplementation),
+            "anthropic" => Box::new(AnthropicImplementation),
+            _ => panic!("Invalid bedrock model provider")
+        };
+
+        provider_implementation
+    }
+
 }
 
 
@@ -126,25 +142,20 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        // AI21Implementation.chat_completion(&client, payload).await
-
-        // TitanImplementation.chat_completion(&client, payload).await
-
-        AnthropicImplementation.chat_completion(&client, payload).await
-
+        self.get_provider_implementation(model_config).chat_completion(&client, payload).await
     }
 
-    async fn completions(&self, payload: CompletionRequest, _model_config: &ModelConfig) -> Result<CompletionResponse, StatusCode> {
+    async fn completions(&self, payload: CompletionRequest, model_config: &ModelConfig) -> Result<CompletionResponse, StatusCode> {
 
         let client = self.create_client().await.map_err(|e| {
             eprintln!("Failed to create Bedrock client: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        AI21Implementation.completion(&client, payload).await
+        self.get_provider_implementation(model_config).completion(&client, payload).await
     }
 
-    async fn embeddings(&self, payload: EmbeddingsRequest, _model_config: &ModelConfig) -> Result<EmbeddingsResponse, StatusCode> {
+    async fn embeddings(&self, payload: EmbeddingsRequest, model_config: &ModelConfig) -> Result<EmbeddingsResponse, StatusCode> {
 
 
         let client = self.create_client().await.map_err(|e| {
@@ -152,7 +163,7 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        TitanImplementation.embedding(&client, payload).await
+        self.get_provider_implementation(model_config).embedding(&client, payload).await
 
     }
 }
@@ -172,20 +183,22 @@ trait BedrockModelImplementation: Send + Sync {
 
     async fn completion(
         &self,
-        client: &BedrockRuntimeClient,
-        payload: CompletionRequest,
+        _client: &BedrockRuntimeClient,
+        _payload: CompletionRequest,
     ) -> Result<CompletionResponse, StatusCode> {
         Err(StatusCode::NOT_IMPLEMENTED)
     }
 
     async fn embedding(
         &self,
-        client: &BedrockRuntimeClient,
-        payload: EmbeddingsRequest,
+        _client: &BedrockRuntimeClient,
+        _payload: EmbeddingsRequest,
     ) -> Result<EmbeddingsResponse, StatusCode> {
         Err(StatusCode::NOT_IMPLEMENTED)
     }
+}
 
+trait BedrockRequestHandler {
     async fn handle_bedrock_request<T, U>(
         &self,
         client: &BedrockRuntimeClient,
@@ -224,6 +237,11 @@ trait BedrockModelImplementation: Send + Sync {
         })
     }
 }
+
+
+impl BedrockRequestHandler for AI21Implementation {}
+impl BedrockRequestHandler for TitanImplementation {}
+impl BedrockRequestHandler for AnthropicImplementation {}
 
 /**
         AI21 IMPLEMENTATION
