@@ -1,3 +1,5 @@
+config-example:
+  yaml:
 providers:
   - key: azure-openai
     type: azure
@@ -7,6 +9,13 @@ providers:
   - key: openai
     type: openai
     api_key: "<your-openai-api-key>"
+  - key: bedrock
+    type: bedrock
+    api_key: ""# Not used for AWS Bedrock
+    region: "<your-aws-region>"
+    AWS_ACCESS_KEY_ID: "<your-aws-access-key>"
+    AWS_SECRET_ACCESS_KEY: "<your-aws-secret-key>"
+    AWS_SESSION_TOKEN: "<your-session-token>"  # Optional
 
 models:
   - key: gpt-4o-openai
@@ -16,6 +25,11 @@ models:
     type: gpt-4o
     provider: azure-openai
     deployment: "<your-deployment>"
+  - key: bedrock-model
+    # some models are region specific, it is a good idea to get ARN from cross region reference tab
+    type: "< model-id or Inference profile ARN or Inference profile ID>"
+    provider: bedrock
+    model_provider: "<model-provider>"#ai21 , titan , anthropic
 
 pipelines:
   - name: default
