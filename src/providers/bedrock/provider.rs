@@ -18,52 +18,6 @@ use crate::providers::provider::Provider;
 use aws_sdk_bedrockruntime::primitives::Blob;
 use crate::providers::anthropic::{AnthropicChatCompletionRequest, AnthropicChatCompletionResponse};
 use crate::providers::bedrock::models::{Ai21ChatCompletionRequest, Ai21ChatCompletionResponse, Ai21CompletionsRequest, Ai21CompletionsResponse, TitanChatCompletionRequest, TitanChatCompletionResponse, TitanEmbeddingRequest, TitanEmbeddingResponse};
-// https://www.shuttle.dev/blog/2024/05/10/prompting-aws-bedrock-rust
-
-// diff -> https://stackoverflow.com/questions/76192496/openai-v1-completions-vs-v1-chat-completions-end-points
-
-/*
-Support all major Bedrock models:
-Anthropic Claude models
-Amazon Titan models
-AI21 Jurassic models - us east 1 not 2
-
-    the lagacy versons seem to be different
-    Jamba 1.5 Large  Jamba 1.5 Mini jamba-Instruct
-Stability.ai models
-
-
-Notes for me to remember:
-
-Antropic models use the same format
-   I can pass control to the antrhopic provider and it will pass correct
-their models start with  "anthropic."
-checked :
-Claude 3.5 Haiku
-Claude 3.5 Sonnet
-Claude 3 Haiku
-
-
-
-Amazon Titan model - it is an embedding
-
-https://us-east-2.console.aws.amazon.com/bedrock/home?region=us-east-2#/model-catalog/serverless/amazon.titan-embed-text-v2:0
-
-https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/model-catalog/serverless/amazon.titan-embed-text-v1
-starts with "amazon.titan"
-
-inputText
-
-
-titan takes only one input text , not sure why enum has an option for multiple
-    TODO : Ask them why ?
-
-
-I will forward control to antripic if the chatcompletion is from antropic
-
-note : chat completions accepts role with completion does not
- */
-
 
 struct AI21Implementation;
 struct TitanImplementation;

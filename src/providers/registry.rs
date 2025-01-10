@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::config::models::Provider as ProviderConfig;
 use crate::providers::{
-    anthropic::AnthropicProvider, azure::AzureProvider, openai::OpenAIProvider, provider::Provider,
+    anthropic::AnthropicProvider, azure::AzureProvider, openai::OpenAIProvider, provider::Provider,bedrock::BedrockProvider
 };
 
 pub struct ProviderRegistry {
@@ -20,6 +20,7 @@ impl ProviderRegistry {
                 "openai" => Arc::new(OpenAIProvider::new(config)),
                 "anthropic" => Arc::new(AnthropicProvider::new(config)),
                 "azure" => Arc::new(AzureProvider::new(config)),
+                "bedrock" => Arc::new(BedrockProvider::new(config)),
                 _ => continue,
             };
             providers.insert(config.key.clone(), provider);
