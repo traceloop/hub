@@ -1,12 +1,11 @@
-use std::error::Error;
 use axum::async_trait;
 use axum::http::StatusCode;
+use std::error::Error;
 
-use aws_sdk_bedrockruntime::Client as BedrockRuntimeClient;
 use aws_config::BehaviorVersion;
 use aws_config::Region;
 use aws_credential_types::Credentials;
-
+use aws_sdk_bedrockruntime::Client as BedrockRuntimeClient;
 
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
@@ -14,35 +13,37 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::providers::provider::Provider;
 
-
+use crate::providers::anthropic::{
+    AnthropicChatCompletionRequest, AnthropicChatCompletionResponse,
+};
+use crate::providers::bedrock::models::{
+    Ai21ChatCompletionRequest, Ai21ChatCompletionResponse, Ai21CompletionsRequest,
+    Ai21CompletionsResponse, TitanChatCompletionRequest, TitanChatCompletionResponse,
+    TitanEmbeddingRequest, TitanEmbeddingResponse,
+};
 use aws_sdk_bedrockruntime::primitives::Blob;
-use crate::providers::anthropic::{AnthropicChatCompletionRequest, AnthropicChatCompletionResponse};
-use crate::providers::bedrock::models::{Ai21ChatCompletionRequest, Ai21ChatCompletionResponse, Ai21CompletionsRequest, Ai21CompletionsResponse, TitanChatCompletionRequest, TitanChatCompletionResponse, TitanEmbeddingRequest, TitanEmbeddingResponse};
 
 struct AI21Implementation;
 struct TitanImplementation;
-struct  AnthropicImplementation;
-
-
+struct AnthropicImplementation;
 
 pub struct BedrockProvider {
     config: ProviderConfig,
 }
 
-
 impl BedrockProvider {
     async fn create_client(&self) -> Result<BedrockRuntimeClient, String> {
-
         let region = self.config.params.get("region").unwrap().clone();
         let access_key_id = self.config.params.get("AWS_ACCESS_KEY_ID").unwrap().clone();
-        let secret_access_key = self.config.params.get("AWS_SECRET_ACCESS_KEY").unwrap().clone();
+        let secret_access_key = self
+            .config
+            .params
+            .get("AWS_SECRET_ACCESS_KEY")
+            .unwrap()
+            .clone();
         let session_token = self.config.params.get("AWS_SESSION_TOKEN").cloned();
 
-        let credentials = Credentials::from_keys(
-            access_key_id,
-            secret_access_key,
-            session_token,
-        );
+        let credentials = Credentials::from_keys(access_key_id, secret_access_key, session_token);
 
         let sdk_config = aws_config::defaults(BehaviorVersion::latest())
             .region(Region::new(region))
@@ -53,29 +54,27 @@ impl BedrockProvider {
         Ok(BedrockRuntimeClient::new(&sdk_config))
     }
 
-    fn get_provider_implementation(&self, model_config: &ModelConfig) -> Box<dyn BedrockModelImplementation> {
+    fn get_provider_implementation(
+        &self,
+        model_config: &ModelConfig,
+    ) -> Box<dyn BedrockModelImplementation> {
+        let bedrock_model_provider = model_config.params.get("model_provider").unwrap();
 
-        let bedrock_model_provider = model_config.params
-            .get("model_provider")
-            .unwrap();
-
-        let provider_implementation: Box<dyn BedrockModelImplementation> = match bedrock_model_provider.as_str() {
-            "ai21" => Box::new(AI21Implementation),
-            "titan" => Box::new(TitanImplementation),
-            "anthropic" => Box::new(AnthropicImplementation),
-            _ => panic!("Invalid bedrock model provider")
-        };
+        let provider_implementation: Box<dyn BedrockModelImplementation> =
+            match bedrock_model_provider.as_str() {
+                "ai21" => Box::new(AI21Implementation),
+                "titan" => Box::new(TitanImplementation),
+                "anthropic" => Box::new(AnthropicImplementation),
+                _ => panic!("Invalid bedrock model provider"),
+            };
 
         provider_implementation
     }
-
 }
-
 
 #[async_trait]
 impl Provider for BedrockProvider {
     fn new(config: &ProviderConfig) -> Self {
-
         Self {
             config: config.clone(),
         }
@@ -89,39 +88,51 @@ impl Provider for BedrockProvider {
         "bedrock".to_string()
     }
 
-    async fn chat_completions(&self, payload: ChatCompletionRequest, model_config: &ModelConfig) -> Result<ChatCompletionResponse, StatusCode> {
-
+    async fn chat_completions(
+        &self,
+        payload: ChatCompletionRequest,
+        model_config: &ModelConfig,
+    ) -> Result<ChatCompletionResponse, StatusCode> {
         let client = self.create_client().await.map_err(|e| {
             eprintln!("Failed to create Bedrock client: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        self.get_provider_implementation(model_config).chat_completion(&client, payload).await
+        self.get_provider_implementation(model_config)
+            .chat_completion(&client, payload)
+            .await
     }
 
-    async fn completions(&self, payload: CompletionRequest, model_config: &ModelConfig) -> Result<CompletionResponse, StatusCode> {
-
+    async fn completions(
+        &self,
+        payload: CompletionRequest,
+        model_config: &ModelConfig,
+    ) -> Result<CompletionResponse, StatusCode> {
         let client = self.create_client().await.map_err(|e| {
             eprintln!("Failed to create Bedrock client: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        self.get_provider_implementation(model_config).completion(&client, payload).await
+        self.get_provider_implementation(model_config)
+            .completion(&client, payload)
+            .await
     }
 
-    async fn embeddings(&self, payload: EmbeddingsRequest, model_config: &ModelConfig) -> Result<EmbeddingsResponse, StatusCode> {
-
-
+    async fn embeddings(
+        &self,
+        payload: EmbeddingsRequest,
+        model_config: &ModelConfig,
+    ) -> Result<EmbeddingsResponse, StatusCode> {
         let client = self.create_client().await.map_err(|e| {
             eprintln!("Failed to create Bedrock client: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        self.get_provider_implementation(model_config).embedding(&client, payload).await
-
+        self.get_provider_implementation(model_config)
+            .embedding(&client, payload)
+            .await
     }
 }
-
 
 /**
         BEDROCK IMPLEMENTATION TEMPLATE - WILL SERVE AS LAYOUT FOR OTHER IMPLEMENTATIONS
@@ -179,8 +190,11 @@ trait BedrockRequestHandler {
             .await
             .map_err(|e| {
                 eprintln!("Bedrock API error for {}: {:?}", error_context, e);
-                eprintln!("Error details - Source: {}, Raw error: {:?}",
-                          e.source().unwrap_or(&e), e.raw_response());
+                eprintln!(
+                    "Error details - Source: {}, Raw error: {:?}",
+                    e.source().unwrap_or(&e),
+                    e.raw_response()
+                );
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
@@ -191,7 +205,6 @@ trait BedrockRequestHandler {
         })
     }
 }
-
 
 impl BedrockRequestHandler for AI21Implementation {}
 impl BedrockRequestHandler for TitanImplementation {}
@@ -210,12 +223,7 @@ impl BedrockModelImplementation for AI21Implementation {
     ) -> Result<ChatCompletionResponse, StatusCode> {
         let ai21_request = Ai21ChatCompletionRequest::from(payload.clone());
         let ai21_response: Ai21ChatCompletionResponse = self
-            .handle_bedrock_request(
-                client,
-                &payload.model,
-                ai21_request,
-                "AI21 chat completion"
-            )
+            .handle_bedrock_request(client, &payload.model, ai21_request, "AI21 chat completion")
             .await?;
 
         Ok(ChatCompletionResponse::NonStream(ai21_response.into()))
@@ -229,12 +237,7 @@ impl BedrockModelImplementation for AI21Implementation {
         // Bedrock AI21 supports completions in legacy models similar to openai
         let ai21_request = Ai21CompletionsRequest::from(payload.clone());
         let ai21_response: Ai21CompletionsResponse = self
-            .handle_bedrock_request(
-                client,
-                &payload.model,
-                ai21_request,
-                "AI21 completion"
-            )
+            .handle_bedrock_request(client, &payload.model, ai21_request, "AI21 completion")
             .await?;
 
         Ok(CompletionResponse::from(ai21_response))
@@ -258,7 +261,7 @@ impl BedrockModelImplementation for TitanImplementation {
                 client,
                 &payload.model,
                 titan_request,
-                "Titan chat completion"
+                "Titan chat completion",
             )
             .await?;
 
@@ -272,12 +275,7 @@ impl BedrockModelImplementation for TitanImplementation {
     ) -> Result<EmbeddingsResponse, StatusCode> {
         let titan_request = TitanEmbeddingRequest::from(payload.clone());
         let titan_response: TitanEmbeddingResponse = self
-            .handle_bedrock_request(
-                client,
-                &payload.model,
-                titan_request,
-                "Titan embedding"
-            )
+            .handle_bedrock_request(client, &payload.model, titan_request, "Titan embedding")
             .await?;
 
         Ok(EmbeddingsResponse::from(titan_response))
@@ -316,11 +314,10 @@ impl BedrockModelImplementation for AnthropicImplementation {
                 client,
                 &payload.model,
                 request_value,
-                "Anthropic chat completion"
+                "Anthropic chat completion",
             )
             .await?;
 
         Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
     }
 }
-

@@ -32,7 +32,7 @@ pub struct AnthropicChatCompletionResponse {
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
-pub(crate) enum ContentBlock {
+pub enum ContentBlock {
     #[serde(rename = "text")]
     Text { text: String },
     #[serde(rename = "tool_use")]
@@ -44,7 +44,7 @@ pub(crate) enum ContentBlock {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct Usage {
+pub struct Usage {
     pub input_tokens: u32,
     pub output_tokens: u32,
 }
@@ -60,7 +60,7 @@ pub(crate) struct InputSchemaTyped {
 pub(crate) type InputSchema = serde_json::Value;
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct ToolParam {
+pub struct ToolParam {
     pub input_schema: InputSchema,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,7 +69,7 @@ pub(crate) struct ToolParam {
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
-pub(crate) enum ToolChoice {
+pub enum ToolChoice {
     #[serde(rename = "auto")]
     Auto { disable_parallel_tool_use: bool },
     #[serde(rename = "any")]
