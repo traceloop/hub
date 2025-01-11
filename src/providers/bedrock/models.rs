@@ -1,22 +1,27 @@
-use serde::{Deserialize, Serialize};
-use crate::config::constants::{default_max_tokens , default_embedding_dimension , default_embedding_normalize};
+use crate::config::constants::{
+    default_embedding_dimension, default_embedding_normalize, default_max_tokens,
+};
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
-use crate::models::completion::{CompletionChoice, CompletionRequest, CompletionResponse, LogProbs};
+use crate::models::completion::{
+    CompletionChoice, CompletionRequest, CompletionResponse, LogProbs,
+};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-use crate::models::embeddings::{Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::embeddings::{
+    Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
+};
 use crate::models::usage::Usage;
-
+use serde::{Deserialize, Serialize};
 
 /**
  * Titan models
  */
 
-#[derive( Serialize, Deserialize , Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct TitanMessageContent {
     pub text: String,
 }
 
-#[derive( Serialize, Deserialize , Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct TitanMessage {
     pub role: String,
     pub content: Vec<TitanMessageContent>,
@@ -27,7 +32,7 @@ pub struct TitanInferenceConfig {
     pub max_new_tokens: u32,
 }
 
-#[derive(Serialize, Deserialize , Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct TitanChatCompletionRequest {
     #[serde(rename = "inferenceConfig")]
     pub inference_config: TitanInferenceConfig,
@@ -41,7 +46,6 @@ pub struct TitanChatCompletionResponse {
     pub stop_reason: String,
     pub usage: TitanUsage,
 }
-
 
 #[derive(Deserialize, Serialize)]
 pub struct TitanOutput {
@@ -58,28 +62,29 @@ pub struct TitanUsage {
     pub total_tokens: u32,
 }
 
-
 impl From<ChatCompletionRequest> for TitanChatCompletionRequest {
     fn from(request: ChatCompletionRequest) -> Self {
-        let messages = request.messages.into_iter().map(|msg| {
-            let content_text = match msg.content {
-                Some(ChatMessageContent::String(text)) => text,
-                Some(ChatMessageContent::Array(parts)) => parts
-                    .into_iter()
-                    .filter(|part| part.r#type == "text")
-                    .map(|part| part.text)
-                    .collect::<Vec<String>>()
-                    .join(" "),
-                None => String::new(),
-            };
+        let messages = request
+            .messages
+            .into_iter()
+            .map(|msg| {
+                let content_text = match msg.content {
+                    Some(ChatMessageContent::String(text)) => text,
+                    Some(ChatMessageContent::Array(parts)) => parts
+                        .into_iter()
+                        .filter(|part| part.r#type == "text")
+                        .map(|part| part.text)
+                        .collect::<Vec<String>>()
+                        .join(" "),
+                    None => String::new(),
+                };
 
-            TitanMessage {
-                role: msg.role,
-                content: vec![TitanMessageContent {
-                    text: content_text,
-                }],
-            }
-        }).collect();
+                TitanMessage {
+                    role: msg.role,
+                    content: vec![TitanMessageContent { text: content_text }],
+                }
+            })
+            .collect();
 
         TitanChatCompletionRequest {
             inference_config: TitanInferenceConfig {
@@ -95,11 +100,14 @@ impl From<TitanChatCompletionResponse> for ChatCompletion {
         let message = ChatCompletionMessage {
             role: response.output.message.role,
             content: Some(ChatMessageContent::String(
-                response.output.message.content
+                response
+                    .output
+                    .message
+                    .content
                     .into_iter()
                     .map(|c| c.text)
                     .collect::<Vec<String>>()
-                    .join(" ")
+                    .join(" "),
             )),
             name: None,
             tool_calls: None,
@@ -137,7 +145,7 @@ pub struct TitanEmbeddingRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct  TitanEmbeddingResponse {
+pub struct TitanEmbeddingResponse {
     pub embedding: Vec<f32>,
     #[serde(rename = "embeddingsByType")]
     pub embeddings_by_type: EmbeddingsByType,
@@ -146,7 +154,7 @@ pub struct  TitanEmbeddingResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct  EmbeddingsByType {
+pub struct EmbeddingsByType {
     pub float: Vec<f32>,
 }
 
@@ -154,9 +162,9 @@ impl From<EmbeddingsRequest> for TitanEmbeddingRequest {
     fn from(request: EmbeddingsRequest) -> Self {
         let input_text = match request.input {
             EmbeddingsInput::Single(text) => text,
-            EmbeddingsInput::Multiple(texts) => texts.first()
-                .map(|s| s.to_string())
-                .unwrap_or_default(),
+            EmbeddingsInput::Multiple(texts) => {
+                texts.first().map(|s| s.to_string()).unwrap_or_default()
+            }
         };
 
         TitanEmbeddingRequest {
@@ -188,19 +196,17 @@ impl From<TitanEmbeddingResponse> for EmbeddingsResponse {
     }
 }
 
-
-
 /*
     Ai21 models
 */
 
-#[derive(Debug , Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Ai21Message {
     pub role: String,
     pub content: String,
 }
 
-#[derive(Debug ,Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Ai21ChatCompletionRequest {
     pub messages: Vec<Ai21Message>,
     pub max_tokens: u32,
@@ -241,23 +247,27 @@ pub struct Ai21Usage {
 
 impl From<ChatCompletionRequest> for Ai21ChatCompletionRequest {
     fn from(request: ChatCompletionRequest) -> Self {
-        let messages = request.messages.into_iter().map(|msg| {
-            let content = match msg.content {
-                Some(ChatMessageContent::String(text)) => text,
-                Some(ChatMessageContent::Array(parts)) => parts
-                    .into_iter()
-                    .filter(|part| part.r#type == "text")
-                    .map(|part| part.text)
-                    .collect::<Vec<String>>()
-                    .join(" "),
-                None => String::new(),
-            };
+        let messages = request
+            .messages
+            .into_iter()
+            .map(|msg| {
+                let content = match msg.content {
+                    Some(ChatMessageContent::String(text)) => text,
+                    Some(ChatMessageContent::Array(parts)) => parts
+                        .into_iter()
+                        .filter(|part| part.r#type == "text")
+                        .map(|part| part.text)
+                        .collect::<Vec<String>>()
+                        .join(" "),
+                    None => String::new(),
+                };
 
-            Ai21Message {
-                role: msg.role,
-                content,
-            }
-        }).collect();
+                Ai21Message {
+                    role: msg.role,
+                    content,
+                }
+            })
+            .collect();
 
         Ai21ChatCompletionRequest {
             messages,
@@ -268,7 +278,6 @@ impl From<ChatCompletionRequest> for Ai21ChatCompletionRequest {
     }
 }
 
-
 impl From<Ai21ChatCompletionResponse> for ChatCompletion {
     fn from(response: Ai21ChatCompletionResponse) -> Self {
         ChatCompletion {
@@ -276,7 +285,8 @@ impl From<Ai21ChatCompletionResponse> for ChatCompletion {
             object: None,
             created: None,
             model: response.model,
-            choices: response.choices
+            choices: response
+                .choices
                 .into_iter()
                 .map(|choice| ChatCompletionChoice {
                     index: choice.index,
@@ -402,14 +412,14 @@ impl From<CompletionRequest> for Ai21CompletionsRequest {
                     penalty as i32
                 } else {
                     0
-                }
+                },
             },
             frequency_penalty: PenaltyConfig {
                 scale: if let Some(penalty) = request.frequency_penalty {
                     penalty as i32
                 } else {
                     0
-                }
+                },
             },
         }
     }
@@ -418,7 +428,8 @@ impl From<CompletionRequest> for Ai21CompletionsRequest {
 impl From<Ai21CompletionsResponse> for CompletionResponse {
     fn from(response: Ai21CompletionsResponse) -> Self {
         let total_prompt_tokens = response.prompt.tokens.len() as u32;
-        let total_completion_tokens = response.completions
+        let total_completion_tokens = response
+            .completions
             .iter()
             .map(|c| c.data.tokens.len() as u32)
             .sum();
@@ -426,29 +437,47 @@ impl From<Ai21CompletionsResponse> for CompletionResponse {
         CompletionResponse {
             id: response.id.to_string(),
             object: "".to_string(),
-            created:chrono::Utc::now().timestamp() as u64,
+            created: chrono::Utc::now().timestamp() as u64,
             model: "".to_string(),
-            choices: response.completions
+            choices: response
+                .completions
                 .into_iter()
                 .enumerate()
                 .map(|(index, completion)| CompletionChoice {
                     text: completion.data.text,
                     index: index as u32,
                     logprobs: Some(LogProbs {
-                        tokens: completion.data.tokens.iter()
+                        tokens: completion
+                            .data
+                            .tokens
+                            .iter()
                             .filter_map(|t| t.generated_token.as_ref().map(|gt| gt.token.clone()))
                             .collect(),
-                        token_logprobs: completion.data.tokens.iter()
+                        token_logprobs: completion
+                            .data
+                            .tokens
+                            .iter()
                             .filter_map(|t| t.generated_token.as_ref().map(|gt| gt.log_prob as f32))
                             .collect(),
-                        top_logprobs: completion.data.tokens.iter()
-                            .map(|t| t.top_tokens.clone()
-                                .map(|tt| tt.into_iter()
-                                    .map(|top| (top.token, top.logprob as f32))
-                                    .collect())
-                                .unwrap_or_default())
+                        top_logprobs: completion
+                            .data
+                            .tokens
+                            .iter()
+                            .map(|t| {
+                                t.top_tokens
+                                    .clone()
+                                    .map(|tt| {
+                                        tt.into_iter()
+                                            .map(|top| (top.token, top.logprob as f32))
+                                            .collect()
+                                    })
+                                    .unwrap_or_default()
+                            })
                             .collect(),
-                        text_offset: completion.data.tokens.iter()
+                        text_offset: completion
+                            .data
+                            .tokens
+                            .iter()
                             .map(|t| t.text_range.start as usize)
                             .collect(),
                     }),
