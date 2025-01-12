@@ -24,18 +24,141 @@
             "finish_reason": "STOP",
             "index": 0,
             "message": {
-              "content": "The capital of France is Paris. \n",
+              "content": "The capital of France is Paris.",
               "role": "assistant"
             }
           }
         ],
-        "id": "418e8703-8e9b-4460-a358-37ab8510c16d",
+        "id": "7277544b-4643-4d73-b162-eaa0fdef9514",
         "model": "gemini-pro",
         "system_fingerprint": null,
         "usage": {
-          "completion_tokens": 9,
+          "completion_tokens": 7,
           "prompt_tokens": 7,
-          "total_tokens": 16
+          "total_tokens": 14
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "path": "/v1/projects/extended-legend-445620-u1/locations/us-central1/publishers/google/models/gemini-pro:generateContent",
+      "headers": {},
+      "body": {
+        "max_tokens": 100,
+        "messages": [
+          {
+            "content": "What is the capital of France?",
+            "role": "user"
+          }
+        ],
+        "model": "gemini-pro",
+        "temperature": 0.699999988079071
+      }
+    },
+    "response": {
+      "status": 200,
+      "body": {
+        "choices": [
+          {
+            "finish_reason": "STOP",
+            "index": 0,
+            "message": {
+              "content": "The capital of France is Paris.",
+              "role": "assistant"
+            }
+          }
+        ],
+        "id": "018a66d5-c0af-4805-8b10-9733fc78b60e",
+        "model": "gemini-pro",
+        "system_fingerprint": null,
+        "usage": {
+          "completion_tokens": 7,
+          "prompt_tokens": 7,
+          "total_tokens": 14
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "path": "/v1/projects/extended-legend-445620-u1/locations/us-central1/publishers/google/models/gemini-pro:generateContent",
+      "headers": {},
+      "body": {
+        "max_tokens": 100,
+        "messages": [
+          {
+            "content": "What is the capital of France?",
+            "role": "user"
+          }
+        ],
+        "model": "gemini-pro",
+        "temperature": 0.699999988079071
+      }
+    },
+    "response": {
+      "status": 200,
+      "body": {
+        "choices": [
+          {
+            "finish_reason": "STOP",
+            "index": 0,
+            "message": {
+              "content": "The capital of France is Paris. \n\nWould you like to know anything else about France? I can provide you with information on its history, culture, geography, or anything else you might be interested in. \n",
+              "role": "assistant"
+            }
+          }
+        ],
+        "id": "208cb351-7fc7-4e98-bfb7-d4832a0d0420",
+        "model": "gemini-pro",
+        "system_fingerprint": null,
+        "usage": {
+          "completion_tokens": 44,
+          "prompt_tokens": 7,
+          "total_tokens": 51
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "path": "/v1/projects/extended-legend-445620-u1/locations/us-central1/publishers/google/models/gemini-pro:generateContent",
+      "headers": {},
+      "body": {
+        "max_tokens": 100,
+        "messages": [
+          {
+            "content": "What is the capital of France?",
+            "role": "user"
+          }
+        ],
+        "model": "gemini-pro",
+        "temperature": 0.699999988079071
+      }
+    },
+    "response": {
+      "status": 200,
+      "body": {
+        "choices": [
+          {
+            "finish_reason": "STOP",
+            "index": 0,
+            "message": {
+              "content": "The capital of France is Paris.",
+              "role": "assistant"
+            }
+          }
+        ],
+        "id": "22fb7111-3d7f-42e5-b2f5-243c958d2f96",
+        "model": "gemini-pro",
+        "system_fingerprint": null,
+        "usage": {
+          "completion_tokens": 7,
+          "prompt_tokens": 7,
+          "total_tokens": 14
         }
       }
     }

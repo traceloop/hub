@@ -2,7 +2,7 @@
   {
     "request": {
       "method": "POST",
-      "path": "/v1/projects/extended-legend-445620-u1/locations/us-central1/publishers/google/models/gemini-pro:generateContent",
+      "path": "gemini-pro:generateContent",
       "headers": {},
       "body": {
         "max_tokens": 100,
@@ -53,14 +53,14 @@
                     "arguments": "{\"location\":\"San Francisco\"}",
                     "name": "get_weather"
                   },
-                  "id": "4c9c6e5d-7214-45bf-a3ca-9f20d729b00f",
+                  "id": "b6ff6d69-0310-4215-9640-a55614975d9e",
                   "type": "function"
                 }
               ]
             }
           }
         ],
-        "id": "800fbaf4-3dc5-46bd-aafd-dba506ef7919",
+        "id": "714a1e68-5dfa-4dd6-9861-342c7b3cc03d",
         "model": "gemini-pro",
         "system_fingerprint": null,
         "usage": {
