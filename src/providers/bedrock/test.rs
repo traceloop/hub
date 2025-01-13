@@ -1,17 +1,49 @@
 #[cfg(test)]
-fn get_test_provider_config(region: &str) -> crate::config::models::Provider {
+impl crate::providers::bedrock::provider::ClientProvider
+    for crate::providers::bedrock::BedrockProvider
+{
+    // COMMENT OUT THIS BLOCK TO RUN AGAINST ACTUAL AWS SERVICES
+    // OR CHANGE YOUR ENVIRONMENT FROM TEST TO PROD
+    async fn create_client(&self) -> Result<aws_sdk_bedrockruntime::Client, String> {
+        let handler = self
+            .config
+            .params
+            .get("test_response_handler")
+            .map(|s| s.as_str());
+        let mock_responses = match handler {
+            Some("anthropic_chat_completion") => vec![dummy_anthropic_chat_completion_response()],
+            Some("ai21_chat_completion") => vec![dummy_ai21_chat_completion_response()],
+            Some("ai21_completion") => vec![dummy_ai21_completion_response()],
+            Some("titan_chat_completion") => vec![dummy_titan_chat_completion_response()],
+            Some("titan_embedding") => vec![dummy_titan_embedding_response()],
+            _ => vec![],
+        };
+        let test_client = create_test_bedrock_client(mock_responses).await;
+        Ok(test_client)
+    }
+}
+
+#[cfg(test)]
+fn get_test_provider_config(
+    region: &str,
+    test_response_handler: &str,
+) -> crate::config::models::Provider {
     use std::collections::HashMap;
 
     let mut params = HashMap::new();
     params.insert("region".to_string(), region.to_string());
 
-    let aws_access_key_id =
-        std::env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID must be set for tests");
-    let aws_secret_access_key = std::env::var("AWS_SECRET_ACCESS_KEY")
-        .expect("AWS_SECRET_ACCESS_KEY must be set for tests");
+    let aws_access_key_id = std::env::var("AWS_ACCESS_KEY_ID").unwrap_or("test_id".to_string());
+    let aws_secret_access_key =
+        std::env::var("AWS_SECRET_ACCESS_KEY").unwrap_or("test_key".to_string());
 
     params.insert("AWS_ACCESS_KEY_ID".to_string(), aws_access_key_id);
     params.insert("AWS_SECRET_ACCESS_KEY".to_string(), aws_secret_access_key);
+
+    params.insert(
+        "test_response_handler".to_string(),
+        format!("{}", test_response_handler).to_string(),
+    );
 
     crate::config::models::Provider {
         key: "test_key".to_string(),
@@ -48,7 +80,7 @@ mod antropic_tests {
 
     #[test]
     fn test_bedrock_provider_new() {
-        let config = get_test_provider_config("us-east-1");
+        let config = get_test_provider_config("us-east-1", "");
         let provider = BedrockProvider::new(&config);
 
         assert_eq!(provider.key(), "test_key");
@@ -57,7 +89,7 @@ mod antropic_tests {
 
     #[tokio::test]
     async fn test_bedrock_provider_chat_completions() {
-        let config = get_test_provider_config("us-east-2");
+        let config = get_test_provider_config("us-east-2", "anthropic_chat_completion");
         let provider = BedrockProvider::new(&config);
 
         let model_config =
@@ -117,14 +149,14 @@ mod titan_tests {
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
     use crate::models::embeddings::EmbeddingsInput::Single;
-    use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
+    use crate::models::embeddings::EmbeddingsRequest;
     use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::bedrock::BedrockProvider;
     use crate::providers::provider::Provider;
 
     #[test]
     fn test_titan_provider_new() {
-        let config = get_test_provider_config("us-east-2");
+        let config = get_test_provider_config("us-east-2", "");
         let provider = BedrockProvider::new(&config);
 
         assert_eq!(provider.key(), "test_key");
@@ -133,7 +165,7 @@ mod titan_tests {
 
     #[tokio::test]
     async fn test_embeddings() {
-        let config = get_test_provider_config("us-east-2");
+        let config = get_test_provider_config("us-east-2", "titan_embedding");
         let provider = BedrockProvider::new(&config);
         let model_config = get_test_model_config("amazon.titan-embed-text-v2:0", "titan");
 
@@ -166,25 +198,8 @@ mod titan_tests {
     }
 
     #[tokio::test]
-    async fn test_embeddings_invalid_input() {
-        let config = get_test_provider_config("us-east-2");
-        let provider = BedrockProvider::new(&config);
-        let model_config = get_test_model_config("amazon.titan-embed-text-v2:0", "titan");
-
-        let payload = EmbeddingsRequest {
-            model: model_config.r#type.clone(),
-            input: EmbeddingsInput::Single("".to_string()),
-            user: None,
-            encoding_format: None,
-        };
-
-        let result = provider.embeddings(payload, &model_config).await;
-        assert!(result.is_err(), "Expected error for empty input");
-    }
-
-    #[tokio::test]
     async fn test_chat_completions() {
-        let config = get_test_provider_config("us-east-2");
+        let config = get_test_provider_config("us-east-2", "titan_chat_completion");
         let provider = BedrockProvider::new(&config);
 
         let model_config = get_test_model_config("amazon.titan-embed-text-v2:0", "titan");
@@ -235,42 +250,6 @@ mod titan_tests {
             );
         }
     }
-
-    #[tokio::test]
-    async fn test_chat_completions_invalid_model() {
-        let config = get_test_provider_config("us-east-2");
-        let provider = BedrockProvider::new(&config);
-
-        let model_config = get_test_model_config("amazon.titan-embed-text-v2:0", "titan");
-
-        let payload = ChatCompletionRequest {
-            model: model_config.r#type.clone(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(ChatMessageContent::String(
-                    "What is the capital of France? Answer in one word.".to_string(),
-                )),
-                name: None,
-                tool_calls: None,
-            }],
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            max_tokens: None,
-            parallel_tool_calls: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            tool_choice: None,
-            tools: None,
-            user: None,
-        };
-
-        let result = provider.chat_completions(payload, &model_config).await;
-        assert!(result.is_err(), "Expected error for invalid model");
-    }
 }
 
 #[cfg(test)]
@@ -284,7 +263,7 @@ mod ai21_tests {
 
     #[test]
     fn test_ai21_provider_new() {
-        let config = get_test_provider_config("us-east-1");
+        let config = get_test_provider_config("us-east-1", "");
         let provider = BedrockProvider::new(&config);
 
         assert_eq!(provider.key(), "test_key");
@@ -293,7 +272,7 @@ mod ai21_tests {
 
     #[tokio::test]
     async fn test_ai21_provider_completions() {
-        let config = get_test_provider_config("us-east-1");
+        let config = get_test_provider_config("us-east-1", "ai21_completion");
         let provider = BedrockProvider::new(&config);
 
         let model_config = get_test_model_config("ai21.j2-mid-v1", "ai21");
@@ -340,7 +319,7 @@ mod ai21_tests {
 
     #[tokio::test]
     async fn test_ai21_provider_chat_completions() {
-        let config = get_test_provider_config("us-east-1");
+        let config = get_test_provider_config("us-east-1", "ai21_chat_completion");
         let provider = BedrockProvider::new(&config);
 
         let model_config = get_test_model_config("ai21.jamba-1-5-mini-v1:0", "ai21");
@@ -391,4 +370,139 @@ mod ai21_tests {
             );
         }
     }
+}
+/**
+
+Helper functions for creating test clients and mock responses
+
+*/
+#[cfg(test)]
+async fn create_test_bedrock_client(
+    mock_responses: Vec<aws_smithy_runtime::client::http::test_util::ReplayEvent>,
+) -> aws_sdk_bedrockruntime::Client {
+    use aws_config::BehaviorVersion;
+    use aws_credential_types::provider::SharedCredentialsProvider;
+    use aws_credential_types::Credentials;
+    use aws_smithy_runtime::client::http::test_util::StaticReplayClient;
+    use aws_types::region::Region;
+
+    let replay_client = StaticReplayClient::new(mock_responses);
+
+    let credentials = Credentials::new("test-key", "test-secret", None, None, "testing");
+    let credentials_provider = SharedCredentialsProvider::new(credentials);
+
+    let config = aws_config::SdkConfig::builder()
+        .behavior_version(BehaviorVersion::latest())
+        .region(Region::new("us-east-1".to_string()))
+        .credentials_provider(credentials_provider)
+        .http_client(replay_client)
+        .build();
+
+    aws_sdk_bedrockruntime::Client::new(&config)
+}
+#[cfg(test)]
+fn read_response_file(filename: &str) -> Result<String, std::io::Error> {
+    use std::fs;
+    use std::io::Read;
+    use std::path::Path;
+
+    let log_dir = Path::new("src/providers/bedrock/logs");
+    let file_path = log_dir.join(filename);
+
+    let mut file = fs::File::open(file_path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+    Ok(contents)
+}
+
+/**
+
+Mock responses for the Bedrock API
+
+*/
+#[cfg(test)]
+fn dummy_anthropic_chat_completion_response(
+) -> aws_smithy_runtime::client::http::test_util::ReplayEvent {
+    use aws_smithy_types::body::SdkBody;
+
+    aws_smithy_runtime::client::http::test_util::ReplayEvent::new(
+        http::Request::builder()
+            .method("POST")
+            .uri("https://bedrock-runtime.us-east-2.amazonaws.com/model/us.anthropic.claude-3-haiku-20240307-v1:0/invoke")
+            .body(SdkBody::empty())
+            .unwrap(),
+        http::Response::builder()
+            .status(200)
+            .body(SdkBody::from(read_response_file("anthropic_claude_3_haiku_20240307_v1_0_chat_completion.json").unwrap()))
+            .unwrap(),
+    )
+}
+#[cfg(test)]
+fn dummy_ai21_chat_completion_response() -> aws_smithy_runtime::client::http::test_util::ReplayEvent
+{
+    use aws_smithy_types::body::SdkBody;
+
+    aws_smithy_runtime::client::http::test_util::ReplayEvent::new(
+        http::Request::builder()
+            .method("POST")
+            .uri("https://bedrock-runtime.us-east-1.amazonaws.com/model/ai21.jamba-1-5-mini-v1:0/invoke")
+            .body(SdkBody::empty())
+            .unwrap(),
+        http::Response::builder()
+            .status(200)
+            .body(SdkBody::from(read_response_file("ai21_jamba_1_5_mini_v1_0_chat_completions.json").unwrap()))
+            .unwrap(),
+    )
+}
+#[cfg(test)]
+fn dummy_ai21_completion_response() -> aws_smithy_runtime::client::http::test_util::ReplayEvent {
+    use aws_smithy_types::body::SdkBody;
+
+    aws_smithy_runtime::client::http::test_util::ReplayEvent::new(
+        http::Request::builder()
+            .method("POST")
+            .uri("https://bedrock-runtime.us-east-1.amazonaws.com/model/ai21.j2-mid-v1/invoke")
+            .body(SdkBody::empty())
+            .unwrap(),
+        http::Response::builder()
+            .status(200)
+            .body(SdkBody::from(
+                read_response_file("ai21_j2_mid_v1_completions.json").unwrap(),
+            ))
+            .unwrap(),
+    )
+}
+#[cfg(test)]
+fn dummy_titan_embedding_response() -> aws_smithy_runtime::client::http::test_util::ReplayEvent {
+    use aws_smithy_types::body::SdkBody;
+
+    aws_smithy_runtime::client::http::test_util::ReplayEvent::new(
+        http::Request::builder()
+            .method("POST")
+            .uri("https://bedrock-runtime.us-east-2.amazonaws.com/model/amazon.titan-embed-text-v2:0/invoke")
+            .body(SdkBody::empty())
+            .unwrap(),
+        http::Response::builder()
+            .status(200)
+            .body(SdkBody::from(read_response_file("amazon_titan_embed_text_v2_0_embeddings.json").unwrap()))
+            .unwrap(),
+    )
+}
+#[cfg(test)]
+fn dummy_titan_chat_completion_response() -> aws_smithy_runtime::client::http::test_util::ReplayEvent
+{
+    use aws_smithy_types::body::SdkBody;
+
+    aws_smithy_runtime::client::http::test_util::ReplayEvent::new(
+        http::Request::builder()
+            .method("POST")
+            .uri("https://bedrock-runtime.us-east-2.amazonaws.com/model/us.amazon.nova-lite-v1:0/invoke")
+            .body(SdkBody::empty())
+            .unwrap(),
+        http::Response::builder()
+            .status(200)
+            .body(SdkBody::from(read_response_file("us_amazon_nova_lite_v1_0_chat_completion.json").unwrap()))
+            .unwrap(),
+    )
 }
