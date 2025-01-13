@@ -2,9 +2,6 @@ use axum::async_trait;
 use axum::http::StatusCode;
 use std::error::Error;
 
-use aws_config::BehaviorVersion;
-use aws_config::Region;
-use aws_credential_types::Credentials;
 use aws_sdk_bedrockruntime::Client as BedrockRuntimeClient;
 
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -28,11 +25,20 @@ struct TitanImplementation;
 struct AnthropicImplementation;
 
 pub struct BedrockProvider {
-    config: ProviderConfig,
+    pub(crate) config: ProviderConfig,
 }
 
-impl BedrockProvider {
+pub trait ClientProvider {
+    async fn create_client(&self) -> Result<BedrockRuntimeClient, String>;
+}
+
+#[cfg(not(test))]
+impl ClientProvider for BedrockProvider {
     async fn create_client(&self) -> Result<BedrockRuntimeClient, String> {
+        use aws_config::BehaviorVersion;
+        use aws_config::Region;
+        use aws_credential_types::Credentials;
+
         let region = self.config.params.get("region").unwrap().clone();
         let access_key_id = self.config.params.get("AWS_ACCESS_KEY_ID").unwrap().clone();
         let secret_access_key = self
@@ -53,7 +59,9 @@ impl BedrockProvider {
 
         Ok(BedrockRuntimeClient::new(&sdk_config))
     }
+}
 
+impl BedrockProvider {
     fn get_provider_implementation(
         &self,
         model_config: &ModelConfig,
