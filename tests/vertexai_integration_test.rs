@@ -46,12 +46,11 @@ impl TestConfig {
             Self {
                 project_id: env::var("VERTEX_PROJECT_ID")
                     .expect("VERTEX_PROJECT_ID must be set for recording"),
-                location: env::var("VERTEX_LOCATION")
-                    .unwrap_or_else(|_| "us-central1".to_string()),
+                location: env::var("VERTEX_LOCATION").unwrap_or_else(|_| "us-central1".to_string()),
             }
         } else {
             Self::from_recordings().unwrap_or_else(|| Self {
-                project_id: "extended-legend-445620-u1".to_string(), 
+                project_id: "extended-legend-445620-u1".to_string(),
                 location: "us-central1".to_string(),
             })
         }
@@ -62,7 +61,9 @@ impl TestConfig {
         if let Ok(content) = fs::read_to_string(recordings_dir.join("chat_completion.json")) {
             if let Ok(interactions) = serde_json::from_str::<Vec<RecordedInteraction>>(&content) {
                 if let Some(interaction) = interactions.first() {
-                    if let Some((project_id, location)) = Self::extract_from_path(&interaction.request.path) {
+                    if let Some((project_id, location)) =
+                        Self::extract_from_path(&interaction.request.path)
+                    {
                         return Some(Self {
                             project_id: project_id.to_string(),
                             location: location.to_string(),
@@ -87,9 +88,10 @@ impl TestConfig {
 async fn setup_mock_server(test_name: &str) -> MockServer {
     let mock_server = MockServer::start().await;
     let recordings_dir = PathBuf::from(RECORDINGS_DIR);
-    
+
     if env::var("RECORD").is_err() {
-        if let Ok(content) = fs::read_to_string(recordings_dir.join(format!("{}.json", test_name))) {
+        if let Ok(content) = fs::read_to_string(recordings_dir.join(format!("{}.json", test_name)))
+        {
             if let Ok(interactions) = serde_json::from_str::<Vec<RecordedInteraction>>(&content) {
                 for interaction in interactions {
                     setup_mock(&mock_server, interaction).await;
@@ -97,22 +99,23 @@ async fn setup_mock_server(test_name: &str) -> MockServer {
             }
         }
     }
-    
+
     mock_server
 }
 
 async fn setup_mock(mock_server: &MockServer, interaction: RecordedInteraction) {
-    let mut mock = Mock::given(method(interaction.request.method))
-        .and(path(&interaction.request.path));
+    let mut mock =
+        Mock::given(method(interaction.request.method)).and(path(&interaction.request.path));
 
     for (key, value) in interaction.request.headers {
         mock = mock.and(wiremock::matchers::header(key.as_str(), value.as_str()));
     }
 
-    mock.respond_with(ResponseTemplate::new(interaction.response.status)
-        .set_body_json(interaction.response.body))
-        .mount(mock_server)
-        .await;
+    mock.respond_with(
+        ResponseTemplate::new(interaction.response.status).set_body_json(interaction.response.body),
+    )
+    .mount(mock_server)
+    .await;
 }
 
 async fn save_interaction(test_name: &str, interaction: RecordedInteraction) {
@@ -128,7 +131,7 @@ async fn save_interaction(test_name: &str, interaction: RecordedInteraction) {
     }
 
     interactions.push(interaction);
-    
+
     if let Ok(content) = serde_json::to_string_pretty(&interactions) {
         fs::write(&recording_path, content).expect("Failed to save recording");
     }
@@ -139,7 +142,7 @@ async fn create_test_provider(mock_server: &MockServer) -> VertexAIProvider {
     let mut params = HashMap::new();
     params.insert("project_id".to_string(), config.project_id);
     params.insert("location".to_string(), config.location);
-    
+
     if env::var("RECORD").is_err() {
         params.insert("test_base_url".to_string(), mock_server.uri());
         params.insert("skip_authentication".to_string(), "true".to_string());
@@ -174,7 +177,7 @@ async fn test_chat_completion() {
     let mock_server = setup_mock_server("chat_completion").await;
     let provider = create_test_provider(&mock_server).await;
     let config = TestConfig::new();
-    
+
     let model_config = hub::config::models::ModelConfig {
         key: "gemini-pro".to_string(),
         r#type: "gemini-pro".to_string(),
@@ -224,7 +227,7 @@ async fn test_chat_completion() {
                     })
                 }
             };
-            
+
             let interaction = RecordedInteraction {
                 request: RequestData {
                     method: wiremock::http::Method::Post,
@@ -247,7 +250,10 @@ async fn test_chat_completion() {
     assert!(response.is_ok(), "Chat completion request failed");
     if let Ok(ChatCompletionResponse::NonStream(completion)) = response {
         assert!(!completion.choices.is_empty(), "No choices in response");
-        assert!(completion.choices[0].message.content.is_some(), "No content in response");
+        assert!(
+            completion.choices[0].message.content.is_some(),
+            "No content in response"
+        );
     }
 }
 
@@ -255,7 +261,7 @@ async fn test_chat_completion() {
 async fn test_chat_completion_with_tools() {
     let mock_server = setup_mock_server("chat_completion_with_tools").await;
     let provider = create_test_provider(&mock_server).await;
-    
+
     let model_config = hub::config::models::ModelConfig {
         key: "gemini-pro".to_string(),
         r#type: "gemini-pro".to_string(),
