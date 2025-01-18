@@ -39,3 +39,8 @@ axum-prometheus = "0.7.0"
 reqwest-streams = { version = "0.8.1", features = ["json"] }
 futures = "0.3.31"
 async-stream = "0.3.6"
+gcp_auth = "0.12"
+dotenv = "0.15"
+
+[dev-dependencies]
+wiremock = "0.5"

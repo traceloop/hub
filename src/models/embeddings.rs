@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::usage::Usage;
+pub use super::usage::Usage;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct EmbeddingsRequest {

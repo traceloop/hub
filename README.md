@@ -84,6 +84,89 @@ completion = client.chat.completions.create(
 )
 ```
 
+      
+## ☁️ Google VertexAI Provider
+
+Hub now supports Google VertexAI, allowing you to leverage Google's powerful LLMs like Gemini through our unified API.
+
+### Configuration
+
+To use the Google VertexAI provider, you need to configure it in your `config.yaml` file. Here's a sample configuration:
+
+```yaml
+providers:
+  - key: vertexai
+    type: vertexai
+    project_id: "<your-gcp-project-id>"
+    location: "<your-gcp-region>"
+    credentials_path: "/path/to/service-account.json" 
+models:
+  - key: gemini-pro
+    type: gemini-pro
+    provider: vertexai
+
+pipelines:
+  - name: default
+    type: chat
+    plugins:
+      - logging:
+          level: info
+      - tracing:
+          endpoint: "https://api.traceloop.com/v1/traces"
+          api_key: "your-traceloop-api-key"
+      - model-router:
+          models:
+            - gemini-pro
+```
+
+
+### Example Usage
+
+Here's an example of how to use the VertexAI provider with a chat completion pipeline:
+
+```yaml
+models:
+  - key: gemini-pro-vertex
+    type: gemini-pro
+    provider: vertexai
+
+pipelines:
+  - name: default
+    type: chat
+    plugins:
+      - logging:
+          level: info
+      - tracing:
+          endpoint: "https://api.traceloop.com/v1/traces"
+          api_key: "<your-traceloop-api-key>"
+      - model-router:
+          models:
+            - gemini-pro-vertex
+```
+
+In this example:
+
+- A model named gemini-pro-vertex is configured to use the vertexai provider.
+
+- The default pipeline is configured to route requests to this model.
+
+You can now make chat completion requests and embedding requests to any vertexai models:
+
+```python
+client = OpenAI(
+    base_url="http://localhost:3000/api/v1",
+    api_key="dummy",  # a dummy key
+)
+
+# Creating a chat completion with Gemini
+completion = client.chat.completions.create(
+    model="gemini-pro",  # Use the Gemini model name
+    messages=[{"role": "user", "content": "Tell me a joke about opentelemetry"}],
+    max_tokens=1000,
+)
+```
+
+
 ## 🌱 Contributing
 
 Whether big or small, we love contributions ❤️ Check out our guide to see how to [get started](https://traceloop.com/docs/hub/contributing/overview).
