@@ -87,19 +87,11 @@ impl Provider for VertexAIProvider {
         );
         headers.insert("Content-Type", HeaderValue::from_static("application/json"));
 
-        let request_body = if payload.stream.unwrap_or(false) {
-            json!({
-                "contents": request.contents,
-                "generation_config": request.generation_config,
-                "tools": request.tools,
-            })
-        } else {
-            json!({
-                "contents": request.contents,
-                "generation_config": request.generation_config,
-                "tools": request.tools,
-            })
-        };
+        let request_body = json!({
+            "contents": request.contents,
+            "generation_config": request.generation_config,
+            "tools": request.tools,
+        });
 
         let response = self
             .http_client
