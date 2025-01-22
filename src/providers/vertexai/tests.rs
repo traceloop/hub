@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use wiremock::{Mock, MockServer, ResponseTemplate};
+use tracing::{debug, error, info};
 
 use super::provider::VertexAIProvider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -21,29 +22,29 @@ const TEST_LOCATION: &str = "us-central1";
 async fn setup_test_client(test_name: &str) -> reqwest::Client {
     // Create the cassettes directory if it doesn't exist
     let cassettes_dir = PathBuf::from("tests/cassettes/vertexai");
-    println!("Creating cassettes directory at: {:?}", cassettes_dir);
+    debug!("Creating cassettes directory at: {:?}", cassettes_dir);
 
     if let Err(e) = std::fs::create_dir_all(&cassettes_dir) {
-        println!("Warning: Directory creation returned: {}", e);
+        error!("Warning: Directory creation returned: {}", e);
     }
 
     // Create specific cassette file path
     let cassette_path = cassettes_dir.join(format!("{}.json", test_name));
-    println!("Cassette path: {:?}", cassette_path);
+    debug!("Cassette path: {:?}", cassette_path);
 
     let is_record_mode = std::env::var("RECORD_MODE").is_ok();
-    println!("Record mode: {}", is_record_mode);
+    debug!("Record mode: {}", is_record_mode);
 
     if is_record_mode {
         // In record mode, create a real client
-        println!("Using real client for recording");
+        debug!("Using real client for recording");
         reqwest::Client::builder()
             .build()
             .expect("Failed to create HTTP client")
     } else {
         // In replay mode, use mock server with saved responses
         if let Ok(cassette_content) = fs::read_to_string(&cassette_path) {
-            println!("Loading cassette from: {:?}", cassette_path);
+            debug!("Loading cassette from: {:?}", cassette_path);
             let mock_server = MockServer::start().await;
 
             if let Ok(interactions) = serde_json::from_str::<Vec<Value>>(&cassette_content) {
@@ -61,7 +62,7 @@ async fn setup_test_client(test_name: &str) -> reqwest::Client {
                 .build()
                 .expect("Failed to create HTTP client")
         } else {
-            println!("No cassette found, falling back to record mode");
+            debug!("No cassette found, falling back to record mode");
             reqwest::Client::builder()
                 .build()
                 .expect("Failed to create HTTP client")
@@ -89,12 +90,9 @@ async fn save_to_cassette(test_name: &str, response: &Value) {
     // Save updated cassette
     if let Ok(content) = serde_json::to_string_pretty(&interactions) {
         if let Err(e) = fs::write(&cassette_path, content) {
-            println!("Error saving cassette: {}", e);
+            error!("Error saving cassette: {}", e);
         } else {
-            println!(
-                "Successfully saved interaction to cassette: {:?}",
-                cassette_path
-            );
+            debug!("Successfully saved interaction to cassette: {:?}", cassette_path);
         }
     }
 }
@@ -160,7 +158,7 @@ where
             Ok(result) => return Ok(result),
             Err(status) if status == axum::http::StatusCode::TOO_MANY_REQUESTS => {
                 if attempt < max_retries - 1 {
-                    println!(
+                    info!(
                         "Quota exceeded, waiting {} seconds before retry...",
                         retry_delay.as_secs()
                     );

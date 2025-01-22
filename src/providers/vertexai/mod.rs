@@ -1,4 +1,5 @@
 pub mod provider;
+pub mod models;
 #[cfg(test)]
 mod tests;
 

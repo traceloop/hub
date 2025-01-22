@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::logprob::ChoiceLogprobs;
-use super::tool_calls::{ChatMessageToolCall, FunctionCall};
+use super::tool_calls::ChatMessageToolCall;
 use super::usage::Usage;
-use crate::models::vertexai::GeminiChatResponse;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct Delta {
@@ -45,45 +44,4 @@ pub struct ChatCompletionChunk {
     pub system_fingerprint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<Usage>,
-}
-
-impl ChatCompletionChunk {
-    pub fn from_gemini(response: GeminiChatResponse, model: String) -> Self {
-        let first_candidate = response.candidates.first();
-
-        Self {
-            id: uuid::Uuid::new_v4().to_string(),
-            service_tier: None,
-            system_fingerprint: None,
-            created: chrono::Utc::now().timestamp() as i64,
-            model,
-            choices: vec![Choice {
-                index: 0,
-                logprobs: None,
-                delta: ChoiceDelta {
-                    role: None,
-                    content: first_candidate
-                        .and_then(|c| c.content.parts.first())
-                        .map(|p| p.text.clone()),
-                    tool_calls: first_candidate
-                        .and_then(|c| c.tool_calls.clone())
-                        .map(|calls| {
-                            calls
-                                .into_iter()
-                                .map(|call| ChatMessageToolCall {
-                                    id: format!("call_{}", uuid::Uuid::new_v4()),
-                                    r#type: "function".to_string(),
-                                    function: FunctionCall {
-                                        name: call.function.name,
-                                        arguments: call.function.arguments,
-                                    },
-                                })
-                                .collect()
-                        }),
-                },
-                finish_reason: first_candidate.and_then(|c| c.finish_reason.clone()),
-            }],
-            usage: None,
-        }
-    }
 }

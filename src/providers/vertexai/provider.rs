@@ -1,21 +1,27 @@
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
-use crate::models::completion::{CompletionChoice, CompletionRequest, CompletionResponse};
-use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
+use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{
     Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
 };
+use crate::models::streaming::ChatCompletionChunk;
 use crate::models::usage::Usage;
-use crate::models::vertexai::{
-    ContentPart, GeminiCandidate, GeminiChatRequest, GeminiChatResponse, GeminiContent,
-    UsageMetadata,
-};
 use crate::providers::provider::Provider;
+use super::models::{
+    ContentPart, GeminiCandidate, GeminiChatRequest, GeminiChatResponse, GeminiContent,
+    UsageMetadata, VertexAIStreamChunk,
+};
 use axum::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
+use reqwest_streams::JsonStreamResponse;
+use reqwest_streams::error::{StreamBodyError, StreamBodyKind};
 use serde_json::json;
 use yup_oauth2::{ServiceAccountAuthenticator, ServiceAccountKey};
+use futures::StreamExt;
+use tracing::{debug, error, info};
+
+const STREAM_BUFFER_SIZE: usize = 8192;
 
 pub struct VertexAIProvider {
     config: ProviderConfig,
@@ -40,12 +46,12 @@ impl VertexAIProvider {
     }
 
     async fn get_auth_token(&self) -> Result<String, StatusCode> {
-        println!("Getting auth token...");
+        debug!("Getting auth token...");
         if !self.config.api_key.is_empty() {
-            println!("Using API key authentication");
+            debug!("Using API key authentication");
             Ok(self.config.api_key.clone())
         } else {
-            println!("Using service account authentication");
+            debug!("Using service account authentication");
             let key_path = self.config
                 .params
                 .get("credentials_path")
@@ -53,31 +59,31 @@ impl VertexAIProvider {
                 .or_else(|| std::env::var("GOOGLE_APPLICATION_CREDENTIALS").ok())
                 .expect("Either api_key, credentials_path in config, or GOOGLE_APPLICATION_CREDENTIALS environment variable must be set");
 
-            println!("Reading service account key from: {}", key_path);
+            debug!("Reading service account key from: {}", key_path);
             let key_json =
                 std::fs::read_to_string(key_path).expect("Failed to read service account key file");
 
-            println!(
+            debug!(
                 "Service account key file content length: {}",
                 key_json.len()
             );
             let sa_key: ServiceAccountKey =
                 serde_json::from_str(&key_json).expect("Failed to parse service account key");
 
-            println!("Successfully parsed service account key");
+            debug!("Successfully parsed service account key");
             let auth = ServiceAccountAuthenticator::builder(sa_key)
                 .build()
                 .await
                 .expect("Failed to create authenticator");
 
-            println!("Created authenticator, requesting token...");
+            debug!("Created authenticator, requesting token...");
             let scopes = &["https://www.googleapis.com/auth/cloud-platform"];
             let token = auth.token(scopes).await.map_err(|e| {
-                eprintln!("Failed to get access token: {}", e);
+                error!("Failed to get access token: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
-            println!("Successfully obtained token");
+            debug!("Successfully obtained token");
             Ok(token.token().unwrap_or_default().to_string())
         }
     }
@@ -119,46 +125,65 @@ impl Provider for VertexAIProvider {
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
         let auth_token = self.get_auth_token().await?;
+        let endpoint_suffix = if payload.stream.unwrap_or(false) {
+            "streamGenerateContent"
+        } else {
+            "generateContent"
+        };
+        
         let endpoint = format!(
-            "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:streamGenerateContent",
-            self.location, self.project_id, self.location, payload.model
+            "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:{}",
+            self.location, self.project_id, self.location, payload.model, endpoint_suffix
         );
 
         let response = self
             .http_client
             .post(&endpoint)
             .bearer_auth(auth_token)
-            .json(&GeminiChatRequest::from_openai(payload.clone()))
+            .json(&GeminiChatRequest::from(payload.clone()))
             .send()
             .await
             .map_err(|e| {
-                eprintln!("VertexAI API request error: {}", e);
+                error!("VertexAI API request error: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
-        println!("Response status: {}", status);
+        debug!("Response status: {}", status);
 
         if status.is_success() {
             if payload.stream.unwrap_or(false) {
-                Err(StatusCode::BAD_REQUEST) // Streaming not supported yet
+                let model = payload.model.clone();
+                let stream = response
+                    .json_array_stream::<VertexAIStreamChunk>(STREAM_BUFFER_SIZE)
+                    .map(move |result| {
+                        result.map(|chunk| {
+                            let mut completion_chunk: ChatCompletionChunk = chunk.into();
+                            completion_chunk.model = model.clone();
+                            completion_chunk
+                        }).map_err(|e| {
+                            StreamBodyError::new(StreamBodyKind::CodecError, Some(Box::new(e)), None)
+                        })
+                    });
+
+                Ok(ChatCompletionResponse::Stream(Box::pin(stream)))
             } else {
                 let response_text = response.text().await.map_err(|e| {
-                    eprintln!("Failed to get response text: {}", e);
+                    error!("Failed to get response text: {}", e);
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
-                println!("Response body: {}", response_text);
+                debug!("Response body: {}", response_text);
 
                 // Parse the response as a JSON array
                 let responses: Vec<serde_json::Value> = serde_json::from_str(&response_text)
                     .map_err(|e| {
-                        eprintln!("Failed to parse response as JSON array: {}", e);
+                        error!("Failed to parse response as JSON array: {}", e);
                         StatusCode::INTERNAL_SERVER_ERROR
                     })?;
 
                 // Get the last response which contains the complete message and usage metadata
                 let final_response = responses.last().ok_or_else(|| {
-                    eprintln!("No valid response chunks found");
+                    error!("No valid response chunks found");
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
 
@@ -217,82 +242,17 @@ impl Provider for VertexAIProvider {
             }
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            eprintln!("VertexAI API request error: {}", error_text);
+            error!("VertexAI API request error: {}", error_text);
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
 
     async fn completions(
         &self,
-        payload: CompletionRequest,
-        model_config: &ModelConfig,
+        _payload: CompletionRequest,
+        _model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
-        // For Gemini, we'll use the chat endpoint for completions as well
-        let chat_request = ChatCompletionRequest {
-            model: payload.model,
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(ChatMessageContent::String(payload.prompt)),
-                name: None,
-                tool_calls: None,
-            }],
-            temperature: payload.temperature,
-            top_p: payload.top_p,
-            n: payload.n,
-            stream: payload.stream,
-            stop: payload.stop,
-            max_tokens: payload.max_tokens,
-            presence_penalty: payload.presence_penalty,
-            frequency_penalty: payload.frequency_penalty,
-            logit_bias: None,
-            user: payload.user,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-        };
-
-        let chat_response = self.chat_completions(chat_request, model_config).await?;
-
-        // Convert chat response to completion response
-        match chat_response {
-            ChatCompletionResponse::NonStream(resp) => Ok(CompletionResponse {
-                id: resp.id,
-                object: "text_completion".to_string(),
-                created: resp.created.unwrap_or_default(),
-                model: resp.model,
-                choices: resp
-                    .choices
-                    .into_iter()
-                    .map(|c| CompletionChoice {
-                        text: match c
-                            .message
-                            .content
-                            .unwrap_or(ChatMessageContent::String("".to_string()))
-                        {
-                            ChatMessageContent::String(s) => s,
-                            ChatMessageContent::Array(arr) => arr
-                                .into_iter()
-                                .map(|p| p.text)
-                                .collect::<Vec<_>>()
-                                .join(" "),
-                        },
-                        index: c.index,
-                        logprobs: None,
-                        finish_reason: c.finish_reason,
-                    })
-                    .collect(),
-                usage: Usage {
-                    prompt_tokens: 0,
-                    completion_tokens: 0,
-                    total_tokens: 0,
-                    prompt_tokens_details: None,
-                    completion_tokens_details: None,
-                },
-            }),
-            ChatCompletionResponse::Stream(_) => {
-                Err(StatusCode::BAD_REQUEST) // Streaming not supported for completions
-            }
-        }
+        unimplemented!("Text completions are not supported for Vertex AI. Use chat_completions instead.")
     }
 
     async fn embeddings(
@@ -324,23 +284,23 @@ impl Provider for VertexAIProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("VertexAI API request error: {}", e);
+                error!("VertexAI API request error: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
-        println!("Embeddings response status: {}", status);
+        debug!("Embeddings response status: {}", status);
 
         if status.is_success() {
             let response_text = response.text().await.map_err(|e| {
-                eprintln!("Failed to get response text: {}", e);
+                error!("Failed to get response text: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
-            println!("Embeddings response body: {}", response_text);
+            debug!("Embeddings response body: {}", response_text);
 
             let gemini_response: serde_json::Value =
                 serde_json::from_str(&response_text).map_err(|e| {
-                    eprintln!("Failed to parse response as JSON: {}", e);
+                    error!("Failed to parse response as JSON: {}", e);
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
 
@@ -376,7 +336,7 @@ impl Provider for VertexAIProvider {
             })
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            eprintln!("VertexAI API request error: {}", error_text);
+            error!("VertexAI API request error: {}", error_text);
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
@@ -409,10 +369,10 @@ impl VertexAIProvider {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use crate::models::content::{ChatMessageContent, ChatMessageContentPart};
+    use crate::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMessageContentPart};
     use crate::models::tool_choice::{ToolChoice, SimpleToolChoice};
     use crate::models::tool_definition::{ToolDefinition, FunctionDefinition};
-    use crate::models::vertexai::{GeminiFunctionCall, GeminiToolCall, GeminiToolChoice};
+    use crate::providers::vertexai::models::{GeminiFunctionCall, GeminiToolCall, GeminiToolChoice};
 
     #[test]
     fn test_provider_new() {
@@ -472,7 +432,7 @@ mod tests {
             parallel_tool_calls: None,
         };
 
-        let gemini_request = GeminiChatRequest::from_openai(chat_request);
+        let gemini_request = GeminiChatRequest::from(chat_request);
         
         assert_eq!(gemini_request.contents[0].parts[0].text, "Hello");
         assert_eq!(gemini_request.contents[0].role, "user");
@@ -555,7 +515,7 @@ mod tests {
             parallel_tool_calls: None,
         };
 
-        let gemini_request = GeminiChatRequest::from_openai(chat_request);
+        let gemini_request = GeminiChatRequest::from(chat_request);
         
         assert!(gemini_request.tools.is_some());
         let tools = gemini_request.tools.unwrap();
@@ -630,7 +590,7 @@ mod tests {
             parallel_tool_calls: None,
         };
 
-        let gemini_request = GeminiChatRequest::from_openai(chat_request);
+        let gemini_request = GeminiChatRequest::from(chat_request);
         
         // Verify system message is handled correctly
         assert_eq!(gemini_request.contents.len(), 2);
@@ -671,7 +631,7 @@ mod tests {
             parallel_tool_calls: None,
         };
 
-        let gemini_request = GeminiChatRequest::from_openai(chat_request);
+        let gemini_request = GeminiChatRequest::from(chat_request);
         
         assert_eq!(gemini_request.contents[0].parts[0].text, "Part 1 Part 2");
     }
@@ -776,7 +736,7 @@ mod tests {
             parallel_tool_calls: None,
         };
 
-        let gemini_request = GeminiChatRequest::from_openai(chat_request);
+        let gemini_request = GeminiChatRequest::from(chat_request);
         assert_eq!(gemini_request.contents[0].parts[0].text, "");
     }
 
@@ -820,7 +780,7 @@ mod tests {
             parallel_tool_calls: None,
         };
 
-        let gemini_request = GeminiChatRequest::from_openai(chat_request);
+        let gemini_request = GeminiChatRequest::from(chat_request);
         assert!(matches!(gemini_request.tool_choice, Some(GeminiToolChoice::None)));
     }
 
@@ -849,7 +809,7 @@ mod tests {
             parallel_tool_calls: None,
         };
 
-        let gemini_request = GeminiChatRequest::from_openai(chat_request);
+        let gemini_request = GeminiChatRequest::from(chat_request);
         let config = gemini_request.generation_config.unwrap();
         assert_eq!(config.temperature.unwrap(), 2.0);  // Values are passed through as-is
         assert_eq!(config.top_p.unwrap(), 1.5);       // Values are passed through as-is

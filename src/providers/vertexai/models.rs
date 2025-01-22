@@ -6,6 +6,7 @@ use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::tool_calls::{ChatMessageToolCall, FunctionCall};
 use crate::models::tool_choice::{SimpleToolChoice, ToolChoice};
 use crate::models::usage::Usage;
+use crate::models::streaming::{ChatCompletionChunk, Choice, ChoiceDelta};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GeminiChatRequest {
@@ -114,8 +115,14 @@ pub struct UsageMetadata {
     pub total_token_count: i32,
 }
 
-impl GeminiChatRequest {
-    pub fn from_openai(req: ChatCompletionRequest) -> Self {
+#[derive(Debug, Deserialize)]
+pub struct VertexAIStreamChunk {
+    pub candidates: Vec<GeminiCandidate>,
+    pub usage_metadata: Option<UsageMetadata>,
+}
+
+impl From<ChatCompletionRequest> for GeminiChatRequest {
+    fn from(req: ChatCompletionRequest) -> Self {
         let contents = req
             .messages
             .into_iter()
@@ -248,3 +255,44 @@ impl GeminiChatResponse {
         }
     }
 }
+
+impl From<VertexAIStreamChunk> for ChatCompletionChunk {
+    fn from(chunk: VertexAIStreamChunk) -> Self {
+        let first_candidate = chunk.candidates.first();
+
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            service_tier: None,
+            system_fingerprint: None,
+            created: chrono::Utc::now().timestamp() as i64,
+            model: String::new(),
+            choices: vec![Choice {
+                index: 0,
+                logprobs: None,
+                delta: ChoiceDelta {
+                    role: None,
+                    content: first_candidate
+                        .and_then(|c| c.content.parts.first())
+                        .map(|p| p.text.clone()),
+                    tool_calls: first_candidate
+                        .and_then(|c| c.tool_calls.clone())
+                        .map(|calls| {
+                            calls
+                                .into_iter()
+                                .map(|call| ChatMessageToolCall {
+                                    id: format!("call_{}", uuid::Uuid::new_v4()),
+                                    r#type: "function".to_string(),
+                                    function: FunctionCall {
+                                        name: call.function.name,
+                                        arguments: call.function.arguments,
+                                    },
+                                })
+                                .collect()
+                        }),
+                },
+                finish_reason: first_candidate.and_then(|c| c.finish_reason.clone()),
+            }],
+            usage: None,
+        }
+    }
+} 
