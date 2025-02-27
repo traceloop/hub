@@ -1,0 +1,84 @@
+replicaCount: 1
+
+image:
+  repository: docker.io/traceloop/hub
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 3100
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Hub Configuration
+config:
+  providers:
+    - key: openai
+      type: openai
+    - key: anthropic
+      type: anthropic
+
+  models:
+    - key: gpt-4o
+      type: gpt-4o
+      provider: openai
+
+  pipelines:
+    - name: default
+      type: chat
+      plugins:
+        - logging:
+            level: info
+        - tracing:
+            endpoint: "https://api.traceloop.com/v1/traces"
+        - model-router:
+            models:
+              - gpt-4o
+
+# Secrets Configuration
+secrets:
+  # Specify how secrets should be managed
+  # Options:
+  # - existingSecret: Use an existing Kubernetes secret (recommended for production)
+  # - values: Use values provided in this file (only for development/testing)
+  source: "existingSecret"
+  
+  # Name of the existing Kubernetes secret containing the API keys
+  # Required if source is "existingSecret"
+  existingSecretName: ""
+  
+  # Mapping of secret keys in the Kubernetes secret
+  # These should match the keys in your Kubernetes secret
+  keyMapping:
+    openaiApiKey: "OPENAI_API_KEY"
+    anthropicApiKey: "ANTHROPIC_API_KEY"
+    traceloopApiKey: "TRACELOOP_API_KEY"
+  
+  # Direct values (only used if source is "values")
+  # WARNING: Do not use in production!
+  values:
+    openaiApiKey: ""
+    anthropicApiKey: ""
+    traceloopApiKey: "" 
