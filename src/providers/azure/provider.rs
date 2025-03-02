@@ -1,12 +1,13 @@
 use axum::async_trait;
 use axum::http::StatusCode;
 use reqwest_streams::JsonStreamResponse;
+use serde_json::Value;
 
 use crate::config::constants::stream_buffer_size_bytes;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
-use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
 use reqwest::Client;
@@ -104,7 +105,7 @@ impl Provider for AzureProvider {
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
         let url = format!(
-            "{}/openai/deployments/{}/completions?api-version={}",
+            "{}/{}/completions?api-version={}",
             self.endpoint(),
             deployment,
             api_version
@@ -144,18 +145,56 @@ impl Provider for AzureProvider {
     ) -> Result<EmbeddingsResponse, StatusCode> {
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
+
         let url = format!(
-            "{}/openai/deployments/{}/embeddings?api-version={}",
+            "{}/{}/embeddings?api-version={}",
             self.endpoint(),
             deployment,
             api_version
         );
 
+        let mut azure_payload = match &payload.input {
+            EmbeddingsInput::Single(text) => {
+                serde_json::json!({
+                    "input": text,
+                    "model": payload.model
+                })
+            }
+            EmbeddingsInput::Multiple(texts) => {
+                serde_json::json!({
+                    "input": texts,
+                    "model": payload.model
+                })
+            }
+            EmbeddingsInput::SingleTokenIds(token_ids) => {
+                // Keep token IDs as is, don't convert to string
+                serde_json::json!({
+                    "input": token_ids,
+                    "model": payload.model
+                })
+            }
+            EmbeddingsInput::MultipleTokenIds(token_ids_list) => {
+                // Keep token IDs as is, don't convert to string
+                serde_json::json!({
+                    "input": token_ids_list,
+                    "model": payload.model
+                })
+            }
+        };
+
+        if let Some(user) = &payload.user {
+            azure_payload["user"] = Value::String(user.clone());
+        }
+
+        if let Some(encoding_format) = &payload.encoding_format {
+            azure_payload["encoding_format"] = Value::String(encoding_format.clone());
+        }
+
         let response = self
             .http_client
             .post(&url)
             .header("api-key", &self.config.api_key)
-            .json(&payload)
+            .json(&azure_payload)
             .send()
             .await
             .map_err(|e| {
@@ -165,13 +204,16 @@ impl Provider for AzureProvider {
 
         let status = response.status();
         if status.is_success() {
-            response.json().await.map_err(|e| {
-                eprintln!("Azure OpenAI API response error: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })
+            response
+                .json()
+                .await
+                .map_err(|e| {
+                        eprintln!("Azure OpenAI Embeddings API response error: {}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                })
         } else {
             eprintln!(
-                "Azure OpenAI API request error: {}",
+                "Azure OpenAI Embeddings API request error: {}",
                 response.text().await.unwrap()
             );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
