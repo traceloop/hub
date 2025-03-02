@@ -104,7 +104,7 @@ impl Provider for AzureProvider {
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
         let url = format!(
-            "{}/openai/deployments/{}/completions?api-version={}",
+            "{}/{}/completions?api-version={}",
             self.endpoint(),
             deployment,
             api_version
@@ -144,8 +144,9 @@ impl Provider for AzureProvider {
     ) -> Result<EmbeddingsResponse, StatusCode> {
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
+
         let url = format!(
-            "{}/openai/deployments/{}/embeddings?api-version={}",
+            "{}/{}/embeddings?api-version={}",
             self.endpoint(),
             deployment,
             api_version
@@ -166,12 +167,12 @@ impl Provider for AzureProvider {
         let status = response.status();
         if status.is_success() {
             response.json().await.map_err(|e| {
-                eprintln!("Azure OpenAI API response error: {}", e);
+                eprintln!("Azure OpenAI Embeddings API response error: {}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })
         } else {
             eprintln!(
-                "Azure OpenAI API request error: {}",
+                "Azure OpenAI Embeddings API request error: {}",
                 response.text().await.unwrap()
             );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
