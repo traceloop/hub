@@ -6,7 +6,7 @@ use crate::config::constants::stream_buffer_size_bytes;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
-use crate::models::embeddings::{ EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
 use reqwest::Client;
@@ -166,13 +166,10 @@ impl Provider for AzureProvider {
 
         let status = response.status();
         if status.is_success() {
-            response
-                .json()
-                .await
-                .map_err(|e| {
-                        eprintln!("Azure OpenAI Embeddings API response error: {}", e);
-                        StatusCode::INTERNAL_SERVER_ERROR
-                })
+            response.json().await.map_err(|e| {
+                eprintln!("Azure OpenAI Embeddings API response error: {}", e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
         } else {
             eprintln!(
                 "Azure OpenAI Embeddings API request error: {}",
