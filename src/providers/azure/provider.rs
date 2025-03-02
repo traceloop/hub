@@ -1,13 +1,12 @@
 use axum::async_trait;
 use axum::http::StatusCode;
 use reqwest_streams::JsonStreamResponse;
-use serde_json::Value;
 
 use crate::config::constants::stream_buffer_size_bytes;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
-use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
+use crate::models::embeddings::{ EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
 use reqwest::Client;
@@ -153,48 +152,11 @@ impl Provider for AzureProvider {
             api_version
         );
 
-        let mut azure_payload = match &payload.input {
-            EmbeddingsInput::Single(text) => {
-                serde_json::json!({
-                    "input": text,
-                    "model": payload.model
-                })
-            }
-            EmbeddingsInput::Multiple(texts) => {
-                serde_json::json!({
-                    "input": texts,
-                    "model": payload.model
-                })
-            }
-            EmbeddingsInput::SingleTokenIds(token_ids) => {
-                // Keep token IDs as is, don't convert to string
-                serde_json::json!({
-                    "input": token_ids,
-                    "model": payload.model
-                })
-            }
-            EmbeddingsInput::MultipleTokenIds(token_ids_list) => {
-                // Keep token IDs as is, don't convert to string
-                serde_json::json!({
-                    "input": token_ids_list,
-                    "model": payload.model
-                })
-            }
-        };
-
-        if let Some(user) = &payload.user {
-            azure_payload["user"] = Value::String(user.clone());
-        }
-
-        if let Some(encoding_format) = &payload.encoding_format {
-            azure_payload["encoding_format"] = Value::String(encoding_format.clone());
-        }
-
         let response = self
             .http_client
             .post(&url)
             .header("api-key", &self.config.api_key)
-            .json(&azure_payload)
+            .json(&payload)
             .send()
             .await
             .map_err(|e| {
