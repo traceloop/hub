@@ -78,7 +78,6 @@ jobs:
           push: false
           tags: ${{ steps.docker-metadata.outputs.tags }}
           labels: ${{ steps.docker-metadata.outputs.labels }}
-          platforms: |
-            linux/amd64, linux/arm64
+          platforms: ${{ matrix.docker-platform }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
