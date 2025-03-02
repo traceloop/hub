@@ -33,6 +33,21 @@ service:
   type: ClusterIP
   port: 3100
 
+# Kubernetes probe configuration
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
 resources:
   limits:
     cpu: 300m
@@ -73,4 +88,3 @@ secrets:
     # Uncomment to use Traceloop API key for tracing
     # traceloopApiKey: "TRACELOOP_API_KEY"
     # Add mappings for any other provider API keys as needed
-  

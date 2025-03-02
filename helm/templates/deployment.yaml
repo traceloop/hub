@@ -61,6 +61,24 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds | default 5 }}
+            successThreshold: {{ .Values.probes.liveness.successThreshold | default 1 }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold | default 3 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds | default 10 }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds | default 5 }}
+            successThreshold: {{ .Values.probes.readiness.successThreshold | default 1 }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold | default 3 }}
           volumeMounts:
             - name: config-volume
               mountPath: /app/config.yaml
