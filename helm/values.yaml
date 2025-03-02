@@ -60,8 +60,6 @@ config:
       # Configuration for the OpenAI provider
 # Secret management configuration
 secrets:
-  # Source of secrets: 'existingSecret' or 'values'
-  source: existingSecret
   # Name of the existing Kubernetes secret containing API keys
   existingSecretName: "llm-api-keys"
   # Mapping of API keys in the secret
@@ -76,10 +74,3 @@ secrets:
     # traceloopApiKey: "TRACELOOP_API_KEY"
     # Add mappings for any other provider API keys as needed
   
-  # Direct values for API keys (only used if source is 'values')
-  # WARNING: Storing API keys in values is not recommended for production
-  values:
-    # openaiApiKey: ""
-    # azureApiKey: ""
-    # anthropicApiKey: ""
-    # traceloopApiKey: "" 
