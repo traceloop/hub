@@ -28,4 +28,4 @@ data:
         {{- range .plugins }}
           - {{ toYaml . | nindent 12 | trim }}
         {{- end }}
-      {{- end }} 
+      {{- end }}

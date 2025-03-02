@@ -42,7 +42,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ghcr.io/traceloop/hub # GitHub      
+            ghcr.io/traceloop/hub # GitHub
             traceloop/hub # Docker Hub
           tags: |
             type=sha

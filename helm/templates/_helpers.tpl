@@ -48,4 +48,4 @@ Selector labels
 {{- define "hub.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "hub.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }} 
+{{- end }}
