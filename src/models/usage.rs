@@ -30,3 +30,10 @@ pub struct Usage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_tokens_details: Option<PromptTokensDetails>,
 }
+
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+pub struct EmbeddingUsage {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_tokens: Option<u32>,
+    pub total_tokens: Option<u32>,
+}

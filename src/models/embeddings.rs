@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use super::usage::Usage;
+use super::usage::EmbeddingUsage;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct EmbeddingsRequest {
@@ -17,6 +18,8 @@ pub struct EmbeddingsRequest {
 pub enum EmbeddingsInput {
     Single(String),
     Multiple(Vec<String>),
+    SingleTokenIds(Vec<i32>),
+    MultipleTokenIds(Vec<Vec<i32>>),
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -24,12 +27,20 @@ pub struct EmbeddingsResponse {
     pub object: String,
     pub data: Vec<Embeddings>,
     pub model: String,
-    pub usage: Usage,
+    pub usage: EmbeddingUsage,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Embeddings {
     pub object: String,
-    pub embedding: Vec<f32>,
+    pub embedding: Embedding,
     pub index: usize,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(untagged)]
+pub enum Embedding {
+    String(String),
+    Float(Vec<f32>),
+    Json(Value),
 }
