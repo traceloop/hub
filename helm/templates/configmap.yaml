@@ -7,40 +7,25 @@ metadata:
 data:
   config.yaml: |
     providers:
-    {{- range .Values.config.providers }}
-      - key: {{ .key }}
-        type: {{ .type }}
-        {{- if .resourceName }}
-        resource_name: {{ .resourceName }}
-        {{- end }}
-        {{- if .apiVersion }}
-        api_version: {{ .apiVersion }}
-        {{- end }}
-        {{- if eq .key "openai" }}
-        api_key: {{ if eq $.Values.secrets.source "existingSecret" }}{{ printf "$(OPENAI_API_KEY)" }}{{ else }}{{ $.Values.secrets.values.openaiApiKey }}{{ end }}
-        {{- else if eq .key "azure-openai" }}
-        api_key: {{ if eq $.Values.secrets.source "existingSecret" }}{{ printf "$(AZURE_API_KEY)" }}{{ else }}{{ $.Values.secrets.values.azureApiKey }}{{ end }}
-        {{- else if eq .key "anthropic" }}
-        api_key: {{ if eq $.Values.secrets.source "existingSecret" }}{{ printf "$(ANTHROPIC_API_KEY)" }}{{ else }}{{ $.Values.secrets.values.anthropicApiKey }}{{ end }}
-        {{- end }}
-    {{- end }}
-
+      {{- range .Values.config.providers }}
+      - {{ toYaml . | nindent 8 | trim }}
+      {{- end }}
     models:
-    {{- range .Values.config.models }}
+      {{- range .Values.config.models }}
       - key: {{ .key }}
         type: {{ .type }}
         provider: {{ .provider }}
         {{- if .deployment }}
-        deployment: {{ .deployment }}
+        deployment: "{{ .deployment }}"
         {{- end }}
-    {{- end }}
-
+      {{- end }}
+    
     pipelines:
-    {{- range .Values.config.pipelines }}
+      {{- range .Values.config.pipelines }}
       - name: {{ .name }}
         type: {{ .type }}
         plugins:
         {{- range .plugins }}
-          - {{- toYaml . | nindent 12 }}
+          - {{ toYaml . | nindent 12 | trim }}
         {{- end }}
-    {{- end }} 
+      {{- end }} 

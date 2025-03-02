@@ -1,18 +1,33 @@
+# Default values for hub.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
 replicaCount: 1
 
 image:
   repository: docker.io/traceloop/hub
   pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  # tag: "latest"
+  # Optionally specify an array of imagePullSecrets.
+  # imagePullSecrets:
+  #   - name: myRegistryKeySecretName
 
-imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
 podAnnotations: {}
 
 podSecurityContext: {}
+  # fsGroup: 2000
 
 securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
 
 service:
   type: ClusterIP
@@ -20,11 +35,11 @@ service:
 
 resources:
   limits:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 300m
+    memory: 400Mi
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 200Mi
 
 nodeSelector: {}
 
@@ -32,53 +47,39 @@ tolerations: []
 
 affinity: {}
 
-# Hub Configuration
+# Environment variables to pass to the hub container
+env: []
+  # - name: DEBUG
+  #   value: "true"
+
+# Configuration for the hub
 config:
+  # Define providers that will be available in the hub
   providers:
     - key: openai
-      type: openai
-    - key: anthropic
-      type: anthropic
-
-  models:
-    - key: gpt-4o
-      type: gpt-4o
-      provider: openai
-
-  pipelines:
-    - name: default
-      type: chat
-      plugins:
-        - logging:
-            level: info
-        - tracing:
-            endpoint: "https://api.traceloop.com/v1/traces"
-        - model-router:
-            models:
-              - gpt-4o
-
-# Secrets Configuration
+      # Configuration for the OpenAI provider
+# Secret management configuration
 secrets:
-  # Specify how secrets should be managed
-  # Options:
-  # - existingSecret: Use an existing Kubernetes secret (recommended for production)
-  # - values: Use values provided in this file (only for development/testing)
-  source: "existingSecret"
-  
-  # Name of the existing Kubernetes secret containing the API keys
-  # Required if source is "existingSecret"
-  existingSecretName: ""
-  
-  # Mapping of secret keys in the Kubernetes secret
-  # These should match the keys in your Kubernetes secret
+  # Source of secrets: 'existingSecret' or 'values'
+  source: existingSecret
+  # Name of the existing Kubernetes secret containing API keys
+  existingSecretName: "llm-api-keys"
+  # Mapping of API keys in the secret
   keyMapping:
+    # The key in the secret for OpenAI API key
     openaiApiKey: "OPENAI_API_KEY"
-    anthropicApiKey: "ANTHROPIC_API_KEY"
-    traceloopApiKey: "TRACELOOP_API_KEY"
+    # Uncomment to use Azure OpenAI API key
+    # azureApiKey: "AZURE_API_KEY"
+    # Uncomment to use Anthropic API key
+    # anthropicApiKey: "ANTHROPIC_API_KEY"
+    # Uncomment to use Traceloop API key for tracing
+    # traceloopApiKey: "TRACELOOP_API_KEY"
+    # Add mappings for any other provider API keys as needed
   
-  # Direct values (only used if source is "values")
-  # WARNING: Do not use in production!
+  # Direct values for API keys (only used if source is 'values')
+  # WARNING: Storing API keys in values is not recommended for production
   values:
-    openaiApiKey: ""
-    anthropicApiKey: ""
-    traceloopApiKey: "" 
+    # openaiApiKey: ""
+    # azureApiKey: ""
+    # anthropicApiKey: ""
+    # traceloopApiKey: "" 

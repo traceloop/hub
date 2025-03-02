@@ -24,6 +24,33 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: config-init
+          image: busybox:latest
+          command: ["sh", "-c"]
+          args:
+            - |
+              cp /config-template/config.yaml /config/config.yaml
+              # Dynamic substitution for all API keys
+              {{- range $key, $value := .Values.secrets.keyMapping }}
+              {{- $upperKey := upper (regexReplaceAll "ApiKey$" $key "") }}
+              sed -i "s/{{ $upperKey }}_API_KEY_PLACEHOLDER/${{ $upperKey }}_API_KEY/g" /config/config.yaml
+              {{- end }}
+          env:
+            {{- range $key, $value := .Values.secrets.keyMapping }}
+            {{- $upperKey := upper (regexReplaceAll "ApiKey$" $key "") }}
+            - name: {{ $upperKey }}_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secrets.existingSecretName }}
+                  key: {{ $value }}
+                  optional: {{ ne $key "openaiApiKey" }}
+            {{- end }}
+          volumeMounts:
+            - name: config-template
+              mountPath: /config-template
+            - name: config-volume
+              mountPath: /config
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -39,15 +66,17 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           volumeMounts:
-            - name: config
+            - name: config-volume
               mountPath: /app/config.yaml
               subPath: config.yaml
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
-        - name: config
+        - name: config-template
           configMap:
             name: {{ include "hub.fullname" . }}-config
+        - name: config-volume
+          emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
