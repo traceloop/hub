@@ -9,7 +9,7 @@ pub struct Config {
     pub pipelines: Vec<Pipeline>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Provider {
     pub key: String,
     pub r#type: String,
@@ -18,7 +18,7 @@ pub struct Provider {
     pub params: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct ModelConfig {
     pub key: String,
     pub r#type: String,
