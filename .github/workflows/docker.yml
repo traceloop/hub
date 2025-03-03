@@ -107,8 +107,8 @@ jobs:
 
       - name: Login to Docker Hub as OCI registry
         run: |
-          echo "${{ secrets.DOCKERHUB_ACCESS_TOKEN }}" | helm registry login registry-1.docker.io \
-            --username "${{ secrets.DOCKERHUB_ACCESS_USERNAME }}" \
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | helm registry login registry-1.docker.io \
+            --username "${{ secrets.DOCKERHUB_USERNAME }}" \
             --password-stdin
 
       - name: Package Helm chart
