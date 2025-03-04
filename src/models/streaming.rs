@@ -4,6 +4,14 @@ use super::logprob::ChoiceLogprobs;
 use super::tool_calls::ChatMessageToolCall;
 use super::usage::Usage;
 
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+pub struct Delta {
+    pub role: Option<String>,
+    pub content: Option<String>,
+    pub function_call: Option<serde_json::Value>,
+    pub tool_calls: Option<Vec<ChatMessageToolCall>>,
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct ChoiceDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
