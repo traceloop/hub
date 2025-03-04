@@ -1,3 +1,16 @@
+## v0.3.0 (2025-03-04)
+
+### Feat
+
+- add logprobs and top_logprobs options to ChatCompletionRequest (#27)
+
+### Fix
+
+- **cd**: correct docker hub secrets (#31)
+- **azure**: embeddings structs improvement (#29)
+- add proper error logging for azure and openai calls (#18)
+- **anthropic**: separate system from messages (#17)
+
 ## v0.2.1 (2024-12-01)
 
 ### Fix
