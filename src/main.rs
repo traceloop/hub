@@ -14,7 +14,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let config = load_config(&config_path)
         .map_err(|e| anyhow::anyhow!("Failed to load configuration: {}", e))?;
     let state = Arc::new(
-        AppState::new(config).map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?,
+        AppState::new(config)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?,
     );
     let app = routes::create_router(state);
     let port: String = std::env::var("PORT").unwrap_or("3000".to_string());
