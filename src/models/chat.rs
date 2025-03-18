@@ -5,11 +5,11 @@ use std::collections::HashMap;
 
 use super::content::ChatCompletionMessage;
 use super::logprob::LogProbs;
+use super::response_format::ResponseFormat;
 use super::streaming::ChatCompletionChunk;
 use super::tool_choice::ToolChoice;
 use super::tool_definition::ToolDefinition;
 use super::usage::Usage;
-use super::response_format::ResponseFormat;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionRequest {
