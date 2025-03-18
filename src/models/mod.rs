@@ -8,3 +8,4 @@ pub mod tool_calls;
 pub mod tool_choice;
 pub mod tool_definition;
 pub mod usage;
+pub mod response_format;

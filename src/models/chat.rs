@@ -9,6 +9,7 @@ use super::streaming::ChatCompletionChunk;
 use super::tool_choice::ToolChoice;
 use super::tool_definition::ToolDefinition;
 use super::usage::Usage;
+use super::response_format::ResponseFormat;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ChatCompletionRequest {
@@ -44,6 +45,8 @@ pub struct ChatCompletionRequest {
     pub logprobs: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_logprobs: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_format: Option<ResponseFormat>,
 }
 
 pub enum ChatCompletionResponse {
