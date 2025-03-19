@@ -181,6 +181,7 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
             role: "assistant".to_string(),
             content: Some(ChatMessageContent::Array(text_content)),
             name: None,
+            refusal: None,
             tool_calls: if tool_calls.is_empty() {
                 None
             } else {

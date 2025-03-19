@@ -103,6 +103,7 @@ impl OtelTracer {
                                 chunk_choice.delta.content.clone().unwrap_or_default(),
                             )),
                             tool_calls: chunk_choice.delta.tool_calls.clone(),
+                            refusal: None,
                         },
                         finish_reason: chunk_choice.finish_reason.clone(),
                         logprobs: None,
