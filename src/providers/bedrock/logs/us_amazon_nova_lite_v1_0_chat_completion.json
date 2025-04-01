@@ -1,1 +1,1 @@
-{"output":{"message":{"content":[{"text":"Paris"}],"role":"assistant"}},"stopReason":"end_turn","usage":{"inputTokens":12,"outputTokens":1,"totalTokens":13}}
+{"output":{"message":{"content":[{"text":"Paris"}],"role":"assistant"}},"stopReason":"end_turn","usage":{"inputTokens":12,"outputTokens":1,"totalTokens":13,"cacheReadInputTokenCount":0,"cacheWriteInputTokenCount":0}}

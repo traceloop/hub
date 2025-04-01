@@ -7,9 +7,9 @@ use crate::models::completion::{
 };
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::embeddings::{
-    Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
+    Embedding, Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
 };
-use crate::models::usage::Usage;
+use crate::models::usage::{EmbeddingUsage, Usage};
 use serde::{Deserialize, Serialize};
 
 /**
@@ -111,6 +111,7 @@ impl From<TitanChatCompletionResponse> for ChatCompletion {
             )),
             name: None,
             tool_calls: None,
+            refusal: None, //this is not returned titan as at 1/04/2025
         };
 
         ChatCompletion {
@@ -165,6 +166,21 @@ impl From<EmbeddingsRequest> for TitanEmbeddingRequest {
             EmbeddingsInput::Multiple(texts) => {
                 texts.first().map(|s| s.to_string()).unwrap_or_default()
             }
+            EmbeddingsInput::SingleTokenIds(token_ids) => token_ids
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<String>>()
+                .join(" "),
+            EmbeddingsInput::MultipleTokenIds(all_token_ids) => all_token_ids
+                .first()
+                .map(|token_ids| {
+                    token_ids
+                        .iter()
+                        .map(|id| id.to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                })
+                .unwrap_or_default(),
         };
 
         TitanEmbeddingRequest {
@@ -181,16 +197,13 @@ impl From<TitanEmbeddingResponse> for EmbeddingsResponse {
             object: "list".to_string(),
             data: vec![Embeddings {
                 object: "embedding".to_string(),
-                embedding: response.embedding,
+                embedding: Embedding::Float(response.embedding),
                 index: 0,
             }],
             model: "".to_string(),
-            usage: Usage {
-                prompt_tokens: response.input_text_token_count,
-                completion_tokens: 0,
-                total_tokens: response.input_text_token_count,
-                completion_tokens_details: None,
-                prompt_tokens_details: None,
+            usage: EmbeddingUsage {
+                prompt_tokens: Some(response.input_text_token_count),
+                total_tokens: Some(response.input_text_token_count),
             },
         }
     }
@@ -295,6 +308,7 @@ impl From<Ai21ChatCompletionResponse> for ChatCompletion {
                         content: Some(ChatMessageContent::String(choice.message.content)),
                         name: None,
                         tool_calls: None,
+                        refusal: None, //Ai21 does not return this as at 1/04/2025
                     },
                     finish_reason: Some(choice.finish_reason),
                     logprobs: None,

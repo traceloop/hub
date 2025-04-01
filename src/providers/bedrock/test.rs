@@ -104,6 +104,7 @@ mod antropic_tests {
                 )),
                 name: None,
                 tool_calls: None,
+                refusal: None,
             }],
             temperature: None,
             top_p: None,
@@ -118,6 +119,9 @@ mod antropic_tests {
             tool_choice: None,
             tools: None,
             user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -149,7 +153,7 @@ mod titan_tests {
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
     use crate::models::embeddings::EmbeddingsInput::Single;
-    use crate::models::embeddings::EmbeddingsRequest;
+    use crate::models::embeddings::{Embedding, EmbeddingsRequest};
     use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::bedrock::BedrockProvider;
     use crate::providers::provider::Provider;
@@ -188,11 +192,11 @@ mod titan_tests {
             "Expected non-empty embeddings data"
         );
         assert!(
-            !response.data[0].embedding.is_empty(),
-            "Expected non-empty embedding vector"
+            matches!(&response.data[0].embedding, Embedding::Float(vec) if !vec.is_empty()),
+            "Expected non-empty Float embedding vector",
         );
         assert!(
-            response.usage.prompt_tokens > 0,
+            response.usage.prompt_tokens > Some(0),
             "Expected non-zero token usage"
         );
     }
@@ -213,6 +217,7 @@ mod titan_tests {
                 )),
                 name: None,
                 tool_calls: None,
+                refusal: None,
             }],
             temperature: None,
             top_p: None,
@@ -227,6 +232,9 @@ mod titan_tests {
             tool_choice: None,
             tools: None,
             user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -333,6 +341,7 @@ mod ai21_tests {
                 )),
                 name: None,
                 tool_calls: None,
+                refusal: None,
             }],
             temperature: Some(0.8),
             top_p: Some(0.8),
@@ -347,6 +356,9 @@ mod ai21_tests {
             tool_choice: None,
             tools: None,
             user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
