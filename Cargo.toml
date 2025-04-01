@@ -36,9 +36,13 @@ axum-prometheus = "0.7.0"
 reqwest-streams = { version = "0.8.1", features = ["json"] }
 futures = "0.3.31"
 async-stream = "0.3.6"
-aws-config = "1.5.12"
 aws-sdk-bedrockruntime = "1.66.0"
+aws-config = "1.5.12"
 aws-credential-types = { version = "1.2.1", features = ["hardcoded-credentials"] }
+
+
+
+[dev-dependencies]
 http = "1.1.0"
 aws-smithy-runtime = { version = "1.7.6", features = ["test-util"] }
 aws-smithy-types = "1.2.11"
