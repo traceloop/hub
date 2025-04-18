@@ -1,0 +1,1 @@
+{"id":"chatcmpl-7c961099b52f4798bede41e6bb087b37","choices":[{"index":0,"message":{"role":"assistant","content":" Why don't skeletons fight each other?\n\nThey don't have the guts.","tool_calls":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":15,"completion_tokens":21,"total_tokens":36},"meta":{"requestDurationMillis":173},"model":"jamba-1.5-mini"}
