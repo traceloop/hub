@@ -10,6 +10,8 @@ use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
 use reqwest::Client;
+use tracing::info;
+
 pub struct AzureProvider {
     config: ProviderConfig,
     http_client: Client,
@@ -88,7 +90,7 @@ impl Provider for AzureProvider {
                     })
             }
         } else {
-            eprintln!(
+            info!(
                 "Azure OpenAI API request error: {}",
                 response.text().await.unwrap()
             );
