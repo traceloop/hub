@@ -17,7 +17,7 @@ pub struct AnthropicProvider {
 
 #[async_trait]
 impl Provider for AnthropicProvider {
-    fn new(config: &ProviderConfig) -> Self {
+    async fn new(config: &ProviderConfig) -> Self {
         Self {
             api_key: config.api_key.clone(),
             config: config.clone(),

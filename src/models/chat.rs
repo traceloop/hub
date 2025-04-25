@@ -3,7 +3,7 @@ use reqwest_streams::error::StreamBodyError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::content::ChatCompletionMessage;
+pub use super::content::ChatCompletionMessage;
 use super::logprob::LogProbs;
 use super::response_format::ResponseFormat;
 use super::streaming::ChatCompletionChunk;
