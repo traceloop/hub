@@ -29,7 +29,7 @@ models:
     # some models are region specific, it is a good idea to get ARN from cross region reference tab
     type: "< model-id or Inference profile ARN or Inference profile ID>"
     provider: bedrock
-    model_provider: "<model-provider>"#ai21 , titan , anthropic
+    model_provider: "anthropic" # can be: ai21, titan, anthropic
 
 pipelines:
   - name: default
