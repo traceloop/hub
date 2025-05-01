@@ -9,6 +9,7 @@ use axum::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
 use reqwest_streams::*;
+use tracing::info;
 
 pub struct OpenAIProvider {
     config: ProviderConfig,
@@ -66,7 +67,7 @@ impl Provider for OpenAIProvider {
                     })
             }
         } else {
-            eprintln!(
+            info!(
                 "OpenAI API request error: {}",
                 response.text().await.unwrap()
             );

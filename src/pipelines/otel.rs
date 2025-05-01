@@ -3,7 +3,7 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
-use crate::models::usage::Usage;
+use crate::models::usage::{EmbeddingUsage, Usage};
 use opentelemetry::global::{BoxedSpan, ObjectSafeSpan};
 use opentelemetry::trace::{SpanKind, Status, Tracer};
 use opentelemetry::{global, KeyValue};
@@ -103,6 +103,7 @@ impl OtelTracer {
                                 chunk_choice.delta.content.clone().unwrap_or_default(),
                             )),
                             tool_calls: chunk_choice.delta.tool_calls.clone(),
+                            refusal: None,
                         },
                         finish_reason: chunk_choice.finish_reason.clone(),
                         logprobs: None,
@@ -276,10 +277,27 @@ impl RecordSpan for EmbeddingsRequest {
                     ));
                 }
             }
+            EmbeddingsInput::SingleTokenIds(token_ids) => {
+                span.set_attribute(KeyValue::new(
+                    "llm.prompt.0.content",
+                    format!("{:?}", token_ids),
+                ));
+            }
+            EmbeddingsInput::MultipleTokenIds(token_ids) => {
+                for (i, token_ids) in token_ids.iter().enumerate() {
+                    span.set_attribute(KeyValue::new(
+                        format!("llm.prompt.{}.role", i),
+                        "user".to_string(),
+                    ));
+                    span.set_attribute(KeyValue::new(
+                        format!("llm.prompt.{}.content", i),
+                        format!("{:?}", token_ids),
+                    ));
+                }
+            }
         }
     }
 }
-
 impl RecordSpan for EmbeddingsResponse {
     fn record_span(&self, span: &mut BoxedSpan) {
         span.set_attribute(KeyValue::new(GEN_AI_RESPONSE_MODEL, self.model.clone()));
@@ -301,6 +319,19 @@ impl RecordSpan for Usage {
         span.set_attribute(KeyValue::new(
             "gen_ai.usage.total_tokens",
             self.total_tokens as i64,
+        ));
+    }
+}
+
+impl RecordSpan for EmbeddingUsage {
+    fn record_span(&self, span: &mut BoxedSpan) {
+        span.set_attribute(KeyValue::new(
+            "gen_ai.usage.prompt_tokens",
+            self.prompt_tokens.unwrap_or(0) as i64,
+        ));
+        span.set_attribute(KeyValue::new(
+            "gen_ai.usage.total_tokens",
+            self.total_tokens.unwrap_or(0) as i64,
         ));
     }
 }
