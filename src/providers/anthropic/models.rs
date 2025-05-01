@@ -109,8 +109,13 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             .filter(|msg| msg.role != "system")
             .collect();
 
+        let max_tokens = match request.max_completion_tokens {
+            Some(val) if val > 0 => val,
+            _ => request.max_tokens.unwrap_or_else(default_max_tokens),
+        };
+
         AnthropicChatCompletionRequest {
-            max_tokens: request.max_tokens.unwrap_or(default_max_tokens()),
+            max_tokens,
             model: request.model,
             messages,
             temperature: request.temperature,
