@@ -12,7 +12,8 @@ providers:
   - key: bedrock
     type: bedrock
     api_key: ""# Not used for AWS Bedrock
-    region: "<your-aws-region>"
+    region: "<your-aws-region>" # like "us-east-1"
+    inference_profile_id: "<your-inference-profile-id>" # like "us"
     AWS_ACCESS_KEY_ID: "<your-aws-access-key>"
     AWS_SECRET_ACCESS_KEY: "<your-aws-secret-key>"
     AWS_SESSION_TOKEN: "<your-session-token>"  # Optional
@@ -30,6 +31,7 @@ models:
     type: "< model-id or Inference profile ARN or Inference profile ID>"
     provider: bedrock
     model_provider: "anthropic" # can be: ai21, titan, anthropic
+    model_version: "v2:0" # optional, defaults to "v1:0"
 
 pipelines:
   - name: default
