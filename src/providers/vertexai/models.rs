@@ -3,10 +3,10 @@ use serde_json::Value;
 
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
+use crate::models::streaming::{ChatCompletionChunk, Choice, ChoiceDelta};
 use crate::models::tool_calls::{ChatMessageToolCall, FunctionCall};
 use crate::models::tool_choice::{SimpleToolChoice, ToolChoice};
 use crate::models::usage::Usage;
-use crate::models::streaming::{ChatCompletionChunk, Choice, ChoiceDelta};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GeminiChatRequest {
@@ -295,4 +295,4 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
             usage: None,
         }
     }
-} 
+}

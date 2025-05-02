@@ -3,8 +3,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use wiremock::{Mock, MockServer, ResponseTemplate};
 use tracing::{debug, error, info};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::provider::VertexAIProvider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -92,7 +92,10 @@ async fn save_to_cassette(test_name: &str, response: &Value) {
         if let Err(e) = fs::write(&cassette_path, content) {
             error!("Error saving cassette: {}", e);
         } else {
-            debug!("Successfully saved interaction to cassette: {:?}", cassette_path);
+            debug!(
+                "Successfully saved interaction to cassette: {:?}",
+                cassette_path
+            );
         }
     }
 }
