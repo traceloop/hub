@@ -13,6 +13,7 @@ pub struct Config {
 pub struct Provider {
     pub key: String,
     pub r#type: String,
+    #[serde(default = "no_api_key")]
     pub api_key: String,
     #[serde(flatten)]
     pub params: HashMap<String, String>,
@@ -61,4 +62,8 @@ pub enum PluginConfig {
 
 fn default_log_level() -> String {
     "warning".to_string()
+}
+
+fn no_api_key() -> String {
+    "".to_string()
 }

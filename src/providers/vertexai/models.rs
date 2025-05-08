@@ -221,6 +221,7 @@ impl GeminiChatResponse {
                             })
                             .collect()
                     }),
+                    refusal: None,
                 },
                 finish_reason: candidate.finish_reason,
                 logprobs: None,

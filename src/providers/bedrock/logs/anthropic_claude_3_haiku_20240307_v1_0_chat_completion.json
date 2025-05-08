@@ -1,0 +1,1 @@
+{"id":"msg_bdrk_01EUKDUQgXoPmpVJR79cggfA","type":"message","role":"assistant","model":"claude-3-haiku-20240307","content":[{"type":"text","text":"Here's a short joke for you:\n\nWhy can't a bicycle stand up on its own? Because it's two-tired!"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":12,"output_tokens":30}}

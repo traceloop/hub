@@ -9,7 +9,6 @@ use crate::models::embeddings::{
     Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
 };
 use crate::models::streaming::ChatCompletionChunk;
-use crate::models::usage::Usage;
 use crate::providers::provider::Provider;
 use axum::async_trait;
 use axum::http::StatusCode;
@@ -18,7 +17,7 @@ use reqwest::Client;
 use reqwest_streams::error::{StreamBodyError, StreamBodyKind};
 use reqwest_streams::JsonStreamResponse;
 use serde_json::json;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 use yup_oauth2::{ServiceAccountAuthenticator, ServiceAccountKey};
 
 const STREAM_BUFFER_SIZE: usize = 8192;
@@ -31,20 +30,6 @@ pub struct VertexAIProvider {
 }
 
 impl VertexAIProvider {
-    fn validate_location(location: &str) -> String {
-        // Only allow alphanumeric and hyphen characters
-        let sanitized: String = location
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
-            .collect();
-
-        if sanitized.is_empty() {
-            "us-central1".to_string() // Default if invalid
-        } else {
-            sanitized
-        }
-    }
-
     async fn get_auth_token(&self) -> Result<String, StatusCode> {
         debug!("Getting auth token...");
         if !self.config.api_key.is_empty() {
@@ -100,8 +85,8 @@ impl Provider for VertexAIProvider {
         let location = config
             .params
             .get("location")
-            .map(|l| Self::validate_location(l))
-            .unwrap_or_else(|| "us-central1".to_string());
+            .expect("location is required for VertexAI provider")
+            .to_string();
 
         Self {
             config: config.clone(),
@@ -284,6 +269,7 @@ impl Provider for VertexAIProvider {
                     EmbeddingsInput::Multiple(texts) => texts.into_iter()
                         .map(|text| json!({"content": text}))
                         .collect::<Vec<_>>(),
+
                 },
                 "parameters": {
                     "autoTruncate": true
@@ -600,12 +586,14 @@ mod tests {
                     )),
                     name: None,
                     tool_calls: None,
+                    refusal: None,
                 },
                 ChatCompletionMessage {
                     role: "user".to_string(),
                     content: Some(ChatMessageContent::String("Hello".to_string())),
                     name: None,
                     tool_calls: None,
+                    refusal: None,
                 },
             ],
             temperature: None,
