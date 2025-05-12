@@ -54,7 +54,10 @@ pub struct GeminiContent {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContentPart {
-    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(rename = "functionCall", skip_serializing_if = "Option::is_none")]
+    pub function_call: Option<GeminiFunctionCall>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -99,7 +102,7 @@ pub struct GeminiToolCall {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GeminiFunctionCall {
     pub name: String,
-    pub arguments: String,
+    pub args: Value,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -134,15 +137,16 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
                 parts: vec![ContentPart {
                     text: match msg.content {
                         Some(content) => match content {
-                            ChatMessageContent::String(text) => text,
-                            ChatMessageContent::Array(parts) => parts
+                            ChatMessageContent::String(text) => Some(text),
+                            ChatMessageContent::Array(parts) => Some(parts
                                 .into_iter()
                                 .map(|p| p.text)
                                 .collect::<Vec<_>>()
-                                .join(" "),
+                                .join(" ")),
                         },
-                        None => String::new(),
+                        None => None,
                     },
+                    function_call: None,
                 }],
             })
             .collect();
@@ -194,54 +198,55 @@ impl GeminiChatResponse {
             .candidates
             .into_iter()
             .enumerate()
-            .map(|(i, candidate)| ChatCompletionChoice {
-                index: i as u32,
-                message: ChatCompletionMessage {
-                    role: "assistant".to_string(),
-                    content: Some(ChatMessageContent::String(
-                        candidate
-                            .content
-                            .parts
-                            .into_iter()
-                            .map(|p| p.text)
-                            .collect::<Vec<_>>()
-                            .join(""),
-                    )),
-                    name: None,
-                    tool_calls: candidate.tool_calls.map(|calls| {
-                        calls
-                            .into_iter()
-                            .map(|call| ChatMessageToolCall {
-                                id: format!("call_{}", uuid::Uuid::new_v4()),
-                                r#type: "function".to_string(),
-                                function: FunctionCall {
-                                    name: call.function.name,
-                                    arguments: call.function.arguments,
-                                },
-                            })
-                            .collect()
-                    }),
-                    refusal: None,
-                },
-                finish_reason: candidate.finish_reason,
-                logprobs: None,
+            .map(|(i, candidate)| {
+                let mut message_text = String::new();
+                let mut tool_calls = Vec::new();
+
+                for part in candidate.content.parts {
+                    if let Some(text) = part.text {
+                        message_text.push_str(&text);
+                    }
+                    if let Some(fc) = part.function_call {
+                        tool_calls.push(ChatMessageToolCall {
+                            id: format!("call_{}", uuid::Uuid::new_v4()),
+                            r#type: "function".to_string(),
+                            function: FunctionCall {
+                                name: fc.name,
+                                arguments: serde_json::to_string(&fc.args).unwrap_or_else(|_| "{}".to_string()),
+                            },
+                        });
+                    }
+                }
+
+                ChatCompletionChoice {
+                    index: i as u32,
+                    message: ChatCompletionMessage {
+                        role: "assistant".to_string(),
+                        content: if message_text.is_empty() { None } else { Some(ChatMessageContent::String(message_text)) },
+                        tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+                        name: None,
+                        refusal: None,
+                    },
+                    finish_reason: candidate.finish_reason,
+                    logprobs: None,
+                }
             })
             .collect();
 
-        let usage = self.usage_metadata.map_or(
-            Usage {
+        let usage = self.usage_metadata.map_or_else(
+            || Usage {
                 prompt_tokens: 0,
                 completion_tokens: 0,
                 total_tokens: 0,
-                prompt_tokens_details: None,
                 completion_tokens_details: None,
+                prompt_tokens_details: None,
             },
-            |m| Usage {
-                prompt_tokens: m.prompt_token_count as u32,
-                completion_tokens: m.candidates_token_count as u32,
-                total_tokens: m.total_token_count as u32,
-                prompt_tokens_details: None,
+            |meta| Usage {
+                prompt_tokens: meta.prompt_token_count as u32,
+                completion_tokens: meta.candidates_token_count as u32,
+                total_tokens: meta.total_token_count as u32,
                 completion_tokens_details: None,
+                prompt_tokens_details: None,
             },
         );
 
@@ -274,7 +279,7 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
                     role: None,
                     content: first_candidate
                         .and_then(|c| c.content.parts.first())
-                        .map(|p| p.text.clone()),
+                        .map(|p| p.text.clone().unwrap_or_default()),
                     tool_calls: first_candidate
                         .and_then(|c| c.tool_calls.clone())
                         .map(|calls| {
@@ -285,7 +290,7 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
                                     r#type: "function".to_string(),
                                     function: FunctionCall {
                                         name: call.function.name,
-                                        arguments: call.function.arguments,
+                                        arguments: serde_json::to_string(&call.function.args).unwrap_or_else(|_| "{}".to_string()),
                                     },
                                 })
                                 .collect()

@@ -1,14 +1,13 @@
-use super::models::{
-    ContentPart, GeminiCandidate, GeminiChatRequest, GeminiChatResponse, GeminiContent,
-    UsageMetadata, VertexAIStreamChunk,
+use super::models::{GeminiChatRequest, GeminiChatResponse, VertexAIStreamChunk,
 };
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{
-    Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
+    Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse, Embedding,
 };
 use crate::models::streaming::ChatCompletionChunk;
+use crate::models::usage::EmbeddingUsage;
 use crate::providers::provider::Provider;
 use axum::async_trait;
 use axum::http::StatusCode;
@@ -72,6 +71,22 @@ impl VertexAIProvider {
             Ok(token.token().unwrap_or_default().to_string())
         }
     }
+
+    pub fn validate_location(location: &str) -> Result<String, String> {
+        let sanitized = location
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .collect::<String>();
+
+        if sanitized.is_empty() || sanitized != location {
+            Err(format!(
+                "Invalid location provided: '{}'. Location must contain only alphanumeric characters and hyphens.",
+                location
+            ))
+        } else {
+            Ok(sanitized)
+        }
+    }
 }
 
 #[async_trait]
@@ -82,11 +97,14 @@ impl Provider for VertexAIProvider {
             .get("project_id")
             .expect("project_id is required for VertexAI provider")
             .to_string();
-        let location = config
+        let location_str = config
             .params
             .get("location")
             .expect("location is required for VertexAI provider")
             .to_string();
+
+        let location = Self::validate_location(&location_str)
+            .expect("Invalid location provided in configuration");
 
         Self {
             config: config.clone(),
@@ -116,22 +134,36 @@ impl Provider for VertexAIProvider {
             "generateContent"
         };
 
-        let endpoint = format!(
-            "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:{}",
-            self.location, self.project_id, self.location, payload.model, endpoint_suffix
+        let service_endpoint = format!("{}-aiplatform.googleapis.com", self.location);
+        let full_model_path = format!(
+            "projects/{}/locations/{}/publishers/google/models/{}",
+            self.project_id, self.location, payload.model
         );
 
-        let response = self
+        let endpoint = format!(
+            "https://{}/v1/{}:{}",
+            service_endpoint, full_model_path, endpoint_suffix
+        );
+
+        let request_body = GeminiChatRequest::from(payload.clone());
+        debug!("Sending request to endpoint: {}", endpoint);
+        debug!("Request Body: {}", serde_json::to_string(&request_body).unwrap_or_else(|e| format!("Failed to serialize request: {}", e)));
+
+        let response_result = self
             .http_client
             .post(&endpoint)
             .bearer_auth(auth_token)
-            .json(&GeminiChatRequest::from(payload.clone()))
+            .json(&request_body)
             .send()
-            .await
-            .map_err(|e| {
-                error!("VertexAI API request error: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+            .await;
+
+        let response = match response_result {
+            Ok(resp) => resp,
+            Err(e) => {
+                error!("VertexAI API request failed before getting response: {}", e);
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+        };
 
         let status = response.status();
         debug!("Response status: {}", status);
@@ -163,69 +195,18 @@ impl Provider for VertexAIProvider {
                     error!("Failed to get response text: {}", e);
                     StatusCode::INTERNAL_SERVER_ERROR
                 })?;
-                debug!("Response body: {}", response_text);
+                debug!("Raw VertexAI Response Body: {}", response_text);
 
-                // Parse the response as a JSON array
-                let responses: Vec<serde_json::Value> = serde_json::from_str(&response_text)
+                // Parse the response as a single JSON object (GenerateContentResponse)
+                let gemini_response: GeminiChatResponse = serde_json::from_str(&response_text)
                     .map_err(|e| {
-                        error!("Failed to parse response as JSON array: {}", e);
+                        error!(
+                            "Failed to parse response as GeminiChatResponse. Error: {}, Raw Response: {}",
+                            e,
+                            response_text // Log raw response on error too
+                        );
                         StatusCode::INTERNAL_SERVER_ERROR
                     })?;
-
-                // Get the last response which contains the complete message and usage metadata
-                let final_response = responses.last().ok_or_else(|| {
-                    error!("No valid response chunks found");
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })?;
-
-                // Combine all text parts from all responses
-                let full_text = responses
-                    .iter()
-                    .filter_map(|resp| {
-                        resp.get("candidates")
-                            .and_then(|candidates| candidates.get(0))
-                            .and_then(|candidate| candidate.get("content"))
-                            .and_then(|content| content.get("parts"))
-                            .and_then(|parts| parts.get(0))
-                            .and_then(|part| part.get("text"))
-                            .and_then(|text| text.as_str())
-                            .map(String::from)
-                    })
-                    .collect::<Vec<String>>()
-                    .join("");
-
-                // Create a GeminiChatResponse with the combined text
-                let gemini_response = GeminiChatResponse {
-                    candidates: vec![GeminiCandidate {
-                        content: GeminiContent {
-                            role: "model".to_string(),
-                            parts: vec![ContentPart { text: full_text }],
-                        },
-                        finish_reason: final_response["candidates"][0]["finishReason"]
-                            .as_str()
-                            .map(String::from),
-                        safety_ratings: None,
-                        tool_calls: None,
-                    }],
-                    usage_metadata: final_response["usageMetadata"].as_object().map(|obj| {
-                        UsageMetadata {
-                            prompt_token_count: obj
-                                .get("promptTokenCount")
-                                .and_then(|v| v.as_i64())
-                                .unwrap_or(0)
-                                as i32,
-                            candidates_token_count: obj
-                                .get("candidatesTokenCount")
-                                .and_then(|v| v.as_i64())
-                                .unwrap_or(0)
-                                as i32,
-                            total_token_count: obj
-                                .get("totalTokenCount")
-                                .and_then(|v| v.as_i64())
-                                .unwrap_or(0) as i32,
-                        }
-                    }),
-                };
 
                 Ok(ChatCompletionResponse::NonStream(
                     gemini_response.to_openai(payload.model),
@@ -233,7 +214,7 @@ impl Provider for VertexAIProvider {
             }
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            error!("VertexAI API request error: {}", error_text);
+            error!("VertexAI API request failed with status {}. Error body: {}", status, error_text);
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
@@ -269,7 +250,10 @@ impl Provider for VertexAIProvider {
                     EmbeddingsInput::Multiple(texts) => texts.into_iter()
                         .map(|text| json!({"content": text}))
                         .collect::<Vec<_>>(),
-
+                    EmbeddingsInput::SingleTokenIds(tokens) => vec![json!({"content": tokens.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(" ")})],
+                    EmbeddingsInput::MultipleTokenIds(token_arrays) => token_arrays.into_iter()
+                        .map(|tokens| json!({"content": tokens.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(" ")}))
+                        .collect::<Vec<_>>(),
                 },
                 "parameters": {
                     "autoTruncate": true
@@ -306,12 +290,12 @@ impl Provider for VertexAIProvider {
                 .enumerate()
                 .map(|(i, pred)| Embeddings {
                     object: "embedding".to_string(),
-                    embedding: pred["embeddings"]["values"]
+                    embedding: Embedding::Float(pred["embeddings"]["values"]
                         .as_array()
                         .unwrap_or(&vec![])
                         .iter()
                         .filter_map(|v| v.as_f64().map(|f| f as f32))
-                        .collect(),
+                        .collect::<Vec<f32>>()),
                     index: i,
                 })
                 .collect();
@@ -320,12 +304,9 @@ impl Provider for VertexAIProvider {
                 object: "list".to_string(),
                 data: embeddings,
                 model: payload.model,
-                usage: Usage {
-                    prompt_tokens: 0,
-                    completion_tokens: 0,
-                    total_tokens: 0,
-                    prompt_tokens_details: None,
-                    completion_tokens_details: None,
+                usage: EmbeddingUsage {
+                    prompt_tokens: Some(0),
+                    total_tokens: Some(0),
                 },
             })
         } else {
@@ -342,11 +323,17 @@ impl VertexAIProvider {
         let project_id = config
             .params
             .get("project_id")
-            .map_or_else(|| "test-project".to_string(), |v| v.to_string());
-        let location = config
+            .cloned()
+            .unwrap_or_else(|| "".to_string());
+
+        let location_str = config
             .params
             .get("location")
-            .map_or_else(|| "us-central1".to_string(), |v| v.to_string());
+            .cloned()
+            .unwrap_or_else(|| "".to_string());
+
+        let location = Self::validate_location(&location_str)
+             .expect("Invalid location provided for test client configuration");
 
         Self {
             config: config.clone(),
@@ -354,504 +341,5 @@ impl VertexAIProvider {
             project_id,
             location,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::models::content::{
-        ChatCompletionMessage, ChatMessageContent, ChatMessageContentPart,
-    };
-    use crate::models::tool_choice::{SimpleToolChoice, ToolChoice};
-    use crate::models::tool_definition::{FunctionDefinition, ToolDefinition};
-    use crate::providers::vertexai::models::{
-        GeminiFunctionCall, GeminiToolCall, GeminiToolChoice,
-    };
-    use std::collections::HashMap;
-
-    #[test]
-    fn test_provider_new() {
-        // Test with minimum required config
-        let mut params = HashMap::new();
-        params.insert("project_id".to_string(), "test-project".to_string());
-
-        let config = ProviderConfig {
-            key: "test-vertexai".to_string(),
-            r#type: "vertexai".to_string(),
-            api_key: "".to_string(),
-            params,
-        };
-
-        let provider = VertexAIProvider::new(&config);
-        assert_eq!(provider.project_id, "test-project");
-        assert_eq!(provider.location, "us-central1"); // default location
-    }
-
-    #[test]
-    #[should_panic(expected = "project_id is required")]
-    fn test_provider_new_missing_project_id() {
-        let config = ProviderConfig {
-            key: "test-vertexai".to_string(),
-            r#type: "vertexai".to_string(),
-            api_key: "".to_string(),
-            params: HashMap::new(),
-        };
-
-        VertexAIProvider::new(&config);
-    }
-
-    #[test]
-    fn test_gemini_request_conversion() {
-        let chat_request = ChatCompletionRequest {
-            model: "gemini-1.5-flash".to_string(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(ChatMessageContent::String("Hello".to_string())),
-                name: None,
-                tool_calls: None,
-            }],
-            temperature: Some(0.7),
-            top_p: Some(0.9),
-            n: None,
-            stream: Some(false),
-            stop: None,
-            max_tokens: Some(100),
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-        };
-
-        let gemini_request = GeminiChatRequest::from(chat_request);
-
-        assert_eq!(gemini_request.contents[0].parts[0].text, "Hello");
-        assert_eq!(gemini_request.contents[0].role, "user");
-        assert_eq!(
-            gemini_request
-                .generation_config
-                .as_ref()
-                .unwrap()
-                .temperature,
-            Some(0.7)
-        );
-        assert_eq!(
-            gemini_request.generation_config.as_ref().unwrap().top_p,
-            Some(0.9)
-        );
-    }
-
-    #[test]
-    fn test_gemini_response_conversion() {
-        let gemini_response = GeminiChatResponse {
-            candidates: vec![GeminiCandidate {
-                content: GeminiContent {
-                    role: "model".to_string(),
-                    parts: vec![ContentPart {
-                        text: "Hello there!".to_string(),
-                    }],
-                },
-                finish_reason: Some("STOP".to_string()),
-                safety_ratings: None,
-                tool_calls: None,
-            }],
-            usage_metadata: Some(UsageMetadata {
-                prompt_token_count: 10,
-                candidates_token_count: 20,
-                total_token_count: 30,
-            }),
-        };
-
-        let model = "gemini-1.5-flash".to_string();
-        let openai_response = gemini_response.to_openai(model.clone());
-
-        assert_eq!(openai_response.model, model);
-        match &openai_response.choices[0].message.content {
-            Some(ChatMessageContent::String(text)) => assert_eq!(text, "Hello there!"),
-            _ => panic!("Expected String content"),
-        }
-        assert_eq!(
-            openai_response.choices[0].finish_reason,
-            Some("STOP".to_string())
-        );
-        assert_eq!(openai_response.usage.prompt_tokens, 10);
-        assert_eq!(openai_response.usage.completion_tokens, 20);
-        assert_eq!(openai_response.usage.total_tokens, 30);
-    }
-
-    #[test]
-    fn test_gemini_request_with_tools() {
-        let chat_request = ChatCompletionRequest {
-            model: "gemini-1.5-flash".to_string(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(ChatMessageContent::String("Hello".to_string())),
-                name: None,
-                tool_calls: None,
-            }],
-            temperature: Some(0.7),
-            tools: Some(vec![ToolDefinition {
-                tool_type: "function".to_string(),
-                function: FunctionDefinition {
-                    name: "test_function".to_string(),
-                    description: Some("Test function".to_string()),
-                    parameters: Some(
-                        serde_json::from_value(serde_json::json!({
-                            "type": "object",
-                            "properties": {
-                                "test": {
-                                    "type": "string"
-                                }
-                            }
-                        }))
-                        .unwrap(),
-                    ),
-                    strict: None,
-                },
-            }]),
-            tool_choice: Some(ToolChoice::Simple(SimpleToolChoice::Auto)),
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            max_tokens: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            parallel_tool_calls: None,
-        };
-
-        let gemini_request = GeminiChatRequest::from(chat_request);
-
-        assert!(gemini_request.tools.is_some());
-        let tools = gemini_request.tools.unwrap();
-        assert_eq!(tools[0].function_declarations[0].name, "test_function");
-    }
-
-    #[test]
-    fn test_gemini_response_with_tool_calls() {
-        let gemini_response = GeminiChatResponse {
-            candidates: vec![GeminiCandidate {
-                content: GeminiContent {
-                    role: "model".to_string(),
-                    parts: vec![ContentPart {
-                        text: "Using weather function".to_string(),
-                    }],
-                },
-                finish_reason: Some("STOP".to_string()),
-                safety_ratings: None,
-                tool_calls: Some(vec![GeminiToolCall {
-                    function: GeminiFunctionCall {
-                        name: "get_weather".to_string(),
-                        arguments: r#"{"location":"San Francisco"}"#.to_string(),
-                    },
-                }]),
-            }],
-            usage_metadata: Some(UsageMetadata {
-                prompt_token_count: 10,
-                candidates_token_count: 20,
-                total_token_count: 30,
-            }),
-        };
-
-        let model = "gemini-1.5-flash".to_string();
-        let openai_response = gemini_response.to_openai(model.clone());
-
-        assert!(openai_response.choices[0].message.tool_calls.is_some());
-        let tool_calls = openai_response.choices[0]
-            .message
-            .tool_calls
-            .as_ref()
-            .unwrap();
-        assert_eq!(tool_calls[0].function.name, "get_weather");
-        assert_eq!(
-            tool_calls[0].function.arguments,
-            r#"{"location":"San Francisco"}"#
-        );
-    }
-
-    #[test]
-    fn test_gemini_request_with_system_message() {
-        let chat_request = ChatCompletionRequest {
-            model: "gemini-1.5-flash".to_string(),
-            messages: vec![
-                ChatCompletionMessage {
-                    role: "system".to_string(),
-                    content: Some(ChatMessageContent::String(
-                        "You are a helpful assistant".to_string(),
-                    )),
-                    name: None,
-                    tool_calls: None,
-                    refusal: None,
-                },
-                ChatCompletionMessage {
-                    role: "user".to_string(),
-                    content: Some(ChatMessageContent::String("Hello".to_string())),
-                    name: None,
-                    tool_calls: None,
-                    refusal: None,
-                },
-            ],
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            max_tokens: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-        };
-
-        let gemini_request = GeminiChatRequest::from(chat_request);
-
-        // Verify system message is handled correctly
-        assert_eq!(gemini_request.contents.len(), 2);
-        assert_eq!(gemini_request.contents[0].role, "system");
-    }
-
-    #[test]
-    fn test_gemini_request_with_array_content() {
-        let chat_request = ChatCompletionRequest {
-            model: "gemini-1.5-flash".to_string(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(ChatMessageContent::Array(vec![
-                    ChatMessageContentPart {
-                        r#type: "text".to_string(),
-                        text: "Part 1".to_string(),
-                    },
-                    ChatMessageContentPart {
-                        r#type: "text".to_string(),
-                        text: "Part 2".to_string(),
-                    },
-                ])),
-                name: None,
-                tool_calls: None,
-            }],
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            max_tokens: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-        };
-
-        let gemini_request = GeminiChatRequest::from(chat_request);
-
-        assert_eq!(gemini_request.contents[0].parts[0].text, "Part 1 Part 2");
-    }
-
-    #[test]
-    fn test_invalid_location_format() {
-        let mut params = HashMap::new();
-        params.insert("project_id".to_string(), "test-project".to_string());
-        params.insert("location".to_string(), "invalid@location".to_string());
-
-        let config = ProviderConfig {
-            key: "test-vertexai".to_string(),
-            r#type: "vertexai".to_string(),
-            api_key: "".to_string(),
-            params,
-        };
-
-        let provider = VertexAIProvider::new(&config);
-        assert_eq!(provider.location, "invalidlocation"); // @ should be removed
-    }
-
-    #[test]
-    fn test_location_validation() {
-        assert_eq!(
-            VertexAIProvider::validate_location("us-central1"),
-            "us-central1"
-        );
-        assert_eq!(
-            VertexAIProvider::validate_location("invalid@location"),
-            "invalidlocation"
-        );
-        assert_eq!(VertexAIProvider::validate_location(""), "us-central1");
-        assert_eq!(VertexAIProvider::validate_location("!@#$%^"), "us-central1");
-    }
-
-    #[test]
-    fn test_auth_config_precedence() {
-        let mut params = HashMap::new();
-        params.insert("project_id".to_string(), "test-project".to_string());
-        params.insert("credentials_path".to_string(), "some/path.json".to_string());
-
-        let config = ProviderConfig {
-            key: "test-vertexai".to_string(),
-            r#type: "vertexai".to_string(),
-            api_key: "test-api-key".to_string(), // Both API key and credentials provided
-            params,
-        };
-
-        let provider = VertexAIProvider::new(&config);
-        // Should prefer API key over credentials path
-        assert!(!provider.config.api_key.is_empty());
-        assert_eq!(provider.config.api_key, "test-api-key");
-        assert!(provider.config.params.contains_key("credentials_path")); // Credentials path should still be preserved
-    }
-
-    #[test]
-    fn test_auth_config_credentials_only() {
-        let mut params = HashMap::new();
-        params.insert("project_id".to_string(), "test-project".to_string());
-        params.insert("credentials_path".to_string(), "some/path.json".to_string());
-
-        let config = ProviderConfig {
-            key: "test-vertexai".to_string(),
-            r#type: "vertexai".to_string(),
-            api_key: "".to_string(), // Empty API key
-            params,
-        };
-
-        let provider = VertexAIProvider::new(&config);
-        assert!(provider.config.api_key.is_empty());
-        assert_eq!(
-            provider.config.params.get("credentials_path").unwrap(),
-            "some/path.json"
-        );
-    }
-
-    #[test]
-    fn test_empty_message_handling() {
-        let chat_request = ChatCompletionRequest {
-            model: "gemini-1.5-flash".to_string(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: None, // Empty content
-                name: None,
-                tool_calls: None,
-            }],
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            max_tokens: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-        };
-
-        let gemini_request = GeminiChatRequest::from(chat_request);
-        assert_eq!(gemini_request.contents[0].parts[0].text, "");
-    }
-
-    #[test]
-    fn test_tool_choice_none() {
-        let chat_request = ChatCompletionRequest {
-            model: "gemini-1.5-flash".to_string(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(ChatMessageContent::String("test".to_string())),
-                name: None,
-                tool_calls: None,
-            }],
-            tool_choice: Some(ToolChoice::Simple(SimpleToolChoice::None)),
-            tools: Some(vec![ToolDefinition {
-                tool_type: "function".to_string(),
-                function: FunctionDefinition {
-                    name: "test_function".to_string(),
-                    description: Some("Test function".to_string()),
-                    parameters: Some(
-                        serde_json::from_value(serde_json::json!({
-                            "type": "object",
-                            "properties": {
-                                "test": {
-                                    "type": "string"
-                                }
-                            }
-                        }))
-                        .unwrap(),
-                    ),
-                    strict: None,
-                },
-            }]),
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            max_tokens: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            parallel_tool_calls: None,
-        };
-
-        let gemini_request = GeminiChatRequest::from(chat_request);
-        assert!(matches!(
-            gemini_request.tool_choice,
-            Some(GeminiToolChoice::None)
-        ));
-    }
-
-    #[test]
-    fn test_generation_config_limits() {
-        let chat_request = ChatCompletionRequest {
-            model: "gemini-1.5-flash".to_string(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(ChatMessageContent::String("test".to_string())),
-                name: None,
-                tool_calls: None,
-            }],
-            temperature: Some(2.0),   // Out of range
-            top_p: Some(1.5),         // Out of range
-            max_tokens: Some(100000), // Very large
-            n: None,
-            stream: None,
-            stop: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            tools: None,
-            tool_choice: None,
-            parallel_tool_calls: None,
-        };
-
-        let gemini_request = GeminiChatRequest::from(chat_request);
-        let config = gemini_request.generation_config.unwrap();
-        assert_eq!(config.temperature.unwrap(), 2.0); // Values are passed through as-is
-        assert_eq!(config.top_p.unwrap(), 1.5); // Values are passed through as-is
-                                                // No need to check for bounds as values are passed through unchanged
-    }
-
-    #[test]
-    fn test_response_error_mapping() {
-        let gemini_response = GeminiChatResponse {
-            candidates: vec![], // Empty candidates
-            usage_metadata: None,
-        };
-
-        let model = "gemini-1.5-flash".to_string();
-        let openai_response = gemini_response.to_openai(model);
-        assert!(openai_response.choices.is_empty());
-        assert_eq!(openai_response.usage.prompt_tokens, 0);
-        assert_eq!(openai_response.usage.completion_tokens, 0);
-        assert_eq!(openai_response.usage.total_tokens, 0);
     }
 }

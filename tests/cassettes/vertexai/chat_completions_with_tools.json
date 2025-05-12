@@ -1,24 +1,92 @@
 [
   {
+    "id": "chatcmpl-de1cfeec-6d9f-475e-ae6d-7dead4cd260e",
+    "object": "chat.completion",
+    "created": 1747064690,
+    "model": "gemini-2.0-flash-exp",
     "choices": [
       {
-        "finish_reason": "STOP",
         "index": 0,
         "message": {
-          "content": "",
-          "role": "assistant"
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "id": "call_3b2927f2-e7a3-4a18-b9ed-ce1efc23d3fb",
+              "function": {
+                "arguments": "{\"location\":\"San Francisco\"}",
+                "name": "get_weather"
+              },
+              "type": "function"
+            }
+          ]
         }
       }
     ],
-    "created": 1735633514,
-    "id": "chatcmpl-a513c04e-4300-416f-bc7c-5933229027d6",
-    "model": "gemini-1.5-flash",
-    "object": "chat.completion",
-    "system_fingerprint": null,
     "usage": {
-      "completion_tokens": 6,
-      "prompt_tokens": 27,
-      "total_tokens": 33
-    }
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
+  },
+  {
+    "id": "chatcmpl-2d15eaf9-36da-43b1-9e83-75c465d6938c",
+    "object": "chat.completion",
+    "created": 1747064802,
+    "model": "gemini-2.0-flash-exp",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "id": "call_8cf02207-a5b9-4cc5-b240-8932f380f8df",
+              "function": {
+                "arguments": "{\"location\":\"San Francisco\"}",
+                "name": "get_weather"
+              },
+              "type": "function"
+            }
+          ]
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
+  },
+  {
+    "id": "chatcmpl-4df1d154-9b2c-40cc-882a-83f845429014",
+    "object": "chat.completion",
+    "created": 1747065205,
+    "model": "gemini-2.0-flash-exp",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "id": "call_e069a236-6ea2-4660-a189-2fe1a0439222",
+              "function": {
+                "arguments": "{\"location\":\"San Francisco\"}",
+                "name": "get_weather"
+              },
+              "type": "function"
+            }
+          ]
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
   }
 ]
