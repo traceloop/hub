@@ -5,7 +5,7 @@ use crate::models::tool_calls::{ChatMessageToolCall, FunctionCall};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct AnthropicChatCompletionRequest {
+pub struct AnthropicChatCompletionRequest {
     pub max_tokens: u32,
     pub model: String,
     pub messages: Vec<ChatCompletionMessage>,
@@ -23,7 +23,7 @@ pub(crate) struct AnthropicChatCompletionRequest {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct AnthropicChatCompletionResponse {
+pub struct AnthropicChatCompletionResponse {
     pub id: String,
     pub model: String,
     pub content: Vec<ContentBlock>,
@@ -32,7 +32,7 @@ pub(crate) struct AnthropicChatCompletionResponse {
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
-pub(crate) enum ContentBlock {
+pub enum ContentBlock {
     #[serde(rename = "text")]
     Text { text: String },
     #[serde(rename = "tool_use")]
@@ -44,7 +44,7 @@ pub(crate) enum ContentBlock {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct Usage {
+pub struct Usage {
     pub input_tokens: u32,
     pub output_tokens: u32,
 }
@@ -60,7 +60,7 @@ pub(crate) struct InputSchemaTyped {
 pub(crate) type InputSchema = serde_json::Value;
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct ToolParam {
+pub struct ToolParam {
     pub input_schema: InputSchema,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,7 +69,7 @@ pub(crate) struct ToolParam {
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
-pub(crate) enum ToolChoice {
+pub enum ToolChoice {
     #[serde(rename = "auto")]
     Auto { disable_parallel_tool_use: bool },
     #[serde(rename = "any")]
@@ -109,8 +109,13 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             .filter(|msg| msg.role != "system")
             .collect();
 
+        let max_tokens = match request.max_completion_tokens {
+            Some(val) if val > 0 => val,
+            _ => request.max_tokens.unwrap_or_else(default_max_tokens),
+        };
+
         AnthropicChatCompletionRequest {
-            max_tokens: request.max_tokens.unwrap_or(default_max_tokens()),
+            max_tokens,
             model: request.model,
             messages,
             temperature: request.temperature,
@@ -181,6 +186,7 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
             role: "assistant".to_string(),
             content: Some(ChatMessageContent::Array(text_content)),
             name: None,
+            refusal: None,
             tool_calls: if tool_calls.is_empty() {
                 None
             } else {
