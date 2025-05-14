@@ -287,7 +287,9 @@ async fn test_embeddings() {
 }
 
 #[tokio::test]
-#[should_panic(expected = "Text completions are not supported for Vertex AI. Use chat_completions instead.")]
+#[should_panic(
+    expected = "Text completions are not supported for Vertex AI. Use chat_completions instead."
+)]
 async fn test_completions() {
     let client = setup_test_client("completions").await;
     let provider = create_test_provider(client);
@@ -332,7 +334,9 @@ async fn test_chat_completions_with_tools() {
         model: "gemini-2.0-flash-exp".to_string(),
         messages: vec![ChatCompletionMessage {
             role: "user".to_string(),
-            content: Some(ChatMessageContent::String("What's the weather in San Francisco?".to_string())),
+            content: Some(ChatMessageContent::String(
+                "What's the weather in San Francisco?".to_string(),
+            )),
             name: None,
             tool_calls: None,
             refusal: None,
@@ -352,16 +356,19 @@ async fn test_chat_completions_with_tools() {
             function: FunctionDefinition {
                 name: "get_weather".to_string(),
                 description: Some("Get the current weather in a location".to_string()),
-                parameters: Some(serde_json::from_value(json!({
-                    "type": "object",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "The location to get weather for"
-                        }
-                    },
-                    "required": ["location"]
-                })).unwrap()),
+                parameters: Some(
+                    serde_json::from_value(json!({
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The location to get weather for"
+                            }
+                        },
+                        "required": ["location"]
+                    }))
+                    .unwrap(),
+                ),
                 strict: None,
             },
         }]),
@@ -393,8 +400,7 @@ async fn test_chat_completions_with_tools() {
                     )
                     .await;
                 }
-                ChatCompletionResponse::Stream(_) => {
-                }
+                ChatCompletionResponse::Stream(_) => {}
             }
         }
         Ok(response)
@@ -415,7 +421,9 @@ async fn test_chat_completions_with_api_key() {
         model: "gemini-2.0-flash-exp".to_string(),
         messages: vec![ChatCompletionMessage {
             role: "user".to_string(),
-            content: Some(ChatMessageContent::String("Hello, how are you?".to_string())),
+            content: Some(ChatMessageContent::String(
+                "Hello, how are you?".to_string(),
+            )),
             name: None,
             tool_calls: None,
             refusal: None,
@@ -459,8 +467,7 @@ async fn test_chat_completions_with_api_key() {
                     )
                     .await;
                 }
-                ChatCompletionResponse::Stream(_) => {
-                }
+                ChatCompletionResponse::Stream(_) => {}
             }
         }
         Ok(response)
@@ -471,7 +478,9 @@ async fn test_chat_completions_with_api_key() {
 }
 
 #[test]
-#[should_panic(expected = "Invalid location provided in configuration: \"Invalid location provided: 'invalid@location'. Location must contain only alphanumeric characters and hyphens.\"")]
+#[should_panic(
+    expected = "Invalid location provided in configuration: \"Invalid location provided: 'invalid@location'. Location must contain only alphanumeric characters and hyphens.\""
+)]
 fn test_invalid_location_format() {
     let mut params = HashMap::new();
     params.insert("project_id".to_string(), "test-project".to_string());
@@ -493,7 +502,7 @@ fn test_location_validation() {
     let invalid = VertexAIProvider::validate_location("invalid@location");
     let empty = VertexAIProvider::validate_location("");
     let special = VertexAIProvider::validate_location("!@#$%^");
-    
+
     assert_eq!(valid, Ok("us-central1".to_string()));
     assert!(invalid.is_err());
     assert!(empty.is_err());
@@ -737,7 +746,10 @@ fn test_gemini_request_conversion() {
 
     let gemini_request = GeminiChatRequest::from(chat_request);
 
-    assert_eq!(gemini_request.contents[0].parts[0].text, Some("Hello".to_string()));
+    assert_eq!(
+        gemini_request.contents[0].parts[0].text,
+        Some("Hello".to_string())
+    );
     assert_eq!(gemini_request.contents[0].role, "user");
     assert_eq!(
         gemini_request
@@ -853,17 +865,15 @@ fn test_gemini_response_with_tool_calls() {
         candidates: vec![GeminiCandidate {
             content: GeminiContent {
                 role: "model".to_string(),
-                parts: vec![
-                    ContentPart {
-                        text: None,
-                        function_call: Some(GeminiFunctionCall {
-                            name: "get_weather".to_string(),
-                            args: serde_json::json!({
-                                "location": "San Francisco"
-                            })
-                        })
-                    }
-                ],
+                parts: vec![ContentPart {
+                    text: None,
+                    function_call: Some(GeminiFunctionCall {
+                        name: "get_weather".to_string(),
+                        args: serde_json::json!({
+                            "location": "San Francisco"
+                        }),
+                    }),
+                }],
             },
             finish_reason: Some("TOOL_CODE".to_string()),
             safety_ratings: None,
@@ -980,5 +990,8 @@ fn test_gemini_request_with_array_content() {
 
     let gemini_request = GeminiChatRequest::from(chat_request);
 
-    assert_eq!(gemini_request.contents[0].parts[0].text, Some("Part 1 Part 2".to_string()));
+    assert_eq!(
+        gemini_request.contents[0].parts[0].text,
+        Some("Part 1 Part 2".to_string())
+    );
 }

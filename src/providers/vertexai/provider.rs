@@ -1,10 +1,9 @@
-use super::models::{GeminiChatRequest, GeminiChatResponse, VertexAIStreamChunk,
-};
+use super::models::{GeminiChatRequest, GeminiChatResponse, VertexAIStreamChunk};
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{
-    Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse, Embedding,
+    Embedding, Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
 };
 use crate::models::streaming::ChatCompletionChunk;
 use crate::models::usage::EmbeddingUsage;
@@ -147,7 +146,11 @@ impl Provider for VertexAIProvider {
 
         let request_body = GeminiChatRequest::from(payload.clone());
         debug!("Sending request to endpoint: {}", endpoint);
-        debug!("Request Body: {}", serde_json::to_string(&request_body).unwrap_or_else(|e| format!("Failed to serialize request: {}", e)));
+        debug!(
+            "Request Body: {}",
+            serde_json::to_string(&request_body)
+                .unwrap_or_else(|e| format!("Failed to serialize request: {}", e))
+        );
 
         let response_result = self
             .http_client
@@ -214,7 +217,10 @@ impl Provider for VertexAIProvider {
             }
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            error!("VertexAI API request failed with status {}. Error body: {}", status, error_text);
+            error!(
+                "VertexAI API request failed with status {}. Error body: {}",
+                status, error_text
+            );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
     }
@@ -290,12 +296,14 @@ impl Provider for VertexAIProvider {
                 .enumerate()
                 .map(|(i, pred)| Embeddings {
                     object: "embedding".to_string(),
-                    embedding: Embedding::Float(pred["embeddings"]["values"]
-                        .as_array()
-                        .unwrap_or(&vec![])
-                        .iter()
-                        .filter_map(|v| v.as_f64().map(|f| f as f32))
-                        .collect::<Vec<f32>>()),
+                    embedding: Embedding::Float(
+                        pred["embeddings"]["values"]
+                            .as_array()
+                            .unwrap_or(&vec![])
+                            .iter()
+                            .filter_map(|v| v.as_f64().map(|f| f as f32))
+                            .collect::<Vec<f32>>(),
+                    ),
                     index: i,
                 })
                 .collect();
@@ -333,7 +341,7 @@ impl VertexAIProvider {
             .unwrap_or_else(|| "".to_string());
 
         let location = Self::validate_location(&location_str)
-             .expect("Invalid location provided for test client configuration");
+            .expect("Invalid location provided for test client configuration");
 
         Self {
             config: config.clone(),

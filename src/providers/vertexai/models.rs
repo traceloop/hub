@@ -138,11 +138,13 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
                     text: match msg.content {
                         Some(content) => match content {
                             ChatMessageContent::String(text) => Some(text),
-                            ChatMessageContent::Array(parts) => Some(parts
-                                .into_iter()
-                                .map(|p| p.text)
-                                .collect::<Vec<_>>()
-                                .join(" ")),
+                            ChatMessageContent::Array(parts) => Some(
+                                parts
+                                    .into_iter()
+                                    .map(|p| p.text)
+                                    .collect::<Vec<_>>()
+                                    .join(" "),
+                            ),
                         },
                         None => None,
                     },
@@ -212,7 +214,8 @@ impl GeminiChatResponse {
                             r#type: "function".to_string(),
                             function: FunctionCall {
                                 name: fc.name,
-                                arguments: serde_json::to_string(&fc.args).unwrap_or_else(|_| "{}".to_string()),
+                                arguments: serde_json::to_string(&fc.args)
+                                    .unwrap_or_else(|_| "{}".to_string()),
                             },
                         });
                     }
@@ -222,8 +225,16 @@ impl GeminiChatResponse {
                     index: i as u32,
                     message: ChatCompletionMessage {
                         role: "assistant".to_string(),
-                        content: if message_text.is_empty() { None } else { Some(ChatMessageContent::String(message_text)) },
-                        tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+                        content: if message_text.is_empty() {
+                            None
+                        } else {
+                            Some(ChatMessageContent::String(message_text))
+                        },
+                        tool_calls: if tool_calls.is_empty() {
+                            None
+                        } else {
+                            Some(tool_calls)
+                        },
                         name: None,
                         refusal: None,
                     },
@@ -270,7 +281,7 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
             id: uuid::Uuid::new_v4().to_string(),
             service_tier: None,
             system_fingerprint: None,
-            created: chrono::Utc::now().timestamp() as i64,
+            created: chrono::Utc::now().timestamp(),
             model: String::new(),
             choices: vec![Choice {
                 index: 0,
@@ -290,7 +301,8 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
                                     r#type: "function".to_string(),
                                     function: FunctionCall {
                                         name: call.function.name,
-                                        arguments: serde_json::to_string(&call.function.args).unwrap_or_else(|_| "{}".to_string()),
+                                        arguments: serde_json::to_string(&call.function.args)
+                                            .unwrap_or_else(|_| "{}".to_string()),
                                     },
                                 })
                                 .collect()
