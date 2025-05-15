@@ -36,7 +36,7 @@ impl VertexAIProvider {
             .config
             .params
             .get("use_test_auth")
-            .map_or(false, |v| v == "true")
+            .is_some_and(|v| v == "true")
         {
             debug!("Using test auth mode, returning dummy token");
             return Ok("test-token-for-vertex-ai".to_string());
@@ -237,7 +237,7 @@ impl Provider for VertexAIProvider {
                             StatusCode::INTERNAL_SERVER_ERROR
                         })?;
 
-                    if let Some(first_item) = array.get(0) {
+                    if let Some(first_item) = array.first() {
                         // Convert the first item back to JSON string
                         let item_str = serde_json::to_string(first_item).unwrap_or_default();
                         debug!("Using first item from array: {}", item_str);
@@ -364,7 +364,7 @@ impl Provider for VertexAIProvider {
                         StatusCode::INTERNAL_SERVER_ERROR
                     })?;
 
-                if let Some(first_item) = array.get(0) {
+                if let Some(first_item) = array.first() {
                     // Use the first item from the array as the response
                     return Ok(EmbeddingsResponse {
                         object: "list".to_string(),
