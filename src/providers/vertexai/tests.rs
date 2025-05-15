@@ -64,7 +64,7 @@ async fn setup_test_client(test_name: &str) -> reqwest::Client {
                 // Create a proper mock for each interaction
                 for (i, interaction) in interactions.iter().enumerate() {
                     debug!("Setting up mock for interaction {}", i);
-                    
+
                     // Set up the response with a descriptive name for debugging
                     Mock::given(wiremock::matchers::any())
                         .respond_with(ResponseTemplate::new(200).set_body_json(interaction.clone()))
@@ -72,19 +72,25 @@ async fn setup_test_client(test_name: &str) -> reqwest::Client {
                         .mount(&mock_server)
                         .await;
                 }
-                
-                debug!("All {} interactions mounted to mock server", interactions.len());
+
+                debug!(
+                    "All {} interactions mounted to mock server",
+                    interactions.len()
+                );
             }
 
             debug!("Creating client with mock server at: {}", mock_server.uri());
             // Store the mock server URI in an environment variable
             std::env::set_var("VERTEXAI_TEST_ENDPOINT", mock_server.uri());
-            
+
             reqwest::Client::builder()
                 .build()
                 .expect("Failed to create HTTP client")
         } else {
-            error!("No cassette found at {:?} and not in record mode", cassette_path);
+            error!(
+                "No cassette found at {:?} and not in record mode",
+                cassette_path
+            );
             panic!("Cannot run test without a cassette file in test mode. Run with RECORD_MODE=1 to create one.");
         }
     }
@@ -206,31 +212,36 @@ where
 async fn test_chat_completions() {
     if !std::env::var("RECORD_MODE").is_ok() {
         debug!("Running chat_completions test in test mode (cassette validation only)");
-        
+
         let cassette_path = PathBuf::from("tests/cassettes/vertexai/chat_completions.json");
         assert!(cassette_path.exists(), "Cassette file does not exist");
-        
-        let cassette_content = fs::read_to_string(&cassette_path)
-            .expect("Failed to read cassette file");
-        
-        let existing_response: Vec<Value> = serde_json::from_str(&cassette_content)
-            .expect("Failed to parse cassette JSON");
-            
+
+        let cassette_content =
+            fs::read_to_string(&cassette_path).expect("Failed to read cassette file");
+
+        let existing_response: Vec<Value> =
+            serde_json::from_str(&cassette_content).expect("Failed to parse cassette JSON");
+
         assert!(!existing_response.is_empty(), "Cassette has no content");
-        
+
         let sample_response = &existing_response[0];
-        
+
         assert!(sample_response["id"].is_string(), "Response ID missing");
         assert!(sample_response["model"].is_string(), "Model field missing");
-        assert!(sample_response["choices"].is_array(), "Choices array missing");
-        
+        assert!(
+            sample_response["choices"].is_array(),
+            "Choices array missing"
+        );
+
         if let Some(choices) = sample_response["choices"].as_array() {
             if !choices.is_empty() {
-                assert!(choices[0]["message"]["content"].is_string(), 
-                        "Response content missing or not a string");
+                assert!(
+                    choices[0]["message"]["content"].is_string(),
+                    "Response content missing or not a string"
+                );
             }
         }
-        
+
         return;
     }
 
@@ -298,7 +309,7 @@ async fn test_chat_completions() {
     .await;
 
     assert!(result.is_ok(), "Test failed: {:?}", result.err());
-    
+
     if let Ok(ChatCompletionResponse::NonStream(completion)) = result {
         assert!(!completion.choices.is_empty(), "No choices in response");
         assert!(
@@ -313,24 +324,33 @@ async fn test_embeddings() {
     // In non-record mode, let's directly test the cassette content without using the mock server
     if !std::env::var("RECORD_MODE").is_ok() {
         debug!("Running embeddings test in test mode (cassette validation only)");
-        
+
         // Read and validate the cassette file directly
         let cassette_path = PathBuf::from("tests/cassettes/vertexai/embeddings.json");
-        assert!(cassette_path.exists(), "Embeddings cassette file does not exist");
-        
-        let cassette_content = fs::read_to_string(&cassette_path)
-            .expect("Failed to read embeddings cassette file");
-        
+        assert!(
+            cassette_path.exists(),
+            "Embeddings cassette file does not exist"
+        );
+
+        let cassette_content =
+            fs::read_to_string(&cassette_path).expect("Failed to read embeddings cassette file");
+
         let existing_response: Vec<Value> = serde_json::from_str(&cassette_content)
             .expect("Failed to parse embeddings cassette JSON");
-            
-        assert!(!existing_response.is_empty(), "Embeddings cassette has no content");
-        
+
+        assert!(
+            !existing_response.is_empty(),
+            "Embeddings cassette has no content"
+        );
+
         // Extract a sample response to validate
         let sample_response = &existing_response[0];
-        
-        assert!(sample_response["data"].is_array(), "Embeddings data missing");
-        
+
+        assert!(
+            sample_response["data"].is_array(),
+            "Embeddings data missing"
+        );
+
         if let Some(data) = sample_response["data"].as_array() {
             if !data.is_empty() {
                 assert!(data[0]["embedding"].is_array(), "Embedding vector missing");
@@ -338,9 +358,9 @@ async fn test_embeddings() {
                 assert!(!embedding.is_empty(), "Embedding vector is empty");
             }
         }
-        
+
         assert!(sample_response["model"].is_string(), "Model field missing");
-        
+
         // Test passed!
         return;
     }
@@ -373,14 +393,20 @@ async fn test_embeddings() {
     .await;
 
     assert!(result.is_ok(), "Test failed: {:?}", result.err());
-    
+
     if let Ok(embeddings) = result {
         assert!(!embeddings.data.is_empty(), "Embeddings response is empty");
         // Check that the embedding has a non-zero length
         match &embeddings.data[0].embedding {
-            crate::models::embeddings::Embedding::Float(vec) => assert!(!vec.is_empty(), "Embedding vector is empty"),
-            crate::models::embeddings::Embedding::String(s) => assert!(!s.is_empty(), "Embedding string is empty"),
-            crate::models::embeddings::Embedding::Json(val) => assert!(val.is_object() || val.is_array(), "Embedding JSON is empty"),
+            crate::models::embeddings::Embedding::Float(vec) => {
+                assert!(!vec.is_empty(), "Embedding vector is empty")
+            }
+            crate::models::embeddings::Embedding::String(s) => {
+                assert!(!s.is_empty(), "Embedding string is empty")
+            }
+            crate::models::embeddings::Embedding::Json(val) => {
+                assert!(val.is_object() || val.is_array(), "Embedding JSON is empty")
+            }
         }
     }
 }
@@ -390,45 +416,58 @@ async fn test_chat_completions_with_tools() {
     // In non-record mode, let's directly test the cassette content without using the mock server
     if !std::env::var("RECORD_MODE").is_ok() {
         debug!("Running chat_completions_with_tools test in test mode (cassette validation only)");
-        
+
         // Read and validate the cassette file directly
-        let cassette_path = PathBuf::from("tests/cassettes/vertexai/chat_completions_with_tools.json");
+        let cassette_path =
+            PathBuf::from("tests/cassettes/vertexai/chat_completions_with_tools.json");
         assert!(cassette_path.exists(), "Tools cassette file does not exist");
-        
-        let cassette_content = fs::read_to_string(&cassette_path)
-            .expect("Failed to read tools cassette file");
-        
-        let existing_response: Vec<Value> = serde_json::from_str(&cassette_content)
-            .expect("Failed to parse tools cassette JSON");
-            
-        assert!(!existing_response.is_empty(), "Tools cassette has no content");
-        
+
+        let cassette_content =
+            fs::read_to_string(&cassette_path).expect("Failed to read tools cassette file");
+
+        let existing_response: Vec<Value> =
+            serde_json::from_str(&cassette_content).expect("Failed to parse tools cassette JSON");
+
+        assert!(
+            !existing_response.is_empty(),
+            "Tools cassette has no content"
+        );
+
         // Extract a sample response to validate
         let sample_response = &existing_response[0];
-        
+
         assert!(sample_response["id"].is_string(), "Response ID missing");
         assert!(sample_response["model"].is_string(), "Model field missing");
-        assert!(sample_response["choices"].is_array(), "Choices array missing");
-        
+        assert!(
+            sample_response["choices"].is_array(),
+            "Choices array missing"
+        );
+
         if let Some(choices) = sample_response["choices"].as_array() {
             if !choices.is_empty() {
                 // Make sure we have either content or tool_calls
                 let message = &choices[0]["message"];
-                assert!(message["tool_calls"].is_array() || message["content"].is_string(), 
-                      "Response should have either content or tool_calls");
-                      
+                assert!(
+                    message["tool_calls"].is_array() || message["content"].is_string(),
+                    "Response should have either content or tool_calls"
+                );
+
                 // Check tool calls specifically if they exist
                 if let Some(tool_calls) = message["tool_calls"].as_array() {
                     if !tool_calls.is_empty() {
-                        assert!(tool_calls[0]["function"]["name"].is_string(), 
-                               "Tool call function name missing");
-                        assert!(tool_calls[0]["function"]["arguments"].is_string(),
-                               "Tool call arguments missing");
+                        assert!(
+                            tool_calls[0]["function"]["name"].is_string(),
+                            "Tool call function name missing"
+                        );
+                        assert!(
+                            tool_calls[0]["function"]["arguments"].is_string(),
+                            "Tool call arguments missing"
+                        );
                     }
                 }
             }
         }
-        
+
         // Test passed!
         return;
     }
@@ -515,21 +554,25 @@ async fn test_chat_completions_with_tools() {
     .await;
 
     assert!(result.is_ok(), "Test failed: {:?}", result.err());
-    
+
     if let Ok(ChatCompletionResponse::NonStream(completion)) = result {
         assert!(!completion.choices.is_empty(), "No choices in response");
-        
+
         // Check for either content or tool calls
         let message = &completion.choices[0].message;
-        assert!(message.tool_calls.is_some() || message.content.is_some(), 
-               "Response should have either content or tool_calls");
-               
+        assert!(
+            message.tool_calls.is_some() || message.content.is_some(),
+            "Response should have either content or tool_calls"
+        );
+
         // Check tool calls if they exist
         if let Some(tool_calls) = &message.tool_calls {
             if !tool_calls.is_empty() {
-                assert_eq!(tool_calls[0].function.name, "get_weather", 
-                          "Tool call should use the get_weather function");
-                
+                assert_eq!(
+                    tool_calls[0].function.name, "get_weather",
+                    "Tool call should use the get_weather function"
+                );
+
                 // Parse arguments to check location
                 if let Ok(args) = serde_json::from_str::<Value>(&tool_calls[0].function.arguments) {
                     assert!(args["location"].is_string(), "Location should be a string");
