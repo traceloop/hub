@@ -12,6 +12,7 @@ providers:
   - key: openai
     type: openai
     api_key: "<your-openai-api-key>"
+    base_url: "optional base url. If not provided, defaults to https://api.openai.com/v1"
   - key: bedrock
     type: bedrock
     api_key: ""# Not used for AWS Bedrock
