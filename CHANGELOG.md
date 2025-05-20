@@ -1,3 +1,10 @@
+## v0.4.1 (2025-05-20)
+
+### Fix
+
+- **openai**: support custom base URL (#40)
+- **azure**: add support for custom base URL in AzureProvider endpoint (#41)
+
 ## v0.4.0 (2025-05-16)
 
 ### Feat
