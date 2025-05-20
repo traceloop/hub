@@ -19,12 +19,15 @@ pub struct AzureProvider {
 
 impl AzureProvider {
     fn endpoint(&self) -> String {
-        format!(
-            "https://{}.openai.azure.com/openai/deployments",
-            self.config.params.get("resource_name").unwrap(),
-        )
+        if let Some(base_url) = self.config.params.get("base_url") {
+            base_url.clone()
+        } else {
+            format!(
+                "https://{}.openai.azure.com/openai/deployments",
+                self.config.params.get("resource_name").unwrap(),
+            )
+        }
     }
-
     fn api_version(&self) -> String {
         self.config.params.get("api_version").unwrap().clone()
     }
