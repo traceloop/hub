@@ -4,9 +4,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
+    pub general: General,
     pub providers: Vec<Provider>,
     pub models: Vec<ModelConfig>,
     pub pipelines: Vec<Pipeline>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct General {
+    #[serde(default = "default_trace_content_enabled")]
+    pub trace_content_enabled: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -58,6 +65,10 @@ pub enum PluginConfig {
     ModelRouter {
         models: Vec<String>,
     },
+}
+
+fn default_trace_content_enabled() -> bool {
+    true
 }
 
 fn default_log_level() -> String {
