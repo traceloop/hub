@@ -1,3 +1,9 @@
+## v0.4.2 (2025-05-22)
+
+### Fix
+
+- **tracing**: support disabling tracing of prompts and completions (#42)
+
 ## v0.4.1 (2025-05-20)
 
 ### Fix
