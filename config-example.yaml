@@ -1,5 +1,5 @@
-config-example:
-  yaml:
+general:
+  trace_content_enabled: true # Optional, defaults to true, set to false to disable tracing of request and response content
 providers:
   # Azure OpenAI configuration
   - key: azure-openai
