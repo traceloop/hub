@@ -8,7 +8,12 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     let contents = std::fs::read_to_string(path)?;
     let config: Config = serde_yaml::from_str(&contents)?;
     TRACE_CONTENT_ENABLED
-        .set(config.general.trace_content_enabled)
+        .set(
+            config
+                .general
+                .as_ref()
+                .is_none_or(|g| g.trace_content_enabled),
+        )
         .expect("Failed to set trace content enabled flag");
     Ok(config)
 }
