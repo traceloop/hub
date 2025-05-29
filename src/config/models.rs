@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
-    pub general: General,
+    pub general: Option<General>,
     pub providers: Vec<Provider>,
     pub models: Vec<ModelConfig>,
     pub pipelines: Vec<Pipeline>,
