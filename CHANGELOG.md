@@ -1,3 +1,9 @@
+## v0.4.3 (2025-05-29)
+
+### Fix
+
+- make general optional again (#43)
+
 ## v0.4.2 (2025-05-22)
 
 ### Fix
