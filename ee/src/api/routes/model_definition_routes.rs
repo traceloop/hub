@@ -15,14 +15,10 @@ use crate::{
 };
 
 pub fn model_definition_routes() -> Router<AppState> {
-    // Clone the service for this router setup if AppState holds an Arc<ModelDefinitionService>
-    // If AppState directly holds ModelDefinitionService and it's Clone, this is also fine.
-    // Assuming ModelDefinitionService will be added to AppState or constructed here.
-    // For now, let's assume AppState will be updated to hold ModelDefinitionService.
     Router::new()
         .route("/", post(create_model_definition_handler).get(list_model_definitions_handler))
-        .route("/{id}", get(get_model_definition_handler).put(update_model_definition_handler).delete(delete_model_definition_handler))
-        .route("/key/{key}", get(get_model_definition_by_key_handler))
+        .route("/key/:key", get(get_model_definition_by_key_handler))
+        .route("/:id", get(get_model_definition_handler).put(update_model_definition_handler).delete(delete_model_definition_handler))
 }
 
 #[utoipa::path(
@@ -79,8 +75,10 @@ async fn list_model_definitions_handler(
 #[axum::debug_handler]
 async fn get_model_definition_handler(
     State(service): State<Arc<ModelDefinitionService>>,
-    Path(id): Path<Uuid>,
+    Path(id_str): Path<String>,
 ) -> Result<Json<ModelDefinitionResponse>, ApiError> {
+    let id = Uuid::parse_str(&id_str)
+        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {}", id_str)))?;
     let response = service.get_model_definition(id).await?;
     Ok(Json(response))
 }
@@ -127,9 +125,11 @@ async fn get_model_definition_by_key_handler(
 #[axum::debug_handler]
 async fn update_model_definition_handler(
     State(service): State<Arc<ModelDefinitionService>>,
-    Path(id): Path<Uuid>,
+    Path(id_str): Path<String>,
     Json(payload): Json<UpdateModelDefinitionRequest>,
 ) -> Result<Json<ModelDefinitionResponse>, ApiError> {
+    let id = Uuid::parse_str(&id_str)
+        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {}", id_str)))?;
     let response = service.update_model_definition(id, payload).await?;
     Ok(Json(response))
 }
@@ -150,8 +150,11 @@ async fn update_model_definition_handler(
 #[axum::debug_handler]
 async fn delete_model_definition_handler(
     State(service): State<Arc<ModelDefinitionService>>,
-    Path(id): Path<Uuid>,
+    Path(id_str): Path<String>,
 ) -> Result<(), ApiError> { // Returns 200 OK with no body on success
+    let id = Uuid::parse_str(&id_str)
+        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {}", id_str)))?;
     service.delete_model_definition(id).await?;
     Ok(())
-} 
+}
+

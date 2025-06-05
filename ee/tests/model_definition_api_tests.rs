@@ -14,7 +14,7 @@ use ee::{
         ModelDefinitionResponse, OpenAIProviderConfig, ProviderConfig, ProviderResponse,
         ProviderType, UpdateModelDefinitionRequest,
     },
-    ee_api_router,    // Main router function from lib.rs
+    ee_api_bundle,    // Main router function from lib.rs
     errors::ApiError, // Assuming ApiError is serializable for error responses
     AppState,         // Main AppState
 };
@@ -59,7 +59,7 @@ async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
         .await
         .expect("Failed to run migrations on test DB");
 
-    let router = ee_api_router(pool.clone());
+    let (router, _config_provider) = ee_api_bundle(pool.clone());
     let client = TestServer::new(router).expect("Failed to create TestServer");
 
     (client, pool, container)

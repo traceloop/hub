@@ -84,10 +84,10 @@ pub fn pipeline_routes() -> Router<AppState> {
             post(create_pipeline_handler).get(list_pipelines_handler),
         )
         .route(
-            "/{id}",
+            "/:id",
             get(get_pipeline_handler)
                 .put(update_pipeline_handler)
                 .delete(delete_pipeline_handler),
         )
-        .route("/name/{name}", get(get_pipeline_by_name_handler))
+        .route("/name/:name", get(get_pipeline_by_name_handler))
 }

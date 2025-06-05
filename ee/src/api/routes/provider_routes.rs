@@ -5,20 +5,18 @@ use axum::{
     http::StatusCode,
 };
 use sqlx::types::Uuid;
-use std::sync::Arc; // Added for Arc
 
 use crate::{
     dto::{CreateProviderRequest, UpdateProviderRequest, ProviderResponse},
-    services::provider_service::ProviderService,
     errors::ApiError,
-    AppState, // AppState is now expected to contain Arc<ProviderService>
+    AppState,
 };
 
 /// Creates the Axum router for provider CRUD operations.
 pub fn provider_routes() -> Router<AppState> { // No longer takes AppState, returns Router<AppState>
     Router::new()
         .route("/", post(create_provider_handler).get(list_providers_handler))
-        .route("/{id}", get(get_provider_handler).put(update_provider_handler).delete(delete_provider_handler))
+        .route("/:id", get(get_provider_handler).put(update_provider_handler).delete(delete_provider_handler))
 }
 
 #[utoipa::path(
@@ -35,9 +33,10 @@ pub fn provider_routes() -> Router<AppState> { // No longer takes AppState, retu
 )]
 #[axum::debug_handler]
 async fn create_provider_handler(
-    State(service): State<Arc<ProviderService>>, // Extract Arc<ProviderService>
+    State(app_state): State<AppState>,
     Json(payload): Json<CreateProviderRequest>,
 ) -> Result<(StatusCode, Json<ProviderResponse>), ApiError> {
+    let service = &app_state.provider_service;
     let provider_response = service.create_provider(payload).await?;
     Ok((StatusCode::CREATED, Json(provider_response)))
 }
@@ -53,8 +52,9 @@ async fn create_provider_handler(
 )]
 #[axum::debug_handler]
 async fn list_providers_handler(
-    State(service): State<Arc<ProviderService>>, // Extract Arc<ProviderService>
+    State(app_state): State<AppState>,
 ) -> Result<(StatusCode, Json<Vec<ProviderResponse>>), ApiError> {
+    let service = &app_state.provider_service;
     let provider_responses = service.list_providers().await?;
     Ok((StatusCode::OK,Json(provider_responses)))
 }
@@ -74,9 +74,10 @@ async fn list_providers_handler(
 )]
 #[axum::debug_handler]
 async fn get_provider_handler(
-    State(service): State<Arc<ProviderService>>, // Extract Arc<ProviderService>
+    State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<ProviderResponse>, ApiError> {
+    let service = &app_state.provider_service;
     let provider_response = service.get_provider(id).await?;
     Ok(Json(provider_response))
 }
@@ -99,10 +100,11 @@ async fn get_provider_handler(
 )]
 #[axum::debug_handler]
 async fn update_provider_handler(
-    State(service): State<Arc<ProviderService>>, // Extract Arc<ProviderService>
+    State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateProviderRequest>,
 ) -> Result<Json<ProviderResponse>, ApiError> {
+    let service = &app_state.provider_service;
     let provider_response = service.update_provider(id, payload).await?;
     Ok(Json(provider_response))
 }
@@ -122,8 +124,9 @@ async fn update_provider_handler(
 )]
 #[axum::debug_handler]
 async fn delete_provider_handler(
-    State(service): State<Arc<ProviderService>>, // Extract Arc<ProviderService>
+    State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<(), ApiError> { 
+) -> Result<(), ApiError> {
+    let service = &app_state.provider_service; 
     service.delete_provider(id).await
 } 

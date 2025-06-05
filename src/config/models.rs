@@ -1,69 +1,9 @@
-use std::collections::HashMap;
+// This file now re-exports types from the shared hub_gateway_core_types crate.
+// The original struct definitions have been moved there to allow both 
+// the main gateway and the EE crate to use the same configuration structures.
 
-use serde::{Deserialize, Serialize};
+pub use hub_gateway_core_types::*;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Config {
-    pub providers: Vec<Provider>,
-    pub models: Vec<ModelConfig>,
-    pub pipelines: Vec<Pipeline>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Provider {
-    pub key: String,
-    pub r#type: String,
-    #[serde(default = "no_api_key")]
-    pub api_key: String,
-    #[serde(flatten)]
-    pub params: HashMap<String, String>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ModelConfig {
-    pub key: String,
-    pub r#type: String,
-    pub provider: String,
-    #[serde(flatten)]
-    pub params: HashMap<String, String>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum PipelineType {
-    Chat,
-    Completion,
-    Embeddings,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Pipeline {
-    pub name: String,
-    pub r#type: PipelineType,
-    #[serde(with = "serde_yaml::with::singleton_map_recursive")]
-    pub plugins: Vec<PluginConfig>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum PluginConfig {
-    Logging {
-        #[serde(default = "default_log_level")]
-        level: String,
-    },
-    Tracing {
-        endpoint: String,
-        api_key: String,
-    },
-    ModelRouter {
-        models: Vec<String>,
-    },
-}
-
-fn default_log_level() -> String {
-    "warning".to_string()
-}
-
-fn no_api_key() -> String {
-    "".to_string()
-}
+// All old struct definitions (Config, Provider, ModelConfig, PipelineType, Pipeline, PluginConfig)
+// and their helper functions (default_log_level, no_api_key) are removed from this file.
+// They are now defined in the hub_gateway_core_types crate.

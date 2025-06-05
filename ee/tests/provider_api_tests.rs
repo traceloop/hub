@@ -11,7 +11,7 @@ use ee::{
         AzureProviderConfig, BedrockProviderConfig, CreateProviderRequest, OpenAIProviderConfig,
         ProviderConfig, ProviderResponse, ProviderType,
     },
-    ee_api_router,
+    ee_api_bundle,
     errors::ApiError,
     AppState,
 };
@@ -56,7 +56,7 @@ async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
         .await
         .expect("Failed to run migrations on test DB");
 
-    let router = ee_api_router(pool.clone());
+    let (router, _config_provider) = ee_api_bundle(pool.clone());
     let client = TestServer::new(router).expect("Failed to create TestServer");
 
     (client, pool, container)

@@ -14,13 +14,13 @@ use ee::{
         AzureProviderConfig, BedrockProviderConfig, CreateModelDefinitionRequest,
         CreatePipelineRequestDto, CreateProviderRequest, ModelDefinitionResponse,
         ModelRouterConfigDto, ModelRouterModelEntryDto, ModelRouterStrategyDto,
-        OpenAIProviderConfig, PipelinePluginConfigDto, PipelineResponseDto, ProviderConfig,
+        OpenAIProviderConfig, PipelinePluginConfigDto, PipelineResponseDto, PluginType, ProviderConfig,
         ProviderResponse, ProviderType, UpdatePipelineRequestDto,
     },
     // Potentially services or repos if we need to setup data directly (though API is preferred)
     // services::{provider_service::ProviderService, model_definition_service::ModelDefinitionService, pipeline_service::PipelineService},
     // db::repositories::{provider_repository::ProviderRepository, model_definition_repository::ModelDefinitionRepository, pipeline_repository::PipelineRepository},
-    ee_api_router,
+    ee_api_bundle,
     AppState,
 };
 
@@ -64,7 +64,7 @@ async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
         .await
         .expect("Failed to run migrations on test DB");
 
-    let router = ee_api_router(pool.clone());
+    let (router, _config_provider) = ee_api_bundle(pool.clone());
     let client = TestServer::new(router).expect("Failed to create TestServer");
 
     (client, pool, container) // Return Arc<PgPool> and container
@@ -210,7 +210,7 @@ async fn test_create_pipeline_with_valid_model_router() {
         ]
     });
     let pipeline_plugin = PipelinePluginConfigDto {
-        plugin_name: "model-router".to_string(),
+        plugin_type: PluginType::ModelRouter,
         config_data: plugin_config_data,
         enabled: true,
         order_in_pipeline: 1,
@@ -228,7 +228,7 @@ async fn test_create_pipeline_with_valid_model_router() {
     assert_eq!(created_pipeline.name, pipeline_name);
     assert_eq!(created_pipeline.plugins.len(), 1);
     let created_plugin = &created_pipeline.plugins[0];
-    assert_eq!(created_plugin.plugin_name, "model-router");
+    assert_eq!(created_plugin.plugin_type, PluginType::ModelRouter);
     let created_plugin_config: ModelRouterConfigDto =
         serde_json::from_value(created_plugin.config_data.clone())
             .expect("Failed to deserialize model-router config from response");
@@ -248,7 +248,7 @@ async fn test_create_pipeline_with_invalid_model_router_key() {
         ]
     });
     let pipeline_plugin = PipelinePluginConfigDto {
-        plugin_name: "model-router".to_string(),
+        plugin_type: PluginType::ModelRouter,
         config_data: plugin_config_data,
         enabled: true,
         order_in_pipeline: 1,
@@ -357,7 +357,7 @@ async fn test_update_pipeline_name_and_plugins() {
         "models": [{"key": model_def1.key.clone(), "priority": 1, "weight": 100}]
     });
     let initial_pipeline_plugin = PipelinePluginConfigDto {
-        plugin_name: "model-router".to_string(),
+        plugin_type: PluginType::ModelRouter,
         config_data: initial_plugin_config_data,
         enabled: true,
         order_in_pipeline: 1,
@@ -382,13 +382,13 @@ async fn test_update_pipeline_name_and_plugins() {
         ]
     });
     let updated_model_router_plugin = PipelinePluginConfigDto {
-        plugin_name: "model-router".to_string(),
+        plugin_type: PluginType::ModelRouter,
         config_data: updated_plugin_config_data,
         enabled: false,
         order_in_pipeline: 1,
     };
     let new_simple_plugin = PipelinePluginConfigDto {
-        plugin_name: "simple-filter".to_string(),
+        plugin_type: PluginType::Logging,
         config_data: json!({ "filter_level": "strict"}),
         enabled: true,
         order_in_pipeline: 2,
@@ -414,7 +414,7 @@ async fn test_update_pipeline_name_and_plugins() {
     let plugin1 = updated_pipeline
         .plugins
         .iter()
-        .find(|p| p.plugin_name == "model-router")
+        .find(|p| p.plugin_type == PluginType::ModelRouter)
         .unwrap();
     assert!(!plugin1.enabled);
     let plugin1_config: ModelRouterConfigDto =
@@ -423,7 +423,7 @@ async fn test_update_pipeline_name_and_plugins() {
     let plugin2 = updated_pipeline
         .plugins
         .iter()
-        .find(|p| p.plugin_name == "simple-filter")
+        .find(|p| p.plugin_type == PluginType::Logging)
         .unwrap();
     assert!(plugin2.enabled);
     assert_eq!(plugin2.order_in_pipeline, 2);

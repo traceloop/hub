@@ -46,7 +46,7 @@ pub struct Pipeline {
 pub struct PipelinePluginConfig {
     pub id: Uuid,
     pub pipeline_id: Uuid,
-    pub plugin_name: String,
+    pub plugin_type: String,
     pub config_data: serde_json::Value, // Stored as JSONB
     pub enabled: bool,
     pub order_in_pipeline: i32,

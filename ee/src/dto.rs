@@ -202,13 +202,48 @@ pub struct ModelRouterConfigDto {
     pub models: Vec<ModelRouterModelEntryDto>,
 }
 
+/// Supported plugin types for pipelines.
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum PluginType {
+    /// Model routing plugin for selecting models based on strategy.
+    ModelRouter,
+    /// Logging plugin for request/response logging.
+    Logging,
+    /// Tracing plugin for distributed tracing.
+    Tracing,
+}
+
+impl std::fmt::Display for PluginType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PluginType::ModelRouter => write!(f, "model-router"),
+            PluginType::Logging => write!(f, "logging"),
+            PluginType::Tracing => write!(f, "tracing"),
+        }
+    }
+}
+
+impl std::str::FromStr for PluginType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "model-router" => Ok(PluginType::ModelRouter),
+            "logging" => Ok(PluginType::Logging),
+            "tracing" => Ok(PluginType::Tracing),
+            _ => Err(format!("Unknown plugin type: {}", s)),
+        }
+    }
+}
+
 /// Represents a generic plugin configuration for a pipeline.
-/// The `config_data` field will be interpreted based on `plugin_name`.
+/// The `config_data` field will be interpreted based on `plugin_type`.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema, PartialEq)]
 pub struct PipelinePluginConfigDto {
-    /// Unique name of the plugin (e.g., "model-router", "logging").
-    #[schema(example = "model-router")]
-    pub plugin_name: String,
+    /// Type of the plugin.
+    #[schema(value_type = String, example = "model-router")]
+    pub plugin_type: PluginType,
     /// JSON object containing the specific configuration for this plugin.
     /// For "model-router", this should deserialize to ModelRouterConfigDto.
     #[schema(example = json!({"strategy": "ordered_fallback", "models": [{"key": "gpt-4o", "priority": 0}]}))]

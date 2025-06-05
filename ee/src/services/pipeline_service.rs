@@ -6,7 +6,7 @@ use crate::{
     db::repositories::pipeline_repository::PipelineRepository,
     // We'll need ModelDefinitionRepository for validating model keys in model-router
     db::repositories::model_definition_repository::ModelDefinitionRepository, 
-    dto::{CreatePipelineRequestDto, UpdatePipelineRequestDto, PipelineResponseDto, ModelRouterConfigDto, PipelinePluginConfigDto},
+    dto::{CreatePipelineRequestDto, UpdatePipelineRequestDto, PipelineResponseDto, ModelRouterConfigDto, PipelinePluginConfigDto, PluginType},
     errors::ApiError,
     db::models::PipelineWithPlugins, // Internal struct from repository
 };
@@ -29,8 +29,11 @@ impl PipelineService {
             // Here, we might want to validate/deserialize config_data if it's for model-router
             // For now, just pass it through as Value. Deserialization to specific types like
             // ModelRouterConfigDto can happen at the point of use or if strict typing is needed in response.
+            let plugin_type = plugin_config.plugin_type.parse::<PluginType>()
+                .map_err(|e| ApiError::InternalServerError(format!("Invalid plugin type in database: {}", e)))?;
+            
             plugin_dtos.push(PipelinePluginConfigDto {
-                plugin_name: plugin_config.plugin_name,
+                plugin_type,
                 config_data: plugin_config.config_data,
                 enabled: plugin_config.enabled,
                 order_in_pipeline: plugin_config.order_in_pipeline,
@@ -62,7 +65,7 @@ impl PipelineService {
     // New method specifically for validating plugin configurations
     async fn validate_plugins_config(&self, plugins: &[PipelinePluginConfigDto]) -> Result<(), ApiError> {
         for plugin_dto in plugins {
-            if plugin_dto.plugin_name == "model-router" {
+            if plugin_dto.plugin_type == PluginType::ModelRouter {
                 let model_router_config: ModelRouterConfigDto = serde_json::from_value(plugin_dto.config_data.clone())
                     .map_err(|e| ApiError::ValidationError(format!("Invalid model-router config_data: {}", e)))?;
                 for model_entry in model_router_config.models {

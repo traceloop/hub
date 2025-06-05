@@ -7,7 +7,7 @@ license = "SEE LICENSE IN LICENSE.EE" # Placeholder for the specific EE license
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = { version = "0.8.3", features = ["macros"] } # Updated to 0.8.3
+axum = { version = "0.7", features = ["macros"] } # Matching main crate version
 tokio = { version = "1.0", features = ["full"] } # Ensure compatibility
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -17,11 +17,14 @@ utoipa-swagger-ui = { version = "7", features = ["axum"] } # Check for latest an
 chrono = { version = "0.4", features = ["serde"] } # Added chrono for DateTime<Utc> in DTOs, ensure consistent version
 uuid = { version = "1.8.0", features = ["v4", "serde"] }
 utoipa-scalar = { version = "0.3.0", features = ["axum"] }
+hub_gateway_core_types = { path = "../hub_gateway_core_types" }
+anyhow = "1.0" # For Result type in transformations
+log = "0.4" # For logging
 
 [dev-dependencies]
 # Add development dependencies like those for testing
 testcontainers = "0.20.0" # Core testcontainers
 testcontainers-modules = { version = "0.8.0", features = ["postgres"] } # Downgraded for compatibility with testcontainers 0.20.0
-axum-test = "17.3.0"  # Matching version from user's successful compile log for axum-test
+axum-test = "16"  # Compatible with axum 0.7.0-0.7.5
 # tokio is already a main dependency, ensure its features are sufficient or add it here with test-specific features if needed.
 # serde_json is also a main dependency.

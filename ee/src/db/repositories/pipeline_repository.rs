@@ -47,12 +47,12 @@ impl PipelineRepository {
                 let plugin_config = query_as!(PipelinePluginConfig,
                     r#"
                     INSERT INTO hub_llmgateway_ee_pipeline_plugin_configs 
-                        (pipeline_id, plugin_name, config_data, enabled, order_in_pipeline)
+                        (pipeline_id, plugin_type, config_data, enabled, order_in_pipeline)
                     VALUES ($1, $2, $3, $4, $5)
-                    RETURNING id, pipeline_id, plugin_name, config_data, enabled, order_in_pipeline, created_at, updated_at
+                    RETURNING id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
                     "#,
                     pipeline.id,
-                    plugin_dto.plugin_name,
+                    plugin_dto.plugin_type.to_string(),
                     plugin_dto.config_data, // Assuming config_data is already a serde_json::Value
                     plugin_dto.enabled,
                     plugin_dto.order_in_pipeline
@@ -98,7 +98,7 @@ impl PipelineRepository {
             let plugins = sqlx::query_as!(
                 PipelinePluginConfig,
                 r#"
-                SELECT id, pipeline_id, plugin_name, config_data, enabled, order_in_pipeline, created_at, updated_at
+                SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
                 FROM hub_llmgateway_ee_pipeline_plugin_configs
                 WHERE pipeline_id = $1
                 ORDER BY order_in_pipeline ASC
@@ -144,7 +144,7 @@ impl PipelineRepository {
             let plugins = sqlx::query_as!(
                 PipelinePluginConfig,
                 r#"
-                SELECT id, pipeline_id, plugin_name, config_data, enabled, order_in_pipeline, created_at, updated_at
+                SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
                 FROM hub_llmgateway_ee_pipeline_plugin_configs
                 WHERE pipeline_id = $1
                 ORDER BY order_in_pipeline ASC
@@ -193,7 +193,7 @@ impl PipelineRepository {
         let all_plugins = sqlx::query_as!(
             PipelinePluginConfig,
             r#"
-            SELECT id, pipeline_id, plugin_name, config_data, enabled, order_in_pipeline, created_at, updated_at
+            SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
             FROM hub_llmgateway_ee_pipeline_plugin_configs
             WHERE pipeline_id = ANY($1)
             ORDER BY pipeline_id, order_in_pipeline ASC
@@ -276,12 +276,12 @@ impl PipelineRepository {
                 let new_plugin = query_as!(PipelinePluginConfig,
                     r#"
                     INSERT INTO hub_llmgateway_ee_pipeline_plugin_configs 
-                        (pipeline_id, plugin_name, config_data, enabled, order_in_pipeline)
+                        (pipeline_id, plugin_type, config_data, enabled, order_in_pipeline)
                     VALUES ($1, $2, $3, $4, $5)
-                    RETURNING id, pipeline_id, plugin_name, config_data, enabled, order_in_pipeline, created_at, updated_at
+                    RETURNING id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
                     "#,
                     updated_pipeline.id,
-                    plugin_dto.plugin_name,
+                    plugin_dto.plugin_type.to_string(),
                     plugin_dto.config_data, 
                     plugin_dto.enabled,
                     plugin_dto.order_in_pipeline
@@ -296,7 +296,7 @@ impl PipelineRepository {
             let existing_plugins = sqlx::query_as!(
                 PipelinePluginConfig,
                 r#"
-                SELECT id, pipeline_id, plugin_name, config_data, enabled, order_in_pipeline, created_at, updated_at
+                SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
                 FROM hub_llmgateway_ee_pipeline_plugin_configs
                 WHERE pipeline_id = $1
                 ORDER BY order_in_pipeline ASC

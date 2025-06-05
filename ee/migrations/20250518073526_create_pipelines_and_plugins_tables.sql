@@ -15,19 +15,19 @@ CREATE TABLE hub_llmgateway_ee_pipelines (
 CREATE TABLE hub_llmgateway_ee_pipeline_plugin_configs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pipeline_id UUID NOT NULL REFERENCES hub_llmgateway_ee_pipelines(id) ON DELETE CASCADE,
-    plugin_name VARCHAR(100) NOT NULL,
+    plugin_type VARCHAR(100) NOT NULL,
     config_data JSONB NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     order_in_pipeline INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_pipeline_plugin UNIQUE (pipeline_id, plugin_name)
+    CONSTRAINT uq_pipeline_plugin UNIQUE (pipeline_id, plugin_type)
 );
 
 -- Create indexes for faster lookups
 CREATE INDEX idx_pipeline_name ON hub_llmgateway_ee_pipelines(name);
 CREATE INDEX idx_pipeline_plugin_pipeline_id ON hub_llmgateway_ee_pipeline_plugin_configs(pipeline_id);
-CREATE INDEX idx_pipeline_plugin_name ON hub_llmgateway_ee_pipeline_plugin_configs(plugin_name);
+CREATE INDEX idx_pipeline_plugin_type ON hub_llmgateway_ee_pipeline_plugin_configs(plugin_type);
 
 -- Trigger to update 'updated_at' timestamp on row update for pipelines
 CREATE OR REPLACE FUNCTION update_modified_column()
