@@ -37,14 +37,14 @@ impl<'a> RouterCache<'a> {
 
     pub fn set(&mut self, router: Router) {
         *self.inner.write().unwrap() = Some(router);
-        info!("Pipeline router cached successfully");
+        debug!("Pipeline router cached successfully");
     }
 
     pub fn invalidate(&mut self) {
         let mut guard = self.inner.write().unwrap();
         let had_cache = guard.is_some();
         *guard = None;
-        info!("Pipeline router cache invalidated (had cached router: {}) - will rebuild on next request", had_cache);
+        debug!("Pipeline router cache invalidated (had cached router: {}) - will rebuild on next request", had_cache);
     }
 }
 
@@ -133,14 +133,14 @@ impl AppState {
 
     /// Rebuilds the router immediately and caches it
     pub fn rebuild_pipeline_router_now(&self) -> Result<()> {
-        info!("Force rebuilding pipeline router with current configuration");
+        debug!("Force rebuilding pipeline router with current configuration");
         
         // Build router directly using internal method to avoid Arc wrapping
         let router = self.build_router_internal();
         
         // Cache the new router
         self.set_cached_pipeline_router(router);
-        info!("Pipeline router rebuilt and cached successfully");
+        debug!("Pipeline router rebuilt and cached successfully");
         
         Ok(())
     }
@@ -158,7 +158,7 @@ impl AppState {
         // Get current configuration snapshot in one lock operation
         let snapshot = self.config_snapshot();
 
-        info!("Building router with {} pipelines", snapshot.config.pipelines.len());
+        debug!("Building router with {} pipelines", snapshot.config.pipelines.len());
 
         // Sort pipelines to ensure default is first
         let mut sorted_pipelines = snapshot.config.pipelines.clone();
@@ -166,7 +166,7 @@ impl AppState {
 
         for pipeline in sorted_pipelines {
             let name = pipeline.name.clone();
-            info!("Adding pipeline '{}' to router at index {}", name, routers.len());
+            debug!("Adding pipeline '{}' to router at index {}", name, routers.len());
             pipeline_idxs.insert(name, routers.len());
             routers.push(create_pipeline(&pipeline, &snapshot.model_registry));
         }
@@ -176,16 +176,14 @@ impl AppState {
             warn!("No pipelines with routes found. Creating fallback router that returns 503.");
             let fallback_router = self.create_no_config_router();
             routers.push(fallback_router);
-            info!("Fallback router created and added at index 0");
+            debug!("Fallback router created and added at index 0");
         }
 
         let routers_len = routers.len();
-        info!("Router steering configured with {} total routers", routers_len);
-
-        let pipeline_idxs_clone = pipeline_idxs.clone();
+        debug!("Router steering configured with {} total routers", routers_len);
 
         let pipeline_router = Steer::new(routers, move |req: &axum::extract::Request, _services: &[_]| {
-            use tracing::{info, warn};
+            use tracing::warn;
             
             let pipeline_header = req.headers()
                 .get("x-traceloop-pipeline")
@@ -195,9 +193,6 @@ impl AppState {
                 .and_then(|name| pipeline_idxs.get(name))
                 .copied()
                 .unwrap_or(0);
-            
-            info!("Request URI: {}, Pipeline header: {:?}, Available pipelines: {:?}, Routing to index: {}/{}", 
-                   req.uri(), pipeline_header, pipeline_idxs_clone.keys().collect::<Vec<_>>(), index, routers_len - 1);
             
             if index >= routers_len {
                 warn!("Index {} is out of bounds (max: {}), using index 0", index, routers_len - 1);
@@ -220,7 +215,7 @@ impl AppState {
             Err(StatusCode::SERVICE_UNAVAILABLE)
         }
 
-        info!("Creating no-config fallback router");
+        debug!("Creating no-config fallback router");
         axum::Router::new()
             .route("/chat/completions", post(no_config_handler))
             .route("/completions", post(no_config_handler))  

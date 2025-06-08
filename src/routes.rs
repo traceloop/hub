@@ -98,7 +98,7 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
     let current_config = state.current_config();
     let model_registry = state.model_registry();
 
-    info!("Building router with {} pipelines", current_config.pipelines.len());
+    debug!("Building router with {} pipelines", current_config.pipelines.len());
 
     // Sort pipelines to ensure default is first
     let mut sorted_pipelines = current_config.pipelines.clone();
@@ -106,7 +106,7 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
 
     for pipeline in sorted_pipelines {
         let name = pipeline.name.clone();
-        info!("Adding pipeline '{}' to router at index {}", name, routers.len());
+        debug!("Adding pipeline '{}' to router at index {}", name, routers.len());
         pipeline_idxs.insert(name, routers.len());
         routers.push(create_pipeline(&pipeline, &model_registry));
     }
@@ -116,15 +116,12 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
         warn!("No pipelines with routes found. Creating fallback router that returns 503.");
         let fallback_router = create_no_config_router(state.clone());
         routers.push(fallback_router);
-        info!("Fallback router created and added at index 0");
+        debug!("Fallback router created and added at index 0");
     }
 
     // Capture the length before moving routers into the closure
     let routers_len = routers.len();
-    info!("Router steering configured with {} total routers", routers_len);
-
-    // Clone pipeline_idxs for logging
-    let pipeline_idxs_clone = pipeline_idxs.clone();
+    debug!("Router steering configured with {} total routers", routers_len);
 
     let pipeline_router = Steer::new(routers, move |req: &Request, _services: &[_]| {
         let pipeline_header = req.headers()
@@ -135,9 +132,6 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
             .and_then(|name| pipeline_idxs.get(name))
             .copied()
             .unwrap_or(0);
-        
-        info!("Request URI: {}, Pipeline header: {:?}, Available pipelines: {:?}, Routing to index: {}/{}", 
-               req.uri(), pipeline_header, pipeline_idxs_clone.keys().collect::<Vec<_>>(), index, routers_len - 1);
         
         // Ensure the index is within bounds
         if index >= routers_len {
@@ -153,7 +147,7 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
 
 /// Creates a router that explicitly handles API endpoints when no configuration is available
 fn create_no_config_router(state: Arc<AppState>) -> Router {
-    info!("Creating no-config fallback router");
+    debug!("Creating no-config fallback router");
     Router::new()
         .route("/chat/completions", post(no_config_handler))
         .route("/completions", post(no_config_handler))  
@@ -164,8 +158,8 @@ fn create_no_config_router(state: Arc<AppState>) -> Router {
 
 /// Handler that returns 503 when no configuration is available
 async fn no_config_handler() -> Result<Json<serde_json::Value>, StatusCode> {
-    warn!("No configuration available - returning 503 Service Unavailable");
-    Err(StatusCode::SERVICE_UNAVAILABLE)
+    warn!("No configuration available - returning 404 Not Found");
+    Err(StatusCode::NOT_FOUND)
 }
 
 
