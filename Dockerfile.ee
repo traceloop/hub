@@ -2,7 +2,7 @@ FROM rust:1.83-bookworm AS builder
 
 WORKDIR /app
 COPY . .
-RUN cargo build --release --bin hub
+RUN cargo build --release --bin hub --features ee_feature
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y openssl ca-certificates
@@ -13,4 +13,4 @@ WORKDIR /etc
 ENV PORT 3000
 EXPOSE 3000
 
-ENTRYPOINT ["/usr/local/bin/hub"]
+ENTRYPOINT ["/usr/local/bin/hub"] 
