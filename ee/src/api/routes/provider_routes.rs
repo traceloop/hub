@@ -1,22 +1,31 @@
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     routing::{get, post},
     Json, Router,
-    http::StatusCode,
 };
 use sqlx::types::Uuid;
 
 use crate::{
-    dto::{CreateProviderRequest, UpdateProviderRequest, ProviderResponse},
+    dto::{CreateProviderRequest, ProviderResponse, UpdateProviderRequest},
     errors::ApiError,
     AppState,
 };
 
 /// Creates the Axum router for provider CRUD operations.
-pub fn provider_routes() -> Router<AppState> { // No longer takes AppState, returns Router<AppState>
+pub fn provider_routes() -> Router<AppState> {
+    // No longer takes AppState, returns Router<AppState>
     Router::new()
-        .route("/", post(create_provider_handler).get(list_providers_handler))
-        .route("/:id", get(get_provider_handler).put(update_provider_handler).delete(delete_provider_handler))
+        .route(
+            "/",
+            post(create_provider_handler).get(list_providers_handler),
+        )
+        .route(
+            "/:id",
+            get(get_provider_handler)
+                .put(update_provider_handler)
+                .delete(delete_provider_handler),
+        )
 }
 
 #[utoipa::path(
@@ -56,7 +65,7 @@ async fn list_providers_handler(
 ) -> Result<(StatusCode, Json<Vec<ProviderResponse>>), ApiError> {
     let service = &app_state.provider_service;
     let provider_responses = service.list_providers().await?;
-    Ok((StatusCode::OK,Json(provider_responses)))
+    Ok((StatusCode::OK, Json(provider_responses)))
 }
 
 #[utoipa::path(
@@ -127,6 +136,6 @@ async fn delete_provider_handler(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<(), ApiError> {
-    let service = &app_state.provider_service; 
+    let service = &app_state.provider_service;
     service.delete_provider(id).await
-} 
+}

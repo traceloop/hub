@@ -1,8 +1,8 @@
-use sqlx::{types::Uuid, PgPool, Result, query_as, query};
 use crate::{
     db::models::ModelDefinition,
     dto::{CreateModelDefinitionRequest, UpdateModelDefinitionRequest},
 };
+use sqlx::{query, query_as, types::Uuid, PgPool, Result};
 
 #[derive(Debug, Clone)]
 pub struct ModelDefinitionRepository {
@@ -57,12 +57,22 @@ impl ModelDefinitionRepository {
             .await
     }
 
-    pub async fn update(&self, id: Uuid, data: &UpdateModelDefinitionRequest) -> Result<ModelDefinition> {
+    pub async fn update(
+        &self,
+        id: Uuid,
+        data: &UpdateModelDefinitionRequest,
+    ) -> Result<ModelDefinition> {
         // Fetch current to handle Option fields correctly
-        let current_model = self.find_by_id(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let current_model = self
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         let key = data.key.as_ref().unwrap_or(&current_model.key);
-        let model_type = data.model_type.as_ref().unwrap_or(&current_model.model_type);
+        let model_type = data
+            .model_type
+            .as_ref()
+            .unwrap_or(&current_model.model_type);
         let provider_id = data.provider_id.unwrap_or(current_model.provider_id);
         let enabled = data.enabled.unwrap_or(current_model.enabled);
 
@@ -93,9 +103,12 @@ impl ModelDefinitionRepository {
     }
 
     pub async fn delete(&self, id: Uuid) -> Result<u64> {
-        let result = query!("DELETE FROM hub_llmgateway_ee_model_definitions WHERE id = $1", id)
-            .execute(&self.pool)
-            .await?;
+        let result = query!(
+            "DELETE FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
+            id
+        )
+        .execute(&self.pool)
+        .await?;
         Ok(result.rows_affected())
     }
-} 
+}

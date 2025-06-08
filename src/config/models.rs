@@ -1,5 +1,5 @@
 // This file now re-exports types from the shared hub_gateway_core_types crate.
-// The original struct definitions have been moved there to allow both 
+// The original struct definitions have been moved there to allow both
 // the main gateway and the EE crate to use the same configuration structures.
 
 pub use hub_gateway_core_types::*;

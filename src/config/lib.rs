@@ -1,5 +1,6 @@
-
-use hub_gateway_core_types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
+use hub_gateway_core_types::{
+    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider,
+};
 use serde::Deserialize;
 use std::sync::OnceLock;
 // std::collections::HashMap is used by serde_yaml for flatten, but not directly here otherwise.
@@ -40,18 +41,27 @@ pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Erro
     let gateway_config = GatewayConfig {
         providers: yaml_root.providers,
         models: yaml_root.models,
-        pipelines: yaml_root.pipelines.into_iter().map(|p_yaml| {
-            // Map to core_types::Pipeline. ee_id and enabled are no longer fields here.
-            Pipeline {
-                name: p_yaml.name,
-                r#type: p_yaml.r#type,
-                plugins: p_yaml.plugins,
-                // p_yaml.enabled is parsed from YAML but not stored in core Pipeline struct
-            }
-        }).collect(),
+        pipelines: yaml_root
+            .pipelines
+            .into_iter()
+            .map(|p_yaml| {
+                // Map to core_types::Pipeline. ee_id and enabled are no longer fields here.
+                Pipeline {
+                    name: p_yaml.name,
+                    r#type: p_yaml.r#type,
+                    plugins: p_yaml.plugins,
+                    // p_yaml.enabled is parsed from YAML but not stored in core Pipeline struct
+                }
+            })
+            .collect(),
         general: None,
     };
-    TRACE_CONTENT_ENABLED.set(gateway_config.general.as_ref().is_none_or(|g| g.trace_content_enabled));
+    TRACE_CONTENT_ENABLED.set(
+        gateway_config
+            .general
+            .as_ref()
+            .is_none_or(|g| g.trace_content_enabled),
+    );
 
     Ok(gateway_config)
 }

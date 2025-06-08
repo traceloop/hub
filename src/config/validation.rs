@@ -21,7 +21,10 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
     let model_keys: HashSet<&String> = config.models.iter().map(|m| &m.key).collect();
     for pipeline in &config.pipelines {
         for plugin in &pipeline.plugins {
-            if let hub_gateway_core_types::PluginConfig::ModelRouter { models: router_models } = plugin {
+            if let hub_gateway_core_types::PluginConfig::ModelRouter {
+                models: router_models,
+            } = plugin
+            {
                 for model_key in router_models {
                     if !model_keys.contains(model_key) {
                         errors.push(format!(
@@ -54,6 +57,7 @@ mod tests {
     #[test]
     fn test_valid_config() {
         let config = GatewayConfig {
+            general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
                 r#type: "openai".to_string(),
@@ -69,7 +73,9 @@ mod tests {
             pipelines: vec![Pipeline {
                 name: "pipe1".to_string(),
                 r#type: PipelineType::Chat,
-                plugins: vec![PluginConfig::ModelRouter { models: vec!["m1".to_string()] }],
+                plugins: vec![PluginConfig::ModelRouter {
+                    models: vec!["m1".to_string()],
+                }],
             }],
         };
         assert!(validate_gateway_config(&config).is_ok());
@@ -78,6 +84,7 @@ mod tests {
     #[test]
     fn test_invalid_model_provider_ref() {
         let config = GatewayConfig {
+            general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
                 r#type: "openai".to_string(),
@@ -102,6 +109,7 @@ mod tests {
     #[test]
     fn test_invalid_pipeline_model_ref() {
         let config = GatewayConfig {
+            general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
                 r#type: "openai".to_string(),
@@ -117,7 +125,9 @@ mod tests {
             pipelines: vec![Pipeline {
                 name: "pipe1".to_string(),
                 r#type: PipelineType::Chat,
-                plugins: vec![PluginConfig::ModelRouter { models: vec!["m2_non_existent".to_string()] }], // Invalid model ref
+                plugins: vec![PluginConfig::ModelRouter {
+                    models: vec!["m2_non_existent".to_string()],
+                }], // Invalid model ref
             }],
         };
         let result = validate_gateway_config(&config);
@@ -126,4 +136,4 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(errors[0].contains("references non-existent model 'm2_non_existent'"));
     }
-} 
+}

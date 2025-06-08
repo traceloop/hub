@@ -9,7 +9,7 @@ use serde_json::json;
 pub enum ApiError {
     DatabaseError(sqlx::Error),
     NotFound(String),
-    Conflict(String), // For duplicate entries, etc.
+    Conflict(String),        // For duplicate entries, etc.
     ValidationError(String), // For DTO validation issues
     // Add other specific error types as needed
     InternalServerError(String),
@@ -21,7 +21,10 @@ impl IntoResponse for ApiError {
             ApiError::DatabaseError(db_err) => {
                 // Log the detailed database error to the console for debugging
                 eprintln!("Detailed Database Error: {:?}", db_err);
-                (StatusCode::INTERNAL_SERVER_ERROR, "A database error occurred".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "A database error occurred".to_string(),
+                )
             }
             ApiError::NotFound(message) => (StatusCode::NOT_FOUND, message),
             ApiError::Conflict(message) => (StatusCode::CONFLICT, message),
@@ -48,8 +51,16 @@ impl From<sqlx::Error> for ApiError {
 impl From<serde_json::Error> for ApiError {
     fn from(err: serde_json::Error) -> Self {
         // More detailed logging for the specific serde error
-        let detailed_error_message = format!("Serde JSON Error Kind: {:?}, Message: {}", err.classify(), err);
-        eprintln!("Detailed Serde JSON Error before wrapping in ApiError: {}", detailed_error_message);
-        ApiError::InternalServerError(format!("JSON processing error: {}", err)) // Keep original response message for client
+        let detailed_error_message = format!(
+            "Serde JSON Error Kind: {:?}, Message: {}",
+            err.classify(),
+            err
+        );
+        eprintln!(
+            "Detailed Serde JSON Error before wrapping in ApiError: {}",
+            detailed_error_message
+        );
+        ApiError::InternalServerError(format!("JSON processing error: {}", err))
+        // Keep original response message for client
     }
 }

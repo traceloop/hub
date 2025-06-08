@@ -1,6 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde_json;
-use sqlx::{types::{Uuid, JsonValue}, FromRow};
+use sqlx::{
+    types::{JsonValue, Uuid},
+    FromRow,
+};
 
 // Potentially import ProviderType from dto if it's to be used directly here,
 // or handle string conversion in the repository layer.

@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use crate::services::config_provider_service::ConfigProviderService;
 use axum::Router;
 use sqlx::PgPool;
-use crate::services::config_provider_service::ConfigProviderService;
+use std::sync::Arc;
 
 pub struct EeIntegration {
     pub router: Router,
@@ -14,4 +14,4 @@ pub async fn ee_integration(pool: PgPool) -> anyhow::Result<EeIntegration> {
         router,
         config_provider,
     })
-} 
+}

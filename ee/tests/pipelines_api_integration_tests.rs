@@ -14,8 +14,8 @@ use ee::{
         AzureProviderConfig, BedrockProviderConfig, CreateModelDefinitionRequest,
         CreatePipelineRequestDto, CreateProviderRequest, ModelDefinitionResponse,
         ModelRouterConfigDto, ModelRouterModelEntryDto, ModelRouterStrategyDto,
-        OpenAIProviderConfig, PipelinePluginConfigDto, PipelineResponseDto, PluginType, ProviderConfig,
-        ProviderResponse, ProviderType, UpdatePipelineRequestDto,
+        OpenAIProviderConfig, PipelinePluginConfigDto, PipelineResponseDto, PluginType,
+        ProviderConfig, ProviderResponse, ProviderType, UpdatePipelineRequestDto,
     },
     // Potentially services or repos if we need to setup data directly (though API is preferred)
     // services::{provider_service::ProviderService, model_definition_service::ModelDefinitionService, pipeline_service::PipelineService},

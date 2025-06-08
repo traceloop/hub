@@ -1,4 +1,4 @@
-use sqlx::{PgPool, types::Uuid, query_as, Row};
+use sqlx::{query_as, types::Uuid, PgPool, Row};
 use std::collections::HashMap;
 
 use crate::{
@@ -26,7 +26,8 @@ impl PipelineRepository {
     ) -> Result<PipelineWithPlugins, ApiError> {
         let mut tx = self.pool.begin().await.map_err(ApiError::DatabaseError)?;
 
-        let pipeline = query_as!(Pipeline,
+        let pipeline = query_as!(
+            Pipeline,
             r#"
             INSERT INTO hub_llmgateway_ee_pipelines (name, pipeline_type, description, enabled)
             VALUES ($1, $2, $3, $4)
@@ -170,10 +171,9 @@ impl PipelineRepository {
         }
     }
 
-    pub async fn list_pipelines(
-        &self,
-    ) -> Result<Vec<PipelineWithPlugins>, ApiError> {
-        let pipelines = query_as!(Pipeline,
+    pub async fn list_pipelines(&self) -> Result<Vec<PipelineWithPlugins>, ApiError> {
+        let pipelines = query_as!(
+            Pipeline,
             r#"
             SELECT id, name, pipeline_type, description, enabled, created_at, updated_at
             FROM hub_llmgateway_ee_pipelines
@@ -206,7 +206,10 @@ impl PipelineRepository {
 
         let mut plugins_map: HashMap<Uuid, Vec<PipelinePluginConfig>> = HashMap::new();
         for plugin in all_plugins {
-            plugins_map.entry(plugin.pipeline_id).or_default().push(plugin);
+            plugins_map
+                .entry(plugin.pipeline_id)
+                .or_default()
+                .push(plugin);
         }
 
         let result = pipelines
@@ -234,13 +237,18 @@ impl PipelineRepository {
         let mut tx = self.pool.begin().await.map_err(ApiError::DatabaseError)?;
 
         // Fetch current pipeline to check existence and for returning non-updated fields
-        let current_pipeline = sqlx::query_as!(Pipeline, "SELECT * FROM hub_llmgateway_ee_pipelines WHERE id = $1", id)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(ApiError::DatabaseError)?
-            .ok_or(ApiError::NotFound("Pipeline not found".to_string()))?;
+        let current_pipeline = sqlx::query_as!(
+            Pipeline,
+            "SELECT * FROM hub_llmgateway_ee_pipelines WHERE id = $1",
+            id
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(ApiError::DatabaseError)?
+        .ok_or(ApiError::NotFound("Pipeline not found".to_string()))?;
 
-        let updated_pipeline = query_as!(Pipeline, 
+        let updated_pipeline = query_as!(
+            Pipeline,
             r#"
             UPDATE hub_llmgateway_ee_pipelines
             SET 
@@ -253,8 +261,12 @@ impl PipelineRepository {
             RETURNING id, name, pipeline_type, description, enabled, created_at, updated_at
             "#,
             data.name.as_ref().unwrap_or(&current_pipeline.name),
-            data.pipeline_type.as_ref().unwrap_or(&current_pipeline.pipeline_type),
-            data.description.as_ref().or(current_pipeline.description.as_ref()), // Handles Option<String>
+            data.pipeline_type
+                .as_ref()
+                .unwrap_or(&current_pipeline.pipeline_type),
+            data.description
+                .as_ref()
+                .or(current_pipeline.description.as_ref()), // Handles Option<String>
             data.enabled.unwrap_or(current_pipeline.enabled),
             id
         )
@@ -266,10 +278,13 @@ impl PipelineRepository {
 
         if let Some(plugins_dto_list) = &data.plugins {
             // Delete existing plugins for this pipeline
-            sqlx::query!("DELETE FROM hub_llmgateway_ee_pipeline_plugin_configs WHERE pipeline_id = $1", id)
-                .execute(&mut *tx)
-                .await
-                .map_err(ApiError::DatabaseError)?;
+            sqlx::query!(
+                "DELETE FROM hub_llmgateway_ee_pipeline_plugin_configs WHERE pipeline_id = $1",
+                id
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::DatabaseError)?;
 
             // Insert new plugins
             for plugin_dto in plugins_dto_list {
@@ -282,7 +297,7 @@ impl PipelineRepository {
                     "#,
                     updated_pipeline.id,
                     plugin_dto.plugin_type.to_string(),
-                    plugin_dto.config_data, 
+                    plugin_dto.config_data,
                     plugin_dto.enabled,
                     plugin_dto.order_in_pipeline
                 )
@@ -323,17 +338,14 @@ impl PipelineRepository {
         })
     }
 
-    pub async fn delete_pipeline(
-        &self,
-        id: Uuid,
-    ) -> Result<u64, ApiError> {
+    pub async fn delete_pipeline(&self, id: Uuid) -> Result<u64, ApiError> {
         // The `ON DELETE CASCADE` constraint on `pipeline_plugin_configs.pipeline_id`
         // should handle deleting associated plugins automatically.
         let result = sqlx::query!("DELETE FROM hub_llmgateway_ee_pipelines WHERE id = $1", id)
             .execute(&self.pool)
             .await
             .map_err(ApiError::DatabaseError)?;
-        
+
         if result.rows_affected() == 0 {
             return Err(ApiError::NotFound("Pipeline not found".to_string()));
         }
@@ -352,18 +364,17 @@ impl PipelineRepository {
 
         // Construct a query like: SELECT key FROM hub_llmgateway_ee_model_definitions WHERE key = ANY($1)
         // This is more efficient than querying one by one.
-        let existing_keys: Vec<String> = sqlx::query(
-            "SELECT key FROM hub_llmgateway_ee_model_definitions WHERE key = ANY($1)"
-        )
-        .bind(keys)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(ApiError::DatabaseError)?
-        .into_iter()
-        .map(|row| row.get("key"))
-        .collect();
+        let existing_keys: Vec<String> =
+            sqlx::query("SELECT key FROM hub_llmgateway_ee_model_definitions WHERE key = ANY($1)")
+                .bind(keys)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(ApiError::DatabaseError)?
+                .into_iter()
+                .map(|row| row.get("key"))
+                .collect();
 
         // Check if the count of found keys matches the count of input keys
         Ok(existing_keys.len() == keys.len())
     }
-} 
+}

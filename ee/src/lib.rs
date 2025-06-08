@@ -5,7 +5,7 @@ pub mod errors;
 pub mod services;
 pub mod state;
 
-pub use state::{EeIntegration, ee_integration};
+pub use state::{ee_integration, EeIntegration};
 
 use axum::Router;
 use sqlx::PgPool;

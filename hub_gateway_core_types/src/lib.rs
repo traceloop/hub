@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 // use serde_json::Value as JsonValue; // Removed
 use std::collections::HashMap;
 // Uuid is no longer needed here if ee_id is removed
-// use uuid::Uuid; 
+// use uuid::Uuid;
 
 // Helper for defaulting boolean to true for serde
 // fn bool_true() -> bool { // Removed
@@ -25,13 +25,12 @@ fn default_log_level_core() -> String {
 pub struct Provider {
     pub key: String,
     pub r#type: String, // e.g., "openai", "azure"
-    
+
     #[serde(default = "no_api_key")]
     pub api_key: String,
-    
-    #[serde(flatten,default, skip_serializing_if = "HashMap::is_empty")]
+
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
     pub params: HashMap<String, String>,
-    
     // ee_id: Option<Uuid>, // Removed
     // enabled: bool, // Removed
 }
@@ -40,12 +39,11 @@ pub struct Provider {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ModelConfig {
     pub key: String,
-    pub r#type: String, // Actual model name, e.g., "gpt-4o"
+    pub r#type: String,   // Actual model name, e.g., "gpt-4o"
     pub provider: String, // Key of the Provider struct
-    
-    #[serde(flatten,default, skip_serializing_if = "HashMap::is_empty")]
+
+    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
     pub params: HashMap<String, String>,
-    
     // ee_id: Option<Uuid>, // Removed
     // enabled: bool, // Removed
 }
@@ -61,7 +59,7 @@ pub enum PipelineType {
 
 // Renamed from SharedPipelinePluginConfig (name is identical to original in src)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "kebab-case")] 
+#[serde(rename_all = "kebab-case")]
 pub enum PluginConfig {
     Logging {
         #[serde(default = "default_log_level_core")] // Renamed default fn to avoid conflict
@@ -76,18 +74,15 @@ pub enum PluginConfig {
     },
 }
 
-
-
 // Renamed from SharedPipelineConfig
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Pipeline {
     pub name: String,
     pub r#type: PipelineType,
-    
+
     // #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<PluginConfig>,
-    
     // ee_id: Option<Uuid>, // Removed
     // enabled: bool, // Removed
 }
@@ -117,4 +112,4 @@ impl From<ee_crate_dto::ProviderResponse> for SharedProviderConfig {
         // ... transformation logic ...
     }
 }
-*/ 
+*/

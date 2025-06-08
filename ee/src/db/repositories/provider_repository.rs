@@ -1,5 +1,5 @@
-use sqlx::{types::Uuid, PgPool, Result as SqlxResult, query_as, query};
 use serde_json::Value as JsonValue;
+use sqlx::{query, query_as, types::Uuid, PgPool, Result as SqlxResult};
 
 use crate::db::models::Provider;
 use crate::dto::{CreateProviderRequest, UpdateProviderRequest}; // Using DTOs
@@ -34,7 +34,12 @@ impl ProviderRepository {
         Self { pool }
     }
 
-    pub async fn create(&self, data: &CreateProviderRequest, provider_type_str: &str, config_json_value: JsonValue) -> SqlxResult<Provider> {
+    pub async fn create(
+        &self,
+        data: &CreateProviderRequest,
+        provider_type_str: &str,
+        config_json_value: JsonValue,
+    ) -> SqlxResult<Provider> {
         let new_id = Uuid::new_v4(); // SQLx can often handle default UUIDs if schema is set up
         let enabled = data.enabled.unwrap_or(true);
         query_as!(
@@ -95,9 +100,14 @@ impl ProviderRepository {
         .await
     }
 
-    pub async fn update(&self, id: Uuid, data: &UpdateProviderRequest, config_json_value_opt: Option<JsonValue>) -> SqlxResult<Option<Provider>> {
+    pub async fn update(
+        &self,
+        id: Uuid,
+        data: &UpdateProviderRequest,
+        config_json_value_opt: Option<JsonValue>,
+    ) -> SqlxResult<Option<Provider>> {
         // Fetch current and merge, or use COALESCE intelligently
-        // For simplicity, this query relies on COALESCE for all fields in data. 
+        // For simplicity, this query relies on COALESCE for all fields in data.
         // If a field in `data` is None, COALESCE will keep the existing DB value.
         // If config_json_value_opt is None, it means config is not being updated.
         // If config_json_value_opt is Some(JsonValue::Null), it means clear it.
@@ -108,15 +118,18 @@ impl ProviderRepository {
         // The current query_as! macro might not easily support conditional SET clauses.
         // A more robust way would be to build the query string dynamically or fetch and merge, then save.
         // For now, let's assume service layer prepares `config_json_value_opt` to be Some(value) or None (meaning no change to config_details).
-        // And if user wants to set config_details to NULL, they'd pass Some(JsonValue::Null) 
+        // And if user wants to set config_details to NULL, they'd pass Some(JsonValue::Null)
 
-        let current_provider = self.find_by_id(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let current_provider = self
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         let name_to_update = data.name.as_ref().unwrap_or(&current_provider.name);
         let enabled_to_update = data.enabled.unwrap_or(current_provider.enabled);
-        
+
         let final_config_details: JsonValue = match config_json_value_opt {
-            Some(new_val) => new_val, // new_val is JsonValue
+            Some(new_val) => new_val,                        // new_val is JsonValue
             None => current_provider.config_details.clone(), // current_provider.config_details is JsonValue, clone it
         };
 
@@ -153,4 +166,4 @@ impl ProviderRepository {
         .await?;
         Ok(result.rows_affected())
     }
-} 
+}

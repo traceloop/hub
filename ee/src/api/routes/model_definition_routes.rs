@@ -1,14 +1,14 @@
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     routing::{get, post},
     Json, Router,
-    http::StatusCode,
 };
 use sqlx::types::Uuid;
 use std::sync::Arc;
 
 use crate::{
-    dto::{CreateModelDefinitionRequest, UpdateModelDefinitionRequest, ModelDefinitionResponse},
+    dto::{CreateModelDefinitionRequest, ModelDefinitionResponse, UpdateModelDefinitionRequest},
     errors::ApiError,
     services::model_definition_service::ModelDefinitionService,
     AppState,
@@ -16,9 +16,17 @@ use crate::{
 
 pub fn model_definition_routes() -> Router<AppState> {
     Router::new()
-        .route("/", post(create_model_definition_handler).get(list_model_definitions_handler))
+        .route(
+            "/",
+            post(create_model_definition_handler).get(list_model_definitions_handler),
+        )
         .route("/key/:key", get(get_model_definition_by_key_handler))
-        .route("/:id", get(get_model_definition_handler).put(update_model_definition_handler).delete(delete_model_definition_handler))
+        .route(
+            "/:id",
+            get(get_model_definition_handler)
+                .put(update_model_definition_handler)
+                .delete(delete_model_definition_handler),
+        )
 }
 
 #[utoipa::path(
@@ -105,7 +113,6 @@ async fn get_model_definition_by_key_handler(
     Ok(Json(response))
 }
 
-
 #[utoipa::path(
     put,
     path = "/model-definitions/{id}",
@@ -151,10 +158,10 @@ async fn update_model_definition_handler(
 async fn delete_model_definition_handler(
     State(service): State<Arc<ModelDefinitionService>>,
     Path(id_str): Path<String>,
-) -> Result<(), ApiError> { // Returns 200 OK with no body on success
+) -> Result<(), ApiError> {
+    // Returns 200 OK with no body on success
     let id = Uuid::parse_str(&id_str)
         .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {}", id_str)))?;
     service.delete_model_definition(id).await?;
     Ok(())
 }
-

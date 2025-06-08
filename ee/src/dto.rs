@@ -192,7 +192,6 @@ pub enum ModelRouterStrategyDto {
     WeightedRandom, // Add other strategies as needed
 }
 
-
 /// Configuration specific to the 'model-router' plugin.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema, PartialEq)]
 pub struct ModelRouterConfigDto {

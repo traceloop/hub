@@ -1,13 +1,16 @@
 use crate::{pipelines::pipeline::create_pipeline, state::AppState};
-use axum::{extract::Request, routing::get, Router, http::StatusCode, response::Response, routing::post, Json, body::Body};
+use axum::{
+    body::Body, extract::Request, http::StatusCode, response::Response, routing::get,
+    routing::post, Json, Router,
+};
 use axum_prometheus::PrometheusMetricLayerBuilder;
 use std::collections::HashMap;
-use std::sync::Arc;
-use tower::{steer::Steer, ServiceExt, Service};
-use tracing::{debug, warn};
-use std::task::{Context, Poll};
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use tower::{steer::Steer, Service, ServiceExt};
+use tracing::{debug, warn};
 
 pub fn create_router(state: Arc<AppState>) -> Router {
     let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
@@ -50,11 +53,11 @@ impl Service<Request<Body>> for DynamicPipelineService {
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let state = self.state.clone();
-        
+
         Box::pin(async move {
             // Get the current dynamic router
             let current_router = create_dynamic_pipeline_router(state);
-            
+
             // Forward the request to the current router
             match current_router.oneshot(request).await {
                 Ok(response) => Ok(response),
@@ -81,7 +84,7 @@ pub fn create_dynamic_pipeline_router(state: Arc<AppState>) -> Router {
 
     debug!("Building new pipeline router from current configuration");
     let router = build_pipeline_router_from_config(state.clone());
-    
+
     // Move router into cache, then retrieve from cache to avoid cloning
     state.set_cached_pipeline_router(router);
     // Safe unwrap since we just set it
@@ -98,7 +101,10 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
     let current_config = state.current_config();
     let model_registry = state.model_registry();
 
-    debug!("Building router with {} pipelines", current_config.pipelines.len());
+    debug!(
+        "Building router with {} pipelines",
+        current_config.pipelines.len()
+    );
 
     // Sort pipelines to ensure default is first
     let mut sorted_pipelines = current_config.pipelines.clone();
@@ -106,7 +112,11 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
 
     for pipeline in sorted_pipelines {
         let name = pipeline.name.clone();
-        debug!("Adding pipeline '{}' to router at index {}", name, routers.len());
+        debug!(
+            "Adding pipeline '{}' to router at index {}",
+            name,
+            routers.len()
+        );
         pipeline_idxs.insert(name, routers.len());
         routers.push(create_pipeline(&pipeline, &model_registry));
     }
@@ -121,21 +131,29 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
 
     // Capture the length before moving routers into the closure
     let routers_len = routers.len();
-    debug!("Router steering configured with {} total routers", routers_len);
+    debug!(
+        "Router steering configured with {} total routers",
+        routers_len
+    );
 
     let pipeline_router = Steer::new(routers, move |req: &Request, _services: &[_]| {
-        let pipeline_header = req.headers()
+        let pipeline_header = req
+            .headers()
             .get("x-traceloop-pipeline")
             .and_then(|h| h.to_str().ok());
-        
+
         let index = pipeline_header
             .and_then(|name| pipeline_idxs.get(name))
             .copied()
             .unwrap_or(0);
-        
+
         // Ensure the index is within bounds
         if index >= routers_len {
-            warn!("Index {} is out of bounds (max: {}), using index 0", index, routers_len - 1);
+            warn!(
+                "Index {} is out of bounds (max: {}), using index 0",
+                index,
+                routers_len - 1
+            );
             0
         } else {
             index
@@ -150,7 +168,7 @@ fn create_no_config_router(state: Arc<AppState>) -> Router {
     debug!("Creating no-config fallback router");
     Router::new()
         .route("/chat/completions", post(no_config_handler))
-        .route("/completions", post(no_config_handler))  
+        .route("/completions", post(no_config_handler))
         .route("/embeddings", post(no_config_handler))
         .fallback(no_config_handler)
         .with_state(state)
@@ -161,9 +179,3 @@ async fn no_config_handler() -> Result<Json<serde_json::Value>, StatusCode> {
     warn!("No configuration available - returning 404 Not Found");
     Err(StatusCode::NOT_FOUND)
 }
-
-
-
-
-
-
