@@ -260,7 +260,6 @@ All core LLM gateway functionality is open-source under Apache 2.0. Enterprise f
 | ❌ Database-driven Configuration | ✅ Database-driven Configuration |
 | ❌ Dynamic Configuration Updates | ✅ Dynamic Configuration Updates |
 | ❌ Zero-downtime Reloading | ✅ Zero-downtime Reloading |
-| ❌ Priority Support | ✅ Priority Support |
 
 ### License Structure
 
