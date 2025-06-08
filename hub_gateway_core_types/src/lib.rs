@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 // use serde_json::Value as JsonValue; // Removed
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 // Uuid is no longer needed here if ee_id is removed
 // use uuid::Uuid;
 
@@ -35,6 +36,21 @@ pub struct Provider {
     // enabled: bool, // Removed
 }
 
+impl Hash for Provider {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+        self.r#type.hash(state);
+        self.api_key.hash(state);
+        // Hash the params by sorting keys and hashing key-value pairs
+        let mut params_vec: Vec<_> = self.params.iter().collect();
+        params_vec.sort_by_key(|(k, _)| *k);
+        for (k, v) in params_vec {
+            k.hash(state);
+            v.hash(state);
+        }
+    }
+}
+
 // Renamed from SharedModelConfig
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ModelConfig {
@@ -48,8 +64,23 @@ pub struct ModelConfig {
     // enabled: bool, // Removed
 }
 
+impl Hash for ModelConfig {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+        self.r#type.hash(state);
+        self.provider.hash(state);
+        // Hash the params by sorting keys and hashing key-value pairs
+        let mut params_vec: Vec<_> = self.params.iter().collect();
+        params_vec.sort_by_key(|(k, _)| *k);
+        for (k, v) in params_vec {
+            k.hash(state);
+            v.hash(state);
+        }
+    }
+}
+
 // Renamed from SharedPipelineType (name is identical to original in src)
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum PipelineType {
     Chat,
@@ -58,7 +89,7 @@ pub enum PipelineType {
 }
 
 // Renamed from SharedPipelinePluginConfig (name is identical to original in src)
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum PluginConfig {
     Logging {
@@ -75,7 +106,7 @@ pub enum PluginConfig {
 }
 
 // Renamed from SharedPipelineConfig
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash)]
 pub struct Pipeline {
     pub name: String,
     pub r#type: PipelineType,
@@ -87,14 +118,14 @@ pub struct Pipeline {
     // enabled: bool, // Removed
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Hash)]
 pub struct General {
     #[serde(default = "default_trace_content_enabled")]
     pub trace_content_enabled: bool,
 }
 
 // GatewayConfig name remains the same
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Hash)]
 pub struct GatewayConfig {
     pub general: Option<General>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

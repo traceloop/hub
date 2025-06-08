@@ -5,7 +5,7 @@ use hub_lib::state::AppState;
 use std::sync::Arc;
 
 #[tokio::test]
-async fn test_router_cache_basic_functionality() {
+async fn test_router_always_available() {
     // Create a basic configuration
     let config = GatewayConfig {
         general: None,
@@ -32,64 +32,15 @@ async fn test_router_cache_basic_functionality() {
 
     let app_state = Arc::new(AppState::new(config).expect("Failed to create app state"));
 
-    // Initially, no router should be cached
-    assert!(app_state.get_cached_pipeline_router().is_none());
-
-    // Trigger router cache by calling the cache management
-    app_state.with_router_cache(|cache| {
-        assert!(cache.get().is_none());
-    });
-
-    // Test cache invalidation
-    app_state.invalidate_cached_router();
-    assert!(app_state.get_cached_pipeline_router().is_none());
+    // With the simplified approach, we always have a current router
+    let _current_router = app_state.get_current_router();
+    // Router should always be available - we can't inspect internals but we can verify it exists
+    // The fact that get_current_router() returns without panicking means the router is available
 }
 
 #[tokio::test]
-async fn test_router_cache_invalidation() {
-    let config = GatewayConfig {
-        general: None,
-        providers: vec![Provider {
-            key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
-            api_key: "test-key".to_string(),
-            params: Default::default(),
-        }],
-        models: vec![ModelConfig {
-            key: "gpt-4".to_string(),
-            r#type: "gpt-4".to_string(),
-            provider: "test-provider".to_string(),
-            params: Default::default(),
-        }],
-        pipelines: vec![Pipeline {
-            name: "default".to_string(),
-            r#type: PipelineType::Chat,
-            plugins: vec![PluginConfig::ModelRouter {
-                models: vec!["gpt-4".to_string()],
-            }],
-        }],
-    };
-
-    let app_state = Arc::new(AppState::new(config).expect("Failed to create app state"));
-
-    // Test that cache invalidation works
-    app_state.invalidate_cached_router();
-    assert!(app_state.get_cached_pipeline_router().is_none());
-
-    // Test that we can rebuild the router
-    let rebuild_result = app_state.rebuild_pipeline_router_now();
-    assert!(rebuild_result.is_ok());
-
-    // After rebuilding, router should be cached
-    assert!(app_state.get_cached_pipeline_router().is_some());
-
-    // Test invalidation again
-    app_state.invalidate_cached_router();
-    assert!(app_state.get_cached_pipeline_router().is_none());
-}
-
-#[tokio::test]
-async fn test_configuration_update_invalidates_cache() {
+async fn test_configuration_change_detection() {
+    // Create initial configuration
     let initial_config = GatewayConfig {
         general: None,
         providers: vec![Provider {
@@ -113,15 +64,27 @@ async fn test_configuration_update_invalidates_cache() {
         }],
     };
 
-    let app_state = Arc::new(AppState::new(initial_config).expect("Failed to create app state"));
+    let app_state = Arc::new(AppState::new(initial_config.clone()).expect("Failed to create app state"));
 
-    // Build and cache a router
-    let rebuild_result = app_state.rebuild_pipeline_router_now();
-    assert!(rebuild_result.is_ok());
-    assert!(app_state.get_cached_pipeline_router().is_some());
+    // Test 1: Update with identical configuration should be no-op
+    let result = app_state.update_config(initial_config.clone());
+    assert!(result.is_ok(), "Identical config update should succeed");
 
-    // Create a new configuration with additional pipeline
-    let updated_config = GatewayConfig {
+    // Test 2: Update with different configuration should rebuild router
+    let mut updated_config = initial_config.clone();
+    updated_config.providers[0].api_key = "new-key".to_string();
+
+    let result = app_state.update_config(updated_config.clone());
+    assert!(result.is_ok(), "Different config update should succeed");
+
+    // Verify the configuration was actually updated
+    let current_config = app_state.current_config();
+    assert_eq!(current_config.providers[0].api_key, "new-key");
+}
+
+#[tokio::test]
+async fn test_invalid_configuration_rejected() {
+    let initial_config = GatewayConfig {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
@@ -129,53 +92,41 @@ async fn test_configuration_update_invalidates_cache() {
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
-        models: vec![
-            ModelConfig {
-                key: "gpt-4".to_string(),
-                r#type: "gpt-4".to_string(),
-                provider: "test-provider".to_string(),
-                params: Default::default(),
-            },
-            ModelConfig {
-                key: "gpt-3.5-turbo".to_string(),
-                r#type: "gpt-3.5-turbo".to_string(),
-                provider: "test-provider".to_string(),
-                params: Default::default(),
-            },
-        ],
-        pipelines: vec![
-            Pipeline {
-                name: "default".to_string(),
-                r#type: PipelineType::Chat,
-                plugins: vec![PluginConfig::ModelRouter {
-                    models: vec!["gpt-4".to_string()],
-                }],
-            },
-            Pipeline {
-                name: "new-pipeline".to_string(),
-                r#type: PipelineType::Chat,
-                plugins: vec![PluginConfig::ModelRouter {
-                    models: vec!["gpt-3.5-turbo".to_string()],
-                }],
-            },
-        ],
+        models: vec![],
+        pipelines: vec![],
     };
 
-    // Update configuration - this should invalidate the cache
-    let update_result = app_state.try_update_config_and_registries(updated_config);
-    assert!(update_result.is_ok());
+    let app_state = Arc::new(AppState::new(initial_config).expect("Failed to create app state"));
 
-    // Verify that the configuration was updated
-    let snapshot = app_state.config_snapshot();
-    assert_eq!(snapshot.config.pipelines.len(), 2);
-    assert_eq!(snapshot.config.models.len(), 2);
+    // Create invalid configuration (model references non-existent provider)
+    let invalid_config = GatewayConfig {
+        general: None,
+        providers: vec![Provider {
+            key: "test-provider".to_string(),
+            r#type: "openai".to_string(),
+            api_key: "test-key".to_string(),
+            params: Default::default(),
+        }],
+        models: vec![ModelConfig {
+            key: "gpt-4".to_string(),
+            r#type: "gpt-4".to_string(),
+            provider: "non-existent-provider".to_string(), // Invalid reference
+            params: Default::default(),
+        }],
+        pipelines: vec![],
+    };
 
-    // The cache should have been rebuilt automatically
-    assert!(app_state.get_cached_pipeline_router().is_some());
+    // Invalid configuration should be rejected
+    let result = app_state.update_config(invalid_config);
+    assert!(result.is_err(), "Invalid configuration should be rejected");
+
+    // Original configuration should remain unchanged
+    let current_config = app_state.current_config();
+    assert_eq!(current_config.models.len(), 0);
 }
 
 #[tokio::test]
-async fn test_concurrent_cache_access() {
+async fn test_concurrent_router_access() {
     let config = GatewayConfig {
         general: None,
         providers: vec![Provider {
@@ -201,29 +152,39 @@ async fn test_concurrent_cache_access() {
 
     let app_state = Arc::new(AppState::new(config).expect("Failed to create app state"));
 
-    // Spawn multiple tasks that access the cache concurrently
-    let mut handles = vec![];
-    for i in 0..10 {
-        let app_state_clone = app_state.clone();
-        let handle = tokio::spawn(async move {
-            // Some tasks invalidate cache, others try to access it
-            if i % 2 == 0 {
-                app_state_clone.invalidate_cached_router();
-            } else {
-                let _ = app_state_clone.get_cached_pipeline_router();
-            }
-
-            // All tasks try to rebuild
-            let _ = app_state_clone.rebuild_pipeline_router_now();
-        });
-        handles.push(handle);
-    }
+    // Simulate concurrent access to router
+    let handles: Vec<_> = (0..10)
+        .map(|_| {
+            let app_state_clone = app_state.clone();
+            tokio::spawn(async move {
+                let _router = app_state_clone.get_current_router();
+                // Router should always be available
+            })
+        })
+        .collect();
 
     // Wait for all tasks to complete
     for handle in handles {
-        handle.await.unwrap();
+        handle.await.expect("Task should complete successfully");
     }
 
-    // After all concurrent operations, we should have a cached router
-    assert!(app_state.get_cached_pipeline_router().is_some());
+    // Router should still be available after concurrent access
+    let _router = app_state.get_current_router();
+}
+
+#[tokio::test]
+async fn test_empty_configuration_fallback() {
+    // Create empty configuration
+    let empty_config = GatewayConfig {
+        general: None,
+        providers: vec![],
+        models: vec![],
+        pipelines: vec![],
+    };
+
+    let app_state = Arc::new(AppState::new(empty_config).expect("Failed to create app state"));
+
+    // Even with empty config, router should be available (fallback router)
+    let _current_router = app_state.get_current_router();
+    // The fact that get_current_router() returns without panicking means the router is available
 }

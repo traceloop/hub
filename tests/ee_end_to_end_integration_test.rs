@@ -47,12 +47,12 @@ mod ee_integration_tests {
 
             // Set environment variables for the application
             std::env::set_var("DATABASE_URL", &connection_string);
-            std::env::set_var("PORT", &port.to_string());
+            std::env::set_var("PORT", port.to_string());
             std::env::set_var("DB_POLL_INTERVAL_SECONDS", "1"); // Fast polling for tests
 
             // Build the application binary
             let build_output = Command::new("cargo")
-                .args(&["build", "--features", "ee_feature"])
+                .args(["build", "--features", "ee_feature"])
                 .output()?;
 
             if !build_output.status.success() {
@@ -65,7 +65,7 @@ mod ee_integration_tests {
             // Start the application process
             let app_process = tokio::process::Command::new("./target/debug/hub")
                 .env("DATABASE_URL", &connection_string)
-                .env("PORT", &port.to_string())
+                .env("PORT", port.to_string())
                 .env("DB_POLL_INTERVAL_SECONDS", "1")
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -117,7 +117,7 @@ mod ee_integration_tests {
 
             let response = self
                 .client
-                .post(&format!("{}/ee/api/v1/providers", self.base_url))
+                .post(format!("{}/ee/api/v1/providers", self.base_url))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
@@ -146,7 +146,7 @@ mod ee_integration_tests {
 
             let response = self
                 .client
-                .post(&format!("{}/ee/api/v1/model-definitions", self.base_url))
+                .post(format!("{}/ee/api/v1/model-definitions", self.base_url))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
@@ -201,7 +201,7 @@ mod ee_integration_tests {
 
             let response = self
                 .client
-                .post(&format!("{}/ee/api/v1/pipelines", self.base_url))
+                .post(format!("{}/ee/api/v1/pipelines", self.base_url))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
@@ -224,7 +224,7 @@ mod ee_integration_tests {
 
             let response = self
                 .client
-                .post(&format!("{}/api/v1/chat/completions", self.base_url))
+                .post(format!("{}/api/v1/chat/completions", self.base_url))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
@@ -491,7 +491,7 @@ mod ee_integration_tests {
 
         let response = env
             .client
-            .post(&format!("{}/ee/api/v1/model-definitions", env.base_url))
+            .post(format!("{}/ee/api/v1/model-definitions", env.base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()
@@ -534,7 +534,7 @@ mod ee_integration_tests {
 
         let response = env
             .client
-            .post(&format!("{}/ee/api/v1/pipelines", env.base_url))
+            .post(format!("{}/ee/api/v1/pipelines", env.base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()
@@ -567,7 +567,7 @@ mod ee_integration_tests {
 
         let response = env
             .client
-            .post(&format!("{}/ee/api/v1/pipelines", env.base_url))
+            .post(format!("{}/ee/api/v1/pipelines", env.base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()

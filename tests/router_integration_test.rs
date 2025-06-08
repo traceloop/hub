@@ -16,8 +16,8 @@ async fn test_router_integration_flow() {
 
     let app_state = Arc::new(AppState::new(empty_config).expect("Failed to create app state"));
 
-    // With empty config, router should be None
-    assert!(app_state.get_cached_pipeline_router().is_none());
+    // With empty config, router should still be available (fallback router)
+    let _router = app_state.get_current_router();
 
     // Test 2: Valid configuration
     let valid_config = GatewayConfig {
@@ -56,16 +56,9 @@ async fn test_router_integration_flow() {
     assert_eq!(snapshot.config.models[0].key, "gpt-4");
     assert_eq!(snapshot.config.pipelines[0].name, "default");
 
-    // Test 4: Router cache functionality
-    let rebuild_result = app_state.rebuild_pipeline_router_now();
-    assert!(rebuild_result.is_ok(), "Router rebuild should succeed");
-
-    // Router should now be cached
-    assert!(app_state.get_cached_pipeline_router().is_some());
-
-    // Test 5: Cache invalidation
-    app_state.invalidate_cached_router();
-    assert!(app_state.get_cached_pipeline_router().is_none());
+    // Test 4: Router is always available with simplified approach
+    let _current_router = app_state.get_current_router();
+    // Router should always be available
 
     // Test 6: Invalid configuration rejection
     let invalid_config = GatewayConfig {
@@ -217,12 +210,11 @@ async fn test_concurrent_configuration_updates() {
                 }],
             };
 
-            // Some tasks update configuration, others access cache
+            // Some tasks update configuration, others access router
             if i % 2 == 0 {
                 let _ = app_state_clone.try_update_config_and_registries(config);
             } else {
-                let _ = app_state_clone.get_cached_pipeline_router();
-                let _ = app_state_clone.rebuild_pipeline_router_now();
+                let _ = app_state_clone.get_current_router();
             }
         });
         handles.push(handle);
