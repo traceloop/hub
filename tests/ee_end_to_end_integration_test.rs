@@ -1,13 +1,16 @@
 #[cfg(feature = "ee_feature")]
 mod ee_integration_tests {
-    use serde_json::json;
+    use serde_json::{json, Value};
     use sqlx::PgPool;
+    use std::fs;
+    use std::path::PathBuf;
     use std::process::{Command, Stdio};
     use std::time::Duration;
     use testcontainers::{runners::AsyncRunner, ContainerAsync};
     use testcontainers_modules::postgres::Postgres;
     use tokio::process::Child;
     use tokio::time::sleep;
+    use tracing::debug;
 
     struct TestEnvironment {
         _postgres_container: ContainerAsync<Postgres>,
@@ -246,6 +249,68 @@ mod ee_integration_tests {
         Ok(port)
     }
 
+    // Cassette recording functionality
+    async fn load_or_record_response(test_name: &str) -> Value {
+        // Create the cassettes directory if it doesn't exist
+        let cassettes_dir = PathBuf::from("tests/cassettes/openai");
+        debug!("Creating cassettes directory at: {:?}", cassettes_dir);
+        
+        if let Err(e) = std::fs::create_dir_all(&cassettes_dir) {
+            panic!("Failed to create cassettes directory: {}", e);
+        }
+
+        // Create specific cassette file path
+        let cassette_path = cassettes_dir.join(format!("{}.json", test_name));
+        debug!("Cassette path: {:?}", cassette_path);
+
+        let is_record_mode = std::env::var("RECORD_MODE").is_ok();
+        debug!("Record mode: {}", is_record_mode);
+
+        if is_record_mode {
+            // In record mode, we'll return a placeholder that the test should replace with real response
+            debug!("Record mode enabled - test should save real response");
+            return json!({
+                "record_mode": true,
+                "message": "This should be replaced with real API response"
+            });
+        }
+
+        // Try to load existing cassette
+        if let Ok(cassette_content) = fs::read_to_string(&cassette_path) {
+            debug!("Loading cassette from: {:?}", cassette_path);
+            
+            // Parse the cassette content
+            if let Ok(response) = serde_json::from_str::<Value>(&cassette_content) {
+                debug!("Successfully loaded cassette response");
+                return response;
+            }
+        }
+
+        panic!(
+            "No cassette found at {:?} and not in record mode. Run with RECORD_MODE=1 to create one.",
+            cassette_path
+        );
+    }
+
+    // Helper function to save response to cassette
+    async fn save_to_cassette(test_name: &str, response: &Value) {
+        let cassettes_dir = PathBuf::from("tests/cassettes/openai");
+        let cassette_path = cassettes_dir.join(format!("{}.json", test_name));
+
+        // Save the response to cassette
+        let content = serde_json::to_string_pretty(response)
+            .expect("Failed to serialize response to JSON");
+        
+        if let Err(e) = fs::write(&cassette_path, content) {
+            panic!("Error saving cassette: {}", e);
+        }
+
+        debug!(
+            "Successfully saved response to cassette: {:?}",
+            cassette_path
+        );
+    }
+
     #[tokio::test]
     async fn test_end_to_end_ee_integration() {
         let env = TestEnvironment::setup()
@@ -270,10 +335,19 @@ mod ee_integration_tests {
             response.status()
         );
 
-        // Step 2: Create a provider
+        // Step 2: Create a provider with real or test API key
         println!("Step 2: Creating OpenAI provider...");
+        
+        // Use real API key in record mode, test key otherwise
+        let api_key = if std::env::var("RECORD_MODE").is_ok() {
+            std::env::var("OPENAI_API_KEY")
+                .expect("OPENAI_API_KEY environment variable must be set when RECORD_MODE=1")
+        } else {
+            "test-api-key".to_string()
+        };
+        
         let provider = env
-            .create_provider("openai-provider", "test-api-key")
+            .create_provider("openai-provider", &api_key)
             .await
             .expect("Failed to create provider");
         let provider_id = provider["id"].as_str().unwrap();
@@ -302,20 +376,55 @@ mod ee_integration_tests {
         println!("Step 5: Waiting for configuration polling...");
         sleep(Duration::from_secs(3)).await; // Give polling time to pick up changes
 
-        // Step 6: Try the same request again - should now route to provider (but fail with auth)
+        // Step 6: Try the same request again - should now route to provider
         println!("Step 6: Testing request with configuration...");
-        let response = env
-            .make_chat_request("gpt-3.5-turbo")
-            .await
-            .expect("Request failed");
+        
+        if std::env::var("RECORD_MODE").is_ok() {
+            // In record mode, make real request and save response
+            println!("🎬 Recording mode: Making real API request...");
+            let response = env
+                .make_chat_request("gpt-3.5-turbo")
+                .await
+                .expect("Request failed");
 
-        // Should now find the pipeline and route to provider, but fail with 401 due to invalid API key
-        assert!(
-            response.status() == 401 || response.status() == 500,
-            "Expected 401 or 500 when routing to provider with invalid API key, got {}",
-            response.status()
-        );
-        println!("✓ Request correctly routed to provider and failed with auth error");
+            let status = response.status();
+            let response_body: Value = response.json().await.expect("Failed to parse response JSON");
+            
+            // Save the real response to cassette
+            save_to_cassette("chat_completion_success", &response_body).await;
+            
+            // In record mode with real API key, we should get 200
+            assert_eq!(status, 200, "Expected 200 with real API key, got {}", status);
+            println!("✓ Real API request successful (200) - Response saved to cassette");
+            
+            // Validate response structure
+            assert!(response_body.get("choices").is_some(), "Response should have 'choices' field");
+            assert!(response_body.get("usage").is_some(), "Response should have 'usage' field");
+            println!("✓ Response structure validated");
+        } else {
+            // In test mode, use cassette
+            println!("📼 Test mode: Using recorded response...");
+            let recorded_response = load_or_record_response("chat_completion_success").await;
+            
+            // Validate the recorded response structure
+            assert!(recorded_response.get("choices").is_some(), "Recorded response should have 'choices' field");
+            assert!(recorded_response.get("usage").is_some(), "Recorded response should have 'usage' field");
+            println!("✓ Recorded response structure validated");
+            
+            // Also test that the live request would work (but expect auth failure with test key)
+            let response = env
+                .make_chat_request("gpt-3.5-turbo")
+                .await
+                .expect("Request failed");
+
+            // Should route to provider but fail with 401 due to test API key
+            assert!(
+                response.status() == 401 || response.status() == 500,
+                "Expected 401 or 500 when routing to provider with test key, got {}",
+                response.status()
+            );
+            println!("✓ Request correctly routed to provider and failed with auth error (as expected with test key)");
+        }
 
         // Step 7: Verify the configuration is in the database
         println!("Step 7: Verifying database state...");
