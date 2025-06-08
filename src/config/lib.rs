@@ -14,6 +14,7 @@ struct YamlCompatiblePipeline {
     #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     plugins: Vec<PluginConfig>,
     #[serde(default = "default_enabled_true_lib")]
+    #[allow(dead_code)]
     enabled: bool, // Keep for YAML parsing, but won't be mapped to core Pipeline
 }
 
@@ -56,7 +57,7 @@ pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Erro
             .collect(),
         general: None,
     };
-    TRACE_CONTENT_ENABLED.set(
+    let _ = TRACE_CONTENT_ENABLED.set(
         gateway_config
             .general
             .as_ref()

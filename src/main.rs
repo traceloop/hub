@@ -8,6 +8,7 @@ use tracing::{error, info, Level};
 #[cfg(feature = "ee_feature")]
 use {ee::ee_integration, sqlx::PgPool, std::time::Duration};
 
+#[allow(dead_code)]
 const DEFAULT_CONFIG_PATH: &str = "config.yaml";
 const DEFAULT_PORT: &str = "3000";
 #[cfg(feature = "ee_feature")]

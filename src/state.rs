@@ -20,7 +20,7 @@ pub struct RouterCache<'a> {
     inner: &'a Arc<RwLock<Option<Router>>>,
 }
 
-impl<'a> RouterCache<'a> {
+impl RouterCache<'_> {
     pub fn get(&self) -> Option<Router> {
         let guard = self.inner.read().unwrap();
         match guard.as_ref() {
