@@ -1,10 +1,10 @@
 use crate::ai_models::registry::ModelRegistry;
 use crate::config::models::GatewayConfig;
 use crate::providers::registry::ProviderRegistry;
-use anyhow::{Result, Context};
-use tracing::{info, debug, warn};
-use std::sync::{Arc, RwLock};
+use anyhow::{Context, Result};
 use axum::Router;
+use std::sync::{Arc, RwLock};
+use tracing::{debug, info};
 
 /// A snapshot of configuration state at a point in time
 /// This reduces lock contention by capturing all needed data in one operation
@@ -79,8 +79,8 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(initial_config: GatewayConfig) -> Result<Self> {
-        let inner_app_state = InnerAppState::new(initial_config)
-            .context("Failed to create initial InnerAppState")?;
+        let inner_app_state =
+            InnerAppState::new(initial_config).context("Failed to create initial InnerAppState")?;
         Ok(Self {
             inner: Arc::new(RwLock::new(inner_app_state)),
             cached_pipeline_router: Arc::new(RwLock::new(None)),
@@ -134,14 +134,14 @@ impl AppState {
     /// Rebuilds the router immediately and caches it
     pub fn rebuild_pipeline_router_now(&self) -> Result<()> {
         debug!("Force rebuilding pipeline router with current configuration");
-        
+
         // Build router directly using internal method to avoid Arc wrapping
         let router = self.build_router_internal();
-        
+
         // Cache the new router
         self.set_cached_pipeline_router(router);
         debug!("Pipeline router rebuilt and cached successfully");
-        
+
         Ok(())
     }
 
@@ -150,7 +150,7 @@ impl AppState {
         use crate::pipelines::pipeline::create_pipeline;
         use std::collections::HashMap;
         use tower::steer::Steer;
-        use tracing::{info, warn};
+        use tracing::warn;
 
         let mut pipeline_idxs = HashMap::new();
         let mut routers = Vec::new();
@@ -158,7 +158,10 @@ impl AppState {
         // Get current configuration snapshot in one lock operation
         let snapshot = self.config_snapshot();
 
-        debug!("Building router with {} pipelines", snapshot.config.pipelines.len());
+        debug!(
+            "Building router with {} pipelines",
+            snapshot.config.pipelines.len()
+        );
 
         // Sort pipelines to ensure default is first
         let mut sorted_pipelines = snapshot.config.pipelines.clone();
@@ -166,7 +169,11 @@ impl AppState {
 
         for pipeline in sorted_pipelines {
             let name = pipeline.name.clone();
-            debug!("Adding pipeline '{}' to router at index {}", name, routers.len());
+            debug!(
+                "Adding pipeline '{}' to router at index {}",
+                name,
+                routers.len()
+            );
             pipeline_idxs.insert(name, routers.len());
             routers.push(create_pipeline(&pipeline, &snapshot.model_registry));
         }
@@ -180,35 +187,46 @@ impl AppState {
         }
 
         let routers_len = routers.len();
-        debug!("Router steering configured with {} total routers", routers_len);
+        debug!(
+            "Router steering configured with {} total routers",
+            routers_len
+        );
 
-        let pipeline_router = Steer::new(routers, move |req: &axum::extract::Request, _services: &[_]| {
-            use tracing::warn;
-            
-            let pipeline_header = req.headers()
-                .get("x-traceloop-pipeline")
-                .and_then(|h| h.to_str().ok());
-            
-            let index = pipeline_header
-                .and_then(|name| pipeline_idxs.get(name))
-                .copied()
-                .unwrap_or(0);
-            
-            if index >= routers_len {
-                warn!("Index {} is out of bounds (max: {}), using index 0", index, routers_len - 1);
-                0
-            } else {
-                index
-            }
-        });
+        let pipeline_router = Steer::new(
+            routers,
+            move |req: &axum::extract::Request, _services: &[_]| {
+                use tracing::warn;
+
+                let pipeline_header = req
+                    .headers()
+                    .get("x-traceloop-pipeline")
+                    .and_then(|h| h.to_str().ok());
+
+                let index = pipeline_header
+                    .and_then(|name| pipeline_idxs.get(name))
+                    .copied()
+                    .unwrap_or(0);
+
+                if index >= routers_len {
+                    warn!(
+                        "Index {} is out of bounds (max: {}), using index 0",
+                        index,
+                        routers_len - 1
+                    );
+                    0
+                } else {
+                    index
+                }
+            },
+        );
 
         axum::Router::new().nest_service("/", pipeline_router)
     }
 
     /// Creates a router that handles requests when no configuration is available
     fn create_no_config_router(&self) -> axum::Router {
-        use axum::{routing::post, Json, http::StatusCode};
-        use tracing::{info, warn};
+        use axum::{http::StatusCode, routing::post, Json};
+        use tracing::warn;
 
         async fn no_config_handler() -> Result<Json<serde_json::Value>, StatusCode> {
             warn!("No configuration available - returning 503 Service Unavailable");
@@ -218,11 +236,11 @@ impl AppState {
         debug!("Creating no-config fallback router");
         axum::Router::new()
             .route("/chat/completions", post(no_config_handler))
-            .route("/completions", post(no_config_handler))  
+            .route("/completions", post(no_config_handler))
             .route("/embeddings", post(no_config_handler))
             .fallback(no_config_handler)
     }
-    
+
     // Assumes new_config is pre-validated by the caller (e.g., the poller)
     pub fn try_update_config_and_registries(&self, new_config: GatewayConfig) -> Result<()> {
         info!("Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).", 
@@ -237,26 +255,28 @@ impl AppState {
 
     /// Update the internal registries with new configuration
     fn update_registries(&self, new_config: GatewayConfig) -> Result<()> {
-        let new_provider_registry = Arc::new(ProviderRegistry::new(&new_config.providers)
-            .context("Failed to create new provider registry during live update")?);
-        let new_model_registry = Arc::new(ModelRegistry::new(
-            &new_config.models,
-            new_provider_registry.clone(),
-        ).context("Failed to create new model registry during live update")?);
+        let new_provider_registry = Arc::new(
+            ProviderRegistry::new(&new_config.providers)
+                .context("Failed to create new provider registry during live update")?,
+        );
+        let new_model_registry = Arc::new(
+            ModelRegistry::new(&new_config.models, new_provider_registry.clone())
+                .context("Failed to create new model registry during live update")?,
+        );
 
         // Update all registries atomically
         let mut inner_guard = self.inner.write().unwrap();
         inner_guard.config = new_config;
         inner_guard.provider_registry = new_provider_registry;
         inner_guard.model_registry = new_model_registry;
-        
+
         Ok(())
     }
 
     /// Refresh the router cache after configuration changes
     fn refresh_router_cache(&self) {
         self.invalidate_cached_router();
-        
+
         // Try immediate rebuild for better performance, fall back to lazy rebuild
         if let Err(e) = self.rebuild_pipeline_router_now() {
             debug!("Lazy rebuild will occur on next request: {}", e);

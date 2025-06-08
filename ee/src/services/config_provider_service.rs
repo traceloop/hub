@@ -214,7 +214,8 @@ impl ConfigProviderService {
             crate::dto::PluginType::Tracing => {
                 let endpoint = dto.config_data.get("endpoint").and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow!("Missing endpoint for tracing plugin"))?.to_string();
-                let api_key = dto.config_data.get("api_key").and_then(|v| v.as_str()).map(String::from);
+                let api_key = dto.config_data.get("api_key").and_then(|v| v.as_str())
+                    .map(String::from).unwrap_or_default();
                 Ok(PluginConfig::Tracing { endpoint, api_key })
             }
         }

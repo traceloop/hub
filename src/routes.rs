@@ -4,7 +4,7 @@ use axum_prometheus::PrometheusMetricLayerBuilder;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tower::{steer::Steer, ServiceExt, Service};
-use tracing::{debug, warn, info};
+use tracing::{debug, warn};
 use std::task::{Context, Poll};
 use std::future::Future;
 use std::pin::Pin;

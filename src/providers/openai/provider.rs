@@ -16,6 +16,16 @@ pub struct OpenAIProvider {
     http_client: Client,
 }
 
+impl OpenAIProvider {
+    fn base_url(&self) -> String {
+        self.config
+            .params
+            .get("base_url")
+            .unwrap_or(&String::from("https://api.openai.com/v1"))
+            .to_string()
+    }
+}
+
 #[async_trait]
 impl Provider for OpenAIProvider {
     fn new(config: &ProviderConfig) -> Self {
@@ -40,7 +50,7 @@ impl Provider for OpenAIProvider {
     ) -> Result<ChatCompletionResponse, StatusCode> {
         let response = self
             .http_client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post(format!("{}/chat/completions", self.base_url()))
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .json(&payload)
             .send()
@@ -82,7 +92,7 @@ impl Provider for OpenAIProvider {
     ) -> Result<CompletionResponse, StatusCode> {
         let response = self
             .http_client
-            .post("https://api.openai.com/v1/completions")
+            .post(format!("{}/completions", self.base_url()))
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .json(&payload)
             .send()
@@ -114,7 +124,7 @@ impl Provider for OpenAIProvider {
     ) -> Result<EmbeddingsResponse, StatusCode> {
         let response = self
             .http_client
-            .post("https://api.openai.com/v1/embeddings")
+            .post(format!("{}/embeddings", self.base_url()))
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .json(&payload)
             .send()

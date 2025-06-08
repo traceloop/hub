@@ -1,3 +1,4 @@
+use crate::config::lib::get_trace_content_enabled;
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
@@ -154,21 +155,23 @@ impl RecordSpan for ChatCompletionRequest {
             span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TEMPERATURE, temp as f64));
         }
 
-        for (i, message) in self.messages.iter().enumerate() {
-            if let Some(content) = &message.content {
-                span.set_attribute(KeyValue::new(
-                    format!("gen_ai.prompt.{}.role", i),
-                    message.role.clone(),
-                ));
-                span.set_attribute(KeyValue::new(
-                    format!("gen_ai.prompt.{}.content", i),
-                    match &content {
-                        ChatMessageContent::String(content) => content.clone(),
-                        ChatMessageContent::Array(content) => {
-                            serde_json::to_string(content).unwrap_or_default()
-                        }
-                    },
-                ));
+        if get_trace_content_enabled() {
+            for (i, message) in self.messages.iter().enumerate() {
+                if let Some(content) = &message.content {
+                    span.set_attribute(KeyValue::new(
+                        format!("gen_ai.prompt.{}.role", i),
+                        message.role.clone(),
+                    ));
+                    span.set_attribute(KeyValue::new(
+                        format!("gen_ai.prompt.{}.content", i),
+                        match &content {
+                            ChatMessageContent::String(content) => content.clone(),
+                            ChatMessageContent::Array(content) => {
+                                serde_json::to_string(content).unwrap_or_default()
+                            }
+                        },
+                    ));
+                }
             }
         }
     }
@@ -181,26 +184,28 @@ impl RecordSpan for ChatCompletion {
 
         self.usage.record_span(span);
 
-        for choice in &self.choices {
-            if let Some(content) = &choice.message.content {
+        if get_trace_content_enabled() {
+            for choice in &self.choices {
+                if let Some(content) = &choice.message.content {
+                    span.set_attribute(KeyValue::new(
+                        format!("gen_ai.completion.{}.role", choice.index),
+                        choice.message.role.clone(),
+                    ));
+                    span.set_attribute(KeyValue::new(
+                        format!("gen_ai.completion.{}.content", choice.index),
+                        match &content {
+                            ChatMessageContent::String(content) => content.clone(),
+                            ChatMessageContent::Array(content) => {
+                                serde_json::to_string(content).unwrap_or_default()
+                            }
+                        },
+                    ));
+                }
                 span.set_attribute(KeyValue::new(
-                    format!("gen_ai.completion.{}.role", choice.index),
-                    choice.message.role.clone(),
-                ));
-                span.set_attribute(KeyValue::new(
-                    format!("gen_ai.completion.{}.content", choice.index),
-                    match &content {
-                        ChatMessageContent::String(content) => content.clone(),
-                        ChatMessageContent::Array(content) => {
-                            serde_json::to_string(content).unwrap_or_default()
-                        }
-                    },
+                    format!("gen_ai.completion.{}.finish_reason", choice.index),
+                    choice.finish_reason.clone().unwrap_or_default(),
                 ));
             }
-            span.set_attribute(KeyValue::new(
-                format!("gen_ai.completion.{}.finish_reason", choice.index),
-                choice.finish_reason.clone().unwrap_or_default(),
-            ));
         }
     }
 }
@@ -261,38 +266,40 @@ impl RecordSpan for EmbeddingsRequest {
         span.set_attribute(KeyValue::new("llm.request.type", "embeddings"));
         span.set_attribute(KeyValue::new(GEN_AI_REQUEST_MODEL, self.model.clone()));
 
-        match &self.input {
-            EmbeddingsInput::Single(text) => {
-                span.set_attribute(KeyValue::new("llm.prompt.0.content", text.clone()));
-            }
-            EmbeddingsInput::Multiple(texts) => {
-                for (i, text) in texts.iter().enumerate() {
-                    span.set_attribute(KeyValue::new(
-                        format!("llm.prompt.{}.role", i),
-                        "user".to_string(),
-                    ));
-                    span.set_attribute(KeyValue::new(
-                        format!("llm.prompt.{}.content", i),
-                        text.clone(),
-                    ));
+        if get_trace_content_enabled() {
+            match &self.input {
+                EmbeddingsInput::Single(text) => {
+                    span.set_attribute(KeyValue::new("llm.prompt.0.content", text.clone()));
                 }
-            }
-            EmbeddingsInput::SingleTokenIds(token_ids) => {
-                span.set_attribute(KeyValue::new(
-                    "llm.prompt.0.content",
-                    format!("{:?}", token_ids),
-                ));
-            }
-            EmbeddingsInput::MultipleTokenIds(token_ids) => {
-                for (i, token_ids) in token_ids.iter().enumerate() {
+                EmbeddingsInput::Multiple(texts) => {
+                    for (i, text) in texts.iter().enumerate() {
+                        span.set_attribute(KeyValue::new(
+                            format!("llm.prompt.{}.role", i),
+                            "user".to_string(),
+                        ));
+                        span.set_attribute(KeyValue::new(
+                            format!("llm.prompt.{}.content", i),
+                            text.clone(),
+                        ));
+                    }
+                }
+                EmbeddingsInput::SingleTokenIds(token_ids) => {
                     span.set_attribute(KeyValue::new(
-                        format!("llm.prompt.{}.role", i),
-                        "user".to_string(),
-                    ));
-                    span.set_attribute(KeyValue::new(
-                        format!("llm.prompt.{}.content", i),
+                        "llm.prompt.0.content",
                         format!("{:?}", token_ids),
                     ));
+                }
+                EmbeddingsInput::MultipleTokenIds(token_ids) => {
+                    for (i, token_ids) in token_ids.iter().enumerate() {
+                        span.set_attribute(KeyValue::new(
+                            format!("llm.prompt.{}.role", i),
+                            "user".to_string(),
+                        ));
+                        span.set_attribute(KeyValue::new(
+                            format!("llm.prompt.{}.content", i),
+                            format!("{:?}", token_ids),
+                        ));
+                    }
                 }
             }
         }

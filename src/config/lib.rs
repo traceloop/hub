@@ -1,9 +1,10 @@
-// pub mod validation;
 
 use hub_gateway_core_types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use serde::Deserialize;
+use std::sync::OnceLock;
 // std::collections::HashMap is used by serde_yaml for flatten, but not directly here otherwise.
 
+pub static TRACE_CONTENT_ENABLED: OnceLock<bool> = OnceLock::new();
 // Intermediate struct for deserializing pipelines from YAML
 #[derive(Deserialize, Debug)]
 struct YamlCompatiblePipeline {
@@ -48,7 +49,13 @@ pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Erro
                 // p_yaml.enabled is parsed from YAML but not stored in core Pipeline struct
             }
         }).collect(),
+        general: None,
     };
+    TRACE_CONTENT_ENABLED.set(gateway_config.general.as_ref().is_none_or(|g| g.trace_content_enabled));
 
     Ok(gateway_config)
+}
+
+pub fn get_trace_content_enabled() -> bool {
+    *TRACE_CONTENT_ENABLED.get_or_init(|| true)
 }

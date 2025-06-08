@@ -1,0 +1,107 @@
+[
+  {
+    "id": "chatcmpl-0f8acb38-a442-4ada-aa51-6ad8c5f91dc9",
+    "object": "chat.completion",
+    "created": 1747062082,
+    "model": "gemini-2.0-flash-exp",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "I am doing well, thank you for asking! As a large language model, I don't experience emotions or feelings like humans do, but I am functioning optimally and ready to assist you. How can I help you today?\n"
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
+  },
+  {
+    "id": "chatcmpl-45af8b98-b836-4ba1-9d91-7a636f40da89",
+    "object": "chat.completion",
+    "created": 1747062191,
+    "model": "gemini-2.0-flash-exp",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "I am doing well, thank you for asking! As a large language model, I don't experience feelings or emotions in the same way humans do, but I am functioning optimally and ready to assist you with your requests. How can I help you today?\n"
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
+  },
+  {
+    "id": "chatcmpl-5ead557a-f2ee-4062-a029-f302d6313b70",
+    "object": "chat.completion",
+    "created": 1747064691,
+    "model": "gemini-2.0-flash-exp",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "I am doing well, thank you for asking! As a large language model, I don't experience emotions or feelings like humans do, but I am functioning optimally and ready to assist you. How can I help you today?\n"
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
+  },
+  {
+    "id": "chatcmpl-0f3f7206-21cb-4832-8936-3af45bbfb9a1",
+    "object": "chat.completion",
+    "created": 1747064863,
+    "model": "gemini-2.0-flash-exp",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "I am doing well, thank you for asking! As a large language model, I don't experience emotions or feelings in the same way humans do, but I am functioning optimally and ready to assist you. How can I help you today?\n"
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
+  },
+  {
+    "id": "chatcmpl-f56cd4f4-f4a9-4eb1-8c35-cd61a7fb2e7d",
+    "object": "chat.completion",
+    "created": 1747065205,
+    "model": "gemini-2.0-flash-exp",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "I am doing well, thank you for asking! How are you today?\n"
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "system_fingerprint": null
+  }
+]

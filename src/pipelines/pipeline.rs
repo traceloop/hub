@@ -25,7 +25,7 @@ pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> R
         router = match plugin {
             PluginConfig::Tracing { endpoint, api_key } => {
                 tracing::info!("Initializing OtelTracer for pipeline {}", pipeline.name);
-                OtelTracer::init(endpoint, api_key.unwrap_or_default());
+                OtelTracer::init(endpoint, api_key);
                 router
             }
             PluginConfig::ModelRouter { models } => match pipeline.r#type {

@@ -1,3 +1,36 @@
+## v0.4.3 (2025-05-29)
+
+### Fix
+
+- make general optional again (#43)
+
+## v0.4.2 (2025-05-22)
+
+### Fix
+
+- **tracing**: support disabling tracing of prompts and completions (#42)
+
+## v0.4.1 (2025-05-20)
+
+### Fix
+
+- **openai**: support custom base URL (#40)
+- **azure**: add support for custom base URL in AzureProvider endpoint (#41)
+
+## v0.4.0 (2025-05-16)
+
+### Feat
+
+- **provider**: add Google VertexAI support (#24)
+- support AWS bedrock base models (#25)
+- add max_completion_tokens to ChatCompletionRequest (#36)
+- support structured output (#33)
+
+### Fix
+
+- replace eprintln with tracing info for API request errors in Azure and OpenAI providers (#37)
+- make optional json_schema field to ResponseFormat (#35)
+
 ## v0.3.0 (2025-03-04)
 
 ### Feat

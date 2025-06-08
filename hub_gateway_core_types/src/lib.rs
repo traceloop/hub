@@ -9,18 +9,24 @@ use std::collections::HashMap;
 //     true
 // }
 
-// Helper for defaulting api_key to empty string
-fn default_empty_string() -> String {
+fn default_trace_content_enabled() -> bool {
+    true
+}
+
+fn no_api_key() -> String {
     "".to_string()
 }
 
-// Renamed from SharedProviderConfig
+fn default_log_level_core() -> String {
+    "warning".to_string()
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Provider {
     pub key: String,
     pub r#type: String, // e.g., "openai", "azure"
     
-    #[serde(default = "default_empty_string")]
+    #[serde(default = "no_api_key")]
     pub api_key: String,
     
     #[serde(flatten,default, skip_serializing_if = "HashMap::is_empty")]
@@ -63,17 +69,14 @@ pub enum PluginConfig {
     },
     Tracing {
         endpoint: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        api_key: Option<String>,
+        api_key: String,
     },
     ModelRouter {
         models: Vec<String>,
     },
 }
 
-fn default_log_level_core() -> String { // Renamed default fn
-    "warning".to_string()
-}
+
 
 // Renamed from SharedPipelineConfig
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -81,6 +84,7 @@ pub struct Pipeline {
     pub name: String,
     pub r#type: PipelineType,
     
+    // #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<PluginConfig>,
     
@@ -88,9 +92,16 @@ pub struct Pipeline {
     // enabled: bool, // Removed
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct General {
+    #[serde(default = "default_trace_content_enabled")]
+    pub trace_content_enabled: bool,
+}
+
 // GatewayConfig name remains the same
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct GatewayConfig {
+    pub general: Option<General>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub providers: Vec<Provider>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
