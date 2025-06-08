@@ -82,14 +82,14 @@ pub fn create_dynamic_pipeline_router(state: Arc<AppState>) -> Router {
     debug!("Building new pipeline router from current configuration");
     let router = build_pipeline_router_from_config(state.clone());
     
-    // Cache the built router for future requests
-    state.set_cached_pipeline_router(router.clone());
-    
-    router
+    // Move router into cache, then retrieve from cache to avoid cloning
+    state.set_cached_pipeline_router(router);
+    // Safe unwrap since we just set it
+    state.get_cached_pipeline_router().unwrap()
 }
 
 /// Builds the actual pipeline router from the current configuration
-/// This is the internal version used by create_dynamic_pipeline_router
+/// This is used by create_dynamic_pipeline_router for external calls
 fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
     let mut pipeline_idxs = HashMap::new();
     let mut routers = Vec::new();
@@ -168,15 +168,8 @@ async fn no_config_handler() -> Result<Json<serde_json::Value>, StatusCode> {
     Err(StatusCode::SERVICE_UNAVAILABLE)
 }
 
-/// Public version for direct calls from AppState (to avoid circular dependency issues)
-pub fn build_pipeline_router_from_config_direct(state: Arc<AppState>) -> Router {
-    build_pipeline_router_from_config(state)
-}
 
-/// Forces a rebuild of the pipeline router on the next request
-pub fn invalidate_pipeline_router_cache(state: Arc<AppState>) {
-    debug!("Invalidating pipeline router cache - will rebuild on next request");
-    state.invalidate_cached_router();
-}
+
+
 
 

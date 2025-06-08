@@ -59,12 +59,17 @@ impl AppState {
     }
 
     pub fn get_cached_pipeline_router(&self) -> Option<Router> {
-        let cached = self.cached_pipeline_router.read().unwrap().clone();
-        match &cached {
-            Some(_) => debug!("Retrieved cached pipeline router"),
-            None => debug!("No cached pipeline router found"),
+        let guard = self.cached_pipeline_router.read().unwrap();
+        match guard.as_ref() {
+            Some(router) => {
+                debug!("Retrieved cached pipeline router");
+                Some(router.clone())
+            }
+            None => {
+                debug!("No cached pipeline router found");
+                None
+            }
         }
-        cached
     }
 
     pub fn set_cached_pipeline_router(&self, router: Router) {
@@ -73,8 +78,9 @@ impl AppState {
     }
 
     pub fn invalidate_cached_router(&self) {
-        let had_cache = self.cached_pipeline_router.read().unwrap().is_some();
-        *self.cached_pipeline_router.write().unwrap() = None;
+        let mut guard = self.cached_pipeline_router.write().unwrap();
+        let had_cache = guard.is_some();
+        *guard = None;
         info!("Pipeline router cache invalidated (had cached router: {}) - will rebuild on next request", had_cache);
     }
 
@@ -82,18 +88,98 @@ impl AppState {
     pub fn rebuild_pipeline_router_now(&self) -> Result<()> {
         info!("Force rebuilding pipeline router with current configuration");
         
-        // We need to create a temporary Arc to pass to the router builder
-        // Since AppState is Clone, we can create this efficiently
-        let temp_arc = Arc::new(self.clone());
-        
-        // Import here to avoid circular dependencies
-        let router = crate::routes::build_pipeline_router_from_config_direct(temp_arc);
+        // Build router directly using internal method to avoid Arc wrapping
+        let router = self.build_router_internal();
         
         // Cache the new router
         self.set_cached_pipeline_router(router);
         info!("Pipeline router rebuilt and cached successfully");
         
         Ok(())
+    }
+
+    /// Internal router building method to avoid circular dependencies and Arc wrapping
+    fn build_router_internal(&self) -> axum::Router {
+        use crate::pipelines::pipeline::create_pipeline;
+        use std::collections::HashMap;
+        use tower::steer::Steer;
+        use tracing::{info, warn};
+
+        let mut pipeline_idxs = HashMap::new();
+        let mut routers = Vec::new();
+
+        // Get current configuration
+        let current_config = self.current_config();
+        let model_registry = self.model_registry();
+
+        info!("Building router with {} pipelines", current_config.pipelines.len());
+
+        // Sort pipelines to ensure default is first
+        let mut sorted_pipelines = current_config.pipelines.clone();
+        sorted_pipelines.sort_by_key(|p| p.name != "default");
+
+        for pipeline in sorted_pipelines {
+            let name = pipeline.name.clone();
+            info!("Adding pipeline '{}' to router at index {}", name, routers.len());
+            pipeline_idxs.insert(name, routers.len());
+            routers.push(create_pipeline(&pipeline, &model_registry));
+        }
+
+        // Always ensure we have at least one router
+        if routers.is_empty() {
+            warn!("No pipelines with routes found. Creating fallback router that returns 503.");
+            let fallback_router = self.create_no_config_router();
+            routers.push(fallback_router);
+            info!("Fallback router created and added at index 0");
+        }
+
+        let routers_len = routers.len();
+        info!("Router steering configured with {} total routers", routers_len);
+
+        let pipeline_idxs_clone = pipeline_idxs.clone();
+
+        let pipeline_router = Steer::new(routers, move |req: &axum::extract::Request, _services: &[_]| {
+            use tracing::{info, warn};
+            
+            let pipeline_header = req.headers()
+                .get("x-traceloop-pipeline")
+                .and_then(|h| h.to_str().ok());
+            
+            let index = pipeline_header
+                .and_then(|name| pipeline_idxs.get(name))
+                .copied()
+                .unwrap_or(0);
+            
+            info!("Request URI: {}, Pipeline header: {:?}, Available pipelines: {:?}, Routing to index: {}/{}", 
+                   req.uri(), pipeline_header, pipeline_idxs_clone.keys().collect::<Vec<_>>(), index, routers_len - 1);
+            
+            if index >= routers_len {
+                warn!("Index {} is out of bounds (max: {}), using index 0", index, routers_len - 1);
+                0
+            } else {
+                index
+            }
+        });
+
+        axum::Router::new().nest_service("/", pipeline_router)
+    }
+
+    /// Creates a router that handles requests when no configuration is available
+    fn create_no_config_router(&self) -> axum::Router {
+        use axum::{routing::post, Json, http::StatusCode};
+        use tracing::{info, warn};
+
+        async fn no_config_handler() -> Result<Json<serde_json::Value>, StatusCode> {
+            warn!("No configuration available - returning 503 Service Unavailable");
+            Err(StatusCode::SERVICE_UNAVAILABLE)
+        }
+
+        info!("Creating no-config fallback router");
+        axum::Router::new()
+            .route("/chat/completions", post(no_config_handler))
+            .route("/completions", post(no_config_handler))  
+            .route("/embeddings", post(no_config_handler))
+            .fallback(no_config_handler)
     }
     
     // Assumes new_config is pre-validated by the caller (e.g., the poller)
