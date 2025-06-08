@@ -6,6 +6,48 @@ use tracing::{info, debug, warn};
 use std::sync::{Arc, RwLock};
 use axum::Router;
 
+/// A snapshot of configuration state at a point in time
+/// This reduces lock contention by capturing all needed data in one operation
+#[derive(Clone)]
+pub struct ConfigSnapshot {
+    pub config: GatewayConfig,
+    pub provider_registry: Arc<ProviderRegistry>,
+    pub model_registry: Arc<ModelRegistry>,
+}
+
+/// Router cache management abstraction
+pub struct RouterCache<'a> {
+    inner: &'a Arc<RwLock<Option<Router>>>,
+}
+
+impl<'a> RouterCache<'a> {
+    pub fn get(&self) -> Option<Router> {
+        let guard = self.inner.read().unwrap();
+        match guard.as_ref() {
+            Some(router) => {
+                debug!("Retrieved cached pipeline router");
+                Some(router.clone())
+            }
+            None => {
+                debug!("No cached pipeline router found");
+                None
+            }
+        }
+    }
+
+    pub fn set(&mut self, router: Router) {
+        *self.inner.write().unwrap() = Some(router);
+        info!("Pipeline router cached successfully");
+    }
+
+    pub fn invalidate(&mut self) {
+        let mut guard = self.inner.write().unwrap();
+        let had_cache = guard.is_some();
+        *guard = None;
+        info!("Pipeline router cache invalidated (had cached router: {}) - will rebuild on next request", had_cache);
+    }
+}
+
 // Inner state that holds the frequently updated parts
 struct InnerAppState {
     config: GatewayConfig,
@@ -58,30 +100,35 @@ impl AppState {
         self.inner.read().unwrap().model_registry.clone()
     }
 
-    pub fn get_cached_pipeline_router(&self) -> Option<Router> {
-        let guard = self.cached_pipeline_router.read().unwrap();
-        match guard.as_ref() {
-            Some(router) => {
-                debug!("Retrieved cached pipeline router");
-                Some(router.clone())
-            }
-            None => {
-                debug!("No cached pipeline router found");
-                None
-            }
+    /// Get a snapshot of all configuration data in a single lock operation
+    /// This is more efficient than calling individual getters when you need multiple values
+    pub fn config_snapshot(&self) -> ConfigSnapshot {
+        let guard = self.inner.read().unwrap();
+        ConfigSnapshot {
+            config: guard.config.clone(),
+            provider_registry: guard.provider_registry.clone(),
+            model_registry: guard.model_registry.clone(),
         }
     }
 
+    /// Router cache management with better abstractions
+    pub fn with_router_cache<T>(&self, operation: impl FnOnce(&mut RouterCache) -> T) -> T {
+        let mut cache = RouterCache {
+            inner: &self.cached_pipeline_router,
+        };
+        operation(&mut cache)
+    }
+
+    pub fn get_cached_pipeline_router(&self) -> Option<Router> {
+        self.with_router_cache(|cache| cache.get())
+    }
+
     pub fn set_cached_pipeline_router(&self, router: Router) {
-        *self.cached_pipeline_router.write().unwrap() = Some(router);
-        info!("Pipeline router cached successfully");
+        self.with_router_cache(|cache| cache.set(router))
     }
 
     pub fn invalidate_cached_router(&self) {
-        let mut guard = self.cached_pipeline_router.write().unwrap();
-        let had_cache = guard.is_some();
-        *guard = None;
-        info!("Pipeline router cache invalidated (had cached router: {}) - will rebuild on next request", had_cache);
+        self.with_router_cache(|cache| cache.invalidate())
     }
 
     /// Rebuilds the router immediately and caches it
@@ -108,21 +155,20 @@ impl AppState {
         let mut pipeline_idxs = HashMap::new();
         let mut routers = Vec::new();
 
-        // Get current configuration
-        let current_config = self.current_config();
-        let model_registry = self.model_registry();
+        // Get current configuration snapshot in one lock operation
+        let snapshot = self.config_snapshot();
 
-        info!("Building router with {} pipelines", current_config.pipelines.len());
+        info!("Building router with {} pipelines", snapshot.config.pipelines.len());
 
         // Sort pipelines to ensure default is first
-        let mut sorted_pipelines = current_config.pipelines.clone();
+        let mut sorted_pipelines = snapshot.config.pipelines.clone();
         sorted_pipelines.sort_by_key(|p| p.name != "default");
 
         for pipeline in sorted_pipelines {
             let name = pipeline.name.clone();
             info!("Adding pipeline '{}' to router at index {}", name, routers.len());
             pipeline_idxs.insert(name, routers.len());
-            routers.push(create_pipeline(&pipeline, &model_registry));
+            routers.push(create_pipeline(&pipeline, &snapshot.model_registry));
         }
 
         // Always ensure we have at least one router
@@ -187,30 +233,38 @@ impl AppState {
         info!("Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).", 
               new_config.providers.len(), new_config.models.len(), new_config.pipelines.len());
 
-        let new_provider_registry_arc = Arc::new(ProviderRegistry::new(&new_config.providers)
-            .context("Failed to create new provider registry during live update")?);
-        let new_model_registry_arc = Arc::new(ModelRegistry::new(
-            &new_config.models,
-            new_provider_registry_arc.clone(),
-        ).context("Failed to create new model registry during live update")?);
-
-        let mut inner_guard = self.inner.write().unwrap();
-        inner_guard.config = new_config;
-        inner_guard.provider_registry = new_provider_registry_arc;
-        inner_guard.model_registry = new_model_registry_arc;
-        
-        // Drop the write lock before invalidating cache to avoid holding multiple locks
-        drop(inner_guard);
-
-        // Invalidate the cached router so it gets rebuilt on next request
-        self.invalidate_cached_router();
-
-        // Optionally rebuild immediately for better performance
-        if let Err(e) = self.rebuild_pipeline_router_now() {
-            warn!("Failed to rebuild router immediately: {}. Router will be rebuilt lazily on next request.", e);
-        }
+        self.update_registries(new_config)?;
+        self.refresh_router_cache();
 
         info!("Successfully updated live configuration and rebuilt registries.");
         Ok(())
+    }
+
+    /// Update the internal registries with new configuration
+    fn update_registries(&self, new_config: GatewayConfig) -> Result<()> {
+        let new_provider_registry = Arc::new(ProviderRegistry::new(&new_config.providers)
+            .context("Failed to create new provider registry during live update")?);
+        let new_model_registry = Arc::new(ModelRegistry::new(
+            &new_config.models,
+            new_provider_registry.clone(),
+        ).context("Failed to create new model registry during live update")?);
+
+        // Update all registries atomically
+        let mut inner_guard = self.inner.write().unwrap();
+        inner_guard.config = new_config;
+        inner_guard.provider_registry = new_provider_registry;
+        inner_guard.model_registry = new_model_registry;
+        
+        Ok(())
+    }
+
+    /// Refresh the router cache after configuration changes
+    fn refresh_router_cache(&self) {
+        self.invalidate_cached_router();
+        
+        // Try immediate rebuild for better performance, fall back to lazy rebuild
+        if let Err(e) = self.rebuild_pipeline_router_now() {
+            debug!("Lazy rebuild will occur on next request: {}", e);
+        }
     }
 }
