@@ -2,6 +2,11 @@
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
 
+   NOTE: This license applies to the core Traceloop Hub software.
+   Enterprise Edition features located in the /ee directory are
+   licensed separately under the Traceloop Enterprise License.
+   See ee/LICENSE.EE for details.
+
    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
    1. Definitions.

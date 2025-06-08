@@ -1,3 +1,5 @@
+# Hub
+
 <p align="center">
 <a href="https://www.traceloop.com/docs/hub#gh-light-mode-only">
 <img width="300" src="https://raw.githubusercontent.com/traceloop/hub/main/img/logo-light.png">
@@ -45,7 +47,7 @@
 Hub is a next generation smart proxy for LLM applications. It centralizes control and tracing of all LLM calls and traces.
 It's built in Rust so it's fast and efficient. It's completely open-source and free to use.
 
-Built and maintained by Traceloop under the Apache 2.0 license.
+Built and maintained by Traceloop under a dual-license model.
 
 ## 🚀 Getting Started
 
@@ -99,10 +101,6 @@ Not sure where to get started? You can:
 - [GitHub Discussions](https://github.com/traceloop/hub/discussions) (For help with building and deeper conversations about features)
 - [GitHub Issues](https://github.com/traceloop/hub/issues) (For any bugs and errors you encounter using OpenLLMetry)
 - [Twitter](https://twitter.com/traceloopdev) (Get news fast)
-
-# Hub
-
-A unified API interface for routing LLM requests to various providers.
 
 ## Supported Providers
 
@@ -243,4 +241,45 @@ Note: Some tests may be marked as `#[ignore]` if they require specific credentia
 
 ## License
 
-See LICENSE file.
+Traceloop Hub is a commercial open source company, which means some parts of this open source repository require a commercial license. The concept is called "Open Core" where the core technology is fully open source, licensed under Apache 2.0 and the enterprise features are covered under a commercial license (`/ee` Enterprise Edition).
+
+### Our Philosophy
+
+All core LLM gateway functionality is open-source under Apache 2.0. Enterprise features that provide additional value for larger organizations are under a commercial license.
+
+| Apache 2.0 (Core) | Enterprise Edition |
+| --- | --- |
+| ✅ Self-host for commercial purposes | ✅ Self-host for commercial purposes |
+| ✅ Clone privately | ✅ Clone privately |
+| ✅ Fork publicly | ✅ Fork publicly |
+| ✅ Modify and distribute | ✅ Modify and distribute |
+| ✅ Core LLM Gateway | ✅ Core LLM Gateway |
+| ✅ Provider Integrations | ✅ Provider Integrations |
+| ✅ YAML Configuration | ✅ YAML Configuration |
+| ❌ Management REST API | ✅ Management REST API |
+| ❌ Database-driven Configuration | ✅ Database-driven Configuration |
+| ❌ Dynamic Configuration Updates | ✅ Dynamic Configuration Updates |
+| ❌ Zero-downtime Reloading | ✅ Zero-downtime Reloading |
+| ❌ Priority Support | ✅ Priority Support |
+
+### License Structure
+
+- **Core Hub (`/src`, `/Cargo.toml`)**: Licensed under [Apache 2.0](LICENSE)
+- **Enterprise Edition (`/ee`)**: Licensed under [Traceloop Enterprise License](ee/LICENSE.EE)
+
+### Using the Enterprise Edition
+
+The content of the `/ee` folder is copyrighted and you are not allowed to use this code to host your own version without obtaining a proper license first. However, open-sourcing the enterprise content brings transparency to our product suite and shows that there are no unknown caveats or backdoors in the commercial part of our business.
+
+For enterprise licensing inquiries, please contact us at [enterprise@traceloop.com](mailto:enterprise@traceloop.com).
+
+### Building Different Versions
+
+- **Open Source Build**: `cargo build` (default, no enterprise features)
+- **Enterprise Build**: `cargo build --features ee_feature` (includes enterprise features)
+
+The enterprise features are conditionally compiled and only available when building with the `ee_feature` flag.
+
+---
+
+*Distributed under the Apache 2.0 License for core functionality. See `LICENSE` for more information. Enterprise features require a separate commercial license.*
