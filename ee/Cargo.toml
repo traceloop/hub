@@ -6,6 +6,10 @@ license = "SEE LICENSE IN LICENSE.EE" # Placeholder for the specific EE license
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# SQLx configuration for offline mode
+[package.metadata.sqlx]
+offline = true
+
 [dependencies]
 axum = { version = "0.7", features = ["macros"] } # Matching main crate version
 tokio = { version = "1.0", features = ["full"] } # Ensure compatibility

@@ -34,9 +34,13 @@ jobs:
         
       - name: Check clippy (EE)
         if: matrix.features != ''
+        env:
+          SQLX_OFFLINE: true
         run: cargo clippy ${{ matrix.features }} -- -D warnings
         
       - name: Build
+        env:
+          SQLX_OFFLINE: true
         run: cargo build --verbose ${{ matrix.features }}
         
       - name: Run tests
