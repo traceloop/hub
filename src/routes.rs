@@ -123,8 +123,8 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
 
     // Always ensure we have at least one router - create a fallback that checks configuration dynamically
     if routers.is_empty() {
-        warn!("No pipelines with routes found. Creating fallback router that returns 503.");
-        let fallback_router = create_no_config_router(state.clone());
+        warn!("No pipelines with routes found. Creating fallback router that returns 404.");
+        let fallback_router = create_no_config_router();
         routers.push(fallback_router);
         debug!("Fallback router created and added at index 0");
     }
@@ -164,17 +164,16 @@ fn build_pipeline_router_from_config(state: Arc<AppState>) -> Router {
 }
 
 /// Creates a router that explicitly handles API endpoints when no configuration is available
-fn create_no_config_router(state: Arc<AppState>) -> Router {
+pub fn create_no_config_router() -> Router {
     debug!("Creating no-config fallback router");
     Router::new()
         .route("/chat/completions", post(no_config_handler))
         .route("/completions", post(no_config_handler))
         .route("/embeddings", post(no_config_handler))
         .fallback(no_config_handler)
-        .with_state(state)
 }
 
-/// Handler that returns 503 when no configuration is available
+/// Handler that returns 404 when no configuration is available
 async fn no_config_handler() -> Result<Json<serde_json::Value>, StatusCode> {
     warn!("No configuration available - returning 404 Not Found");
     Err(StatusCode::NOT_FOUND)

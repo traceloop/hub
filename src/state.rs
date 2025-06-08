@@ -180,7 +180,7 @@ impl AppState {
 
         // Always ensure we have at least one router
         if routers.is_empty() {
-            warn!("No pipelines with routes found. Creating fallback router that returns 503.");
+            warn!("No pipelines with routes found. Creating fallback router that returns 404.");
             let fallback_router = self.create_no_config_router();
             routers.push(fallback_router);
             debug!("Fallback router created and added at index 0");
@@ -225,20 +225,8 @@ impl AppState {
 
     /// Creates a router that handles requests when no configuration is available
     fn create_no_config_router(&self) -> axum::Router {
-        use axum::{http::StatusCode, routing::post, Json};
-        use tracing::warn;
-
-        async fn no_config_handler() -> Result<Json<serde_json::Value>, StatusCode> {
-            warn!("No configuration available - returning 503 Service Unavailable");
-            Err(StatusCode::SERVICE_UNAVAILABLE)
-        }
-
-        debug!("Creating no-config fallback router");
-        axum::Router::new()
-            .route("/chat/completions", post(no_config_handler))
-            .route("/completions", post(no_config_handler))
-            .route("/embeddings", post(no_config_handler))
-            .fallback(no_config_handler)
+        // Use the centralized no-config router from routes module
+        crate::routes::create_no_config_router()
     }
 
     // Assumes new_config is pre-validated by the caller (e.g., the poller)
