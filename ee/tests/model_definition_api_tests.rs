@@ -139,7 +139,7 @@ async fn test_create_model_definition_success() {
     // Verify in DB
     let db_md = sqlx::query_as!(
         ModelDefinition,
-        "SELECT * FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
+        "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
         md_response.id
     )
     .fetch_one(&pool)
@@ -534,7 +534,7 @@ async fn test_delete_model_definition_success() {
     // Verify it's gone from DB
     let db_model_after_delete = sqlx::query_as!(
         ModelDefinition,
-        "SELECT * FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
+        "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
         created_md.id
     )
     .fetch_optional(&pool)

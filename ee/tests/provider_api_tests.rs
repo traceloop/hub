@@ -97,7 +97,11 @@ async fn test_create_provider_success() {
 
     let db_provider = sqlx::query_as!(
         DbProvider,
-        "SELECT * FROM hub_llmgateway_ee_providers WHERE id = $1",
+        r#"
+            SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
+            FROM hub_llmgateway_ee_providers
+            WHERE id = $1
+            "#,
         provider_response.id
     )
     .fetch_one(&pool)
@@ -362,7 +366,11 @@ async fn test_update_provider_success() {
 
     let db_provider = sqlx::query_as!(
         DbProvider,
-        "SELECT * FROM hub_llmgateway_ee_providers WHERE id = $1",
+        r#"
+            SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
+            FROM hub_llmgateway_ee_providers
+            WHERE id = $1
+            "#,
         updated_provider_response.id
     )
     .fetch_one(&pool)
@@ -496,7 +504,11 @@ async fn test_delete_provider_success() {
 
     let db_provider_after_delete = sqlx::query_as!(
         DbProvider,
-        "SELECT * FROM hub_llmgateway_ee_providers WHERE id = $1",
+        r#"
+            SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
+            FROM hub_llmgateway_ee_providers
+            WHERE id = $1
+            "#,
         created_provider.id
     )
     .fetch_optional(&pool)
