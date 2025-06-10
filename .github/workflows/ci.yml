@@ -71,6 +71,4 @@ jobs:
         
       - name: Run EE integration tests
         working-directory: ee
-        env:
-          SQLX_OFFLINE: true
         run: cargo test --verbose
