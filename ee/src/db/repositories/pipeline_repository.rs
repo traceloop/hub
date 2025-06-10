@@ -60,12 +60,12 @@ impl PipelineRepository {
                 )
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(|e| ApiError::from(e))?;
+                .map_err(ApiError::from)?;
                 created_plugins.push(plugin_config);
             }
         }
 
-        tx.commit().await.map_err(|e| ApiError::from(e))?;
+        tx.commit().await.map_err(ApiError::from)?;
 
         Ok(PipelineWithPlugins {
             id: pipeline.id,
@@ -93,7 +93,7 @@ impl PipelineRepository {
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| ApiError::from(e))?;
+        .map_err(ApiError::from)?;
 
         if let Some(row) = pipeline_row {
             let plugins = sqlx::query_as!(
@@ -108,7 +108,7 @@ impl PipelineRepository {
             )
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| ApiError::from(e))?;
+            .map_err(ApiError::from)?;
 
             Ok(Some(PipelineWithPlugins {
                 id: row.id,
@@ -139,7 +139,7 @@ impl PipelineRepository {
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| ApiError::from(e))?;
+        .map_err(ApiError::from)?;
 
         if let Some(row) = pipeline_row {
             let plugins = sqlx::query_as!(
@@ -154,7 +154,7 @@ impl PipelineRepository {
             )
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| ApiError::from(e))?;
+            .map_err(ApiError::from)?;
 
             Ok(Some(PipelineWithPlugins {
                 id: row.id,
@@ -182,7 +182,7 @@ impl PipelineRepository {
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| ApiError::from(e))?;
+        .map_err(ApiError::from)?;
 
         if pipelines.is_empty() {
             return Ok(Vec::new());
@@ -202,7 +202,7 @@ impl PipelineRepository {
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| ApiError::from(e))?;
+        .map_err(ApiError::from)?;
 
         let mut plugins_map: HashMap<Uuid, Vec<PipelinePluginConfig>> = HashMap::new();
         for plugin in all_plugins {
@@ -234,7 +234,7 @@ impl PipelineRepository {
         id: Uuid,
         data: &UpdatePipelineRequestDto,
     ) -> Result<PipelineWithPlugins, ApiError> {
-        let mut tx = self.pool.begin().await.map_err(|e| ApiError::from(e))?;
+        let mut tx = self.pool.begin().await.map_err(ApiError::from)?;
 
         // Fetch current pipeline to check existence and for returning non-updated fields
         let current_pipeline = sqlx::query_as!(
@@ -244,7 +244,7 @@ impl PipelineRepository {
         )
         .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| ApiError::from(e))?
+        .map_err(ApiError::from)?
         .ok_or(ApiError::NotFound("Pipeline not found".to_string()))?;
 
         let updated_pipeline = query_as!(
@@ -272,7 +272,7 @@ impl PipelineRepository {
         )
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| ApiError::from(e))?;
+        .map_err(ApiError::from)?;
 
         let mut updated_plugins_list: Vec<PipelinePluginConfig> = Vec::new();
 
@@ -284,7 +284,7 @@ impl PipelineRepository {
             )
             .execute(&mut *tx)
             .await
-            .map_err(|e| ApiError::from(e))?;
+            .map_err(ApiError::from)?;
 
             // Insert new plugins
             for plugin_dto in plugins_dto_list {
@@ -303,7 +303,7 @@ impl PipelineRepository {
                 )
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(|e| ApiError::from(e))?;
+                .map_err(ApiError::from)?;
                 updated_plugins_list.push(new_plugin);
             }
         } else {
@@ -320,11 +320,11 @@ impl PipelineRepository {
             )
             .fetch_all(&mut *tx)
             .await
-            .map_err(|e| ApiError::from(e))?;
+            .map_err(ApiError::from)?;
             updated_plugins_list = existing_plugins;
         }
 
-        tx.commit().await.map_err(|e| ApiError::from(e))?;
+        tx.commit().await.map_err(ApiError::from)?;
 
         Ok(PipelineWithPlugins {
             id: updated_pipeline.id,
@@ -344,7 +344,7 @@ impl PipelineRepository {
         let result = sqlx::query!("DELETE FROM hub_llmgateway_ee_pipelines WHERE id = $1", id)
             .execute(&self.pool)
             .await
-            .map_err(|e| ApiError::from(e))?;
+            .map_err(ApiError::from)?;
 
         if result.rows_affected() == 0 {
             return Err(ApiError::NotFound("Pipeline not found".to_string()));
@@ -369,7 +369,7 @@ impl PipelineRepository {
                 .bind(keys)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(|e| ApiError::from(e))?
+                .map_err(ApiError::from)?
                 .into_iter()
                 .map(|row| row.get("key"))
                 .collect();
