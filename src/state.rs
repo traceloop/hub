@@ -54,10 +54,14 @@ impl AppState {
     pub fn new(initial_config: GatewayConfig) -> Result<Self> {
         let inner_app_state =
             InnerAppState::new(initial_config).context("Failed to create initial InnerAppState")?;
-        
+
         // Build initial router
-        let initial_router = Self::build_router_for_config(&inner_app_state.config, &inner_app_state.provider_registry, &inner_app_state.model_registry);
-        
+        let initial_router = Self::build_router_for_config(
+            &inner_app_state.config,
+            &inner_app_state.provider_registry,
+            &inner_app_state.model_registry,
+        );
+
         Ok(Self {
             inner: Arc::new(RwLock::new(inner_app_state)),
             current_router: Arc::new(RwLock::new(initial_router)),
@@ -108,28 +112,38 @@ impl AppState {
             let guard = self.inner.read().unwrap();
             guard.config_hash
         };
-        
+
         let new_hash = calculate_config_hash(&new_config);
-        
+
         if current_hash == new_hash {
-            debug!("Configuration unchanged (hash: {}), skipping router rebuild", current_hash);
+            debug!(
+                "Configuration unchanged (hash: {}), skipping router rebuild",
+                current_hash
+            );
             return Ok(());
         }
-        
-        info!("Configuration changed (old hash: {}, new hash: {}), rebuilding router", current_hash, new_hash);
-        
+
+        info!(
+            "Configuration changed (old hash: {}, new hash: {}), rebuilding router",
+            current_hash, new_hash
+        );
+
         // Validate configuration before applying
         if let Err(val_errors) = crate::config::validation::validate_gateway_config(&new_config) {
             return Err(anyhow::anyhow!("Invalid configuration: {:?}", val_errors));
         }
-        
+
         // Build new registries
         let new_provider_registry = Arc::new(ProviderRegistry::new(&new_config.providers)?);
-        let new_model_registry = Arc::new(ModelRegistry::new(&new_config.models, new_provider_registry.clone())?);
-        
+        let new_model_registry = Arc::new(ModelRegistry::new(
+            &new_config.models,
+            new_provider_registry.clone(),
+        )?);
+
         // Build new router
-        let new_router = Self::build_router_for_config(&new_config, &new_provider_registry, &new_model_registry);
-        
+        let new_router =
+            Self::build_router_for_config(&new_config, &new_provider_registry, &new_model_registry);
+
         // Update everything atomically
         {
             let mut inner_guard = self.inner.write().unwrap();
@@ -138,10 +152,10 @@ impl AppState {
             inner_guard.provider_registry = new_provider_registry;
             inner_guard.model_registry = new_model_registry;
         }
-        
+
         // Update router
         self.set_current_router(new_router);
-        
+
         info!("Configuration and router updated successfully");
         Ok(())
     }
@@ -160,10 +174,7 @@ impl AppState {
         let mut pipeline_idxs = HashMap::new();
         let mut routers = Vec::new();
 
-        debug!(
-            "Building router with {} pipelines",
-            config.pipelines.len()
-        );
+        debug!("Building router with {} pipelines", config.pipelines.len());
 
         // Sort pipelines to ensure default is first
         let mut sorted_pipelines = config.pipelines.clone();
@@ -224,8 +235,6 @@ impl AppState {
 
         axum::Router::new().nest_service("/", pipeline_router)
     }
-
-
 
     /// Static version of create_no_config_router
     fn create_no_config_router_static() -> axum::Router {

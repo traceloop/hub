@@ -1,5 +1,5 @@
-use hub_lib::config::hash::{calculate_config_hash, configs_are_equal};
 use hub_gateway_core_types::{GatewayConfig, Provider};
+use hub_lib::config::hash::{calculate_config_hash, configs_are_equal};
 use std::collections::HashMap;
 
 #[test]
@@ -17,9 +17,12 @@ fn test_identical_configs_have_same_hash() {
     };
 
     let config2 = config1.clone();
-    
+
     assert!(configs_are_equal(&config1, &config2));
-    assert_eq!(calculate_config_hash(&config1), calculate_config_hash(&config2));
+    assert_eq!(
+        calculate_config_hash(&config1),
+        calculate_config_hash(&config2)
+    );
 }
 
 #[test]
@@ -49,7 +52,10 @@ fn test_different_configs_have_different_hashes() {
     };
 
     assert!(!configs_are_equal(&config1, &config2));
-    assert_ne!(calculate_config_hash(&config1), calculate_config_hash(&config2));
+    assert_ne!(
+        calculate_config_hash(&config1),
+        calculate_config_hash(&config2)
+    );
 }
 
 #[test]
@@ -88,4 +94,4 @@ fn test_params_order_independence() {
 
     // Should be equal despite different insertion order
     assert!(configs_are_equal(&config1, &config2));
-} 
+}

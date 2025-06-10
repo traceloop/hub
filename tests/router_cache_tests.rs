@@ -64,7 +64,8 @@ async fn test_configuration_change_detection() {
         }],
     };
 
-    let app_state = Arc::new(AppState::new(initial_config.clone()).expect("Failed to create app state"));
+    let app_state =
+        Arc::new(AppState::new(initial_config.clone()).expect("Failed to create app state"));
 
     // Test 1: Update with identical configuration should be no-op
     let result = app_state.update_config(initial_config.clone());
