@@ -14,6 +14,18 @@ use crate::{
 
 // --- Pipeline Handlers ---
 
+#[utoipa::path(
+    post,
+    path = "/ee/api/v1/pipelines",
+    request_body = CreatePipelineRequestDto,
+    responses(
+        (status = 201, description = "Pipeline created successfully", body = PipelineResponseDto),
+        (status = 400, description = "Invalid request", body = ApiError),
+        (status = 409, description = "Conflict - pipeline name already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Pipelines"
+)]
 #[axum::debug_handler]
 async fn create_pipeline_handler(
     State(app_state): State<AppState>,
@@ -23,6 +35,15 @@ async fn create_pipeline_handler(
     Ok((StatusCode::CREATED, Json(result)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/ee/api/v1/pipelines",
+    responses(
+        (status = 200, description = "List of pipelines", body = Vec<PipelineResponseDto>),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Pipelines"
+)]
 #[axum::debug_handler]
 async fn list_pipelines_handler(
     State(app_state): State<AppState>,
@@ -31,6 +52,19 @@ async fn list_pipelines_handler(
     Ok(Json(result))
 }
 
+#[utoipa::path(
+    get,
+    path = "/ee/api/v1/pipelines/{id}",
+    params(
+        ("id" = Uuid, Path, description = "Pipeline ID")
+    ),
+    responses(
+        (status = 200, description = "Pipeline found", body = PipelineResponseDto),
+        (status = 404, description = "Pipeline not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Pipelines"
+)]
 #[axum::debug_handler]
 async fn get_pipeline_handler(
     State(app_state): State<AppState>,
@@ -40,6 +74,19 @@ async fn get_pipeline_handler(
     Ok(Json(result))
 }
 
+#[utoipa::path(
+    get,
+    path = "/ee/api/v1/pipelines/name/{name}",
+    params(
+        ("name" = String, Path, description = "Pipeline Name")
+    ),
+    responses(
+        (status = 200, description = "Pipeline found by name", body = PipelineResponseDto),
+        (status = 404, description = "Pipeline not found by name", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Pipelines"
+)]
 #[axum::debug_handler]
 async fn get_pipeline_by_name_handler(
     State(app_state): State<AppState>,
@@ -52,6 +99,22 @@ async fn get_pipeline_by_name_handler(
     Ok(Json(result))
 }
 
+#[utoipa::path(
+    put,
+    path = "/ee/api/v1/pipelines/{id}",
+    request_body = UpdatePipelineRequestDto,
+    params(
+        ("id" = Uuid, Path, description = "Pipeline ID")
+    ),
+    responses(
+        (status = 200, description = "Pipeline updated successfully", body = PipelineResponseDto),
+        (status = 400, description = "Invalid request", body = ApiError),
+        (status = 404, description = "Pipeline not found", body = ApiError),
+        (status = 409, description = "Conflict - pipeline name already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Pipelines"
+)]
 #[axum::debug_handler]
 async fn update_pipeline_handler(
     State(app_state): State<AppState>,
@@ -65,6 +128,19 @@ async fn update_pipeline_handler(
     Ok(Json(result))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/ee/api/v1/pipelines/{id}",
+    params(
+        ("id" = Uuid, Path, description = "Pipeline ID")
+    ),
+    responses(
+        (status = 200, description = "Pipeline deleted successfully"),
+        (status = 404, description = "Pipeline not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Pipelines"
+)]
 #[axum::debug_handler]
 async fn delete_pipeline_handler(
     State(app_state): State<AppState>,

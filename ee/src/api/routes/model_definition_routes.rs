@@ -31,7 +31,7 @@ pub fn model_definition_routes() -> Router<AppState> {
 
 #[utoipa::path(
     post,
-    path = "/model-definitions",
+    path = "/ee/api/v1/model-definitions",
     request_body = CreateModelDefinitionRequest,
     responses(
         (status = 200, description = "Model definition created successfully", body = ModelDefinitionResponse),
@@ -52,7 +52,7 @@ async fn create_model_definition_handler(
 
 #[utoipa::path(
     get,
-    path = "/model-definitions",
+    path = "/ee/api/v1/model-definitions",
     responses(
         (status = 200, description = "List of model definitions", body = Vec<ModelDefinitionResponse>),
         (status = 500, description = "Internal server error", body = ApiError)
@@ -69,7 +69,7 @@ async fn list_model_definitions_handler(
 
 #[utoipa::path(
     get,
-    path = "/model-definitions/{id}",
+    path = "/ee/api/v1/model-definitions/{id}",
     params(
         ("id" = Uuid, Path, description = "Model Definition ID")
     ),
@@ -93,7 +93,7 @@ async fn get_model_definition_handler(
 
 #[utoipa::path(
     get,
-    path = "/model-definitions/key/{key}",
+    path = "/ee/api/v1/model-definitions/key/{key}",
     params(
         ("key" = String, Path, description = "Model Definition Key")
     ),
@@ -115,7 +115,7 @@ async fn get_model_definition_by_key_handler(
 
 #[utoipa::path(
     put,
-    path = "/model-definitions/{id}",
+    path = "/ee/api/v1/model-definitions/{id}",
     request_body = UpdateModelDefinitionRequest,
     params(
         ("id" = Uuid, Path, description = "Model Definition ID")
@@ -143,7 +143,7 @@ async fn update_model_definition_handler(
 
 #[utoipa::path(
     delete,
-    path = "/model-definitions/{id}",
+    path = "/ee/api/v1/model-definitions/{id}",
     params(
         ("id" = Uuid, Path, description = "Model Definition ID")
     ),

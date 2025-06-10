@@ -2383,6 +2383,8 @@ dependencies = [
  "tower-http 0.5.2",
  "tracing",
  "tracing-subscriber",
+ "utoipa 4.2.3",
+ "utoipa-swagger-ui",
  "uuid",
  "wiremock",
  "yup-oauth2",

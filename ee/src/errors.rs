@@ -3,11 +3,13 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use utoipa::ToSchema;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub enum ApiError {
-    DatabaseError(sqlx::Error),
+    DatabaseError(String), // Changed from sqlx::Error to String for serialization
     NotFound(String),
     Conflict(String),        // For duplicate entries, etc.
     ValidationError(String), // For DTO validation issues
@@ -18,14 +20,7 @@ pub enum ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            ApiError::DatabaseError(db_err) => {
-                // Log the detailed database error to the console for debugging
-                eprintln!("Detailed Database Error: {:?}", db_err);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "A database error occurred".to_string(),
-                )
-            }
+            ApiError::DatabaseError(message) => (StatusCode::INTERNAL_SERVER_ERROR, message),
             ApiError::NotFound(message) => (StatusCode::NOT_FOUND, message),
             ApiError::Conflict(message) => (StatusCode::CONFLICT, message),
             ApiError::ValidationError(message) => (StatusCode::BAD_REQUEST, message),
@@ -43,7 +38,11 @@ impl From<sqlx::Error> for ApiError {
         match err {
             sqlx::Error::RowNotFound => ApiError::NotFound("Resource not found".to_string()),
             // Add more specific mappings if needed, e.g., for unique constraint violations
-            _ => ApiError::DatabaseError(err),
+            _ => {
+                // Log the detailed database error to the console for debugging
+                eprintln!("Detailed Database Error: {:?}", err);
+                ApiError::DatabaseError("A database error occurred".to_string())
+            }
         }
     }
 }

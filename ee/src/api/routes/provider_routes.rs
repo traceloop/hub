@@ -30,7 +30,7 @@ pub fn provider_routes() -> Router<AppState> {
 
 #[utoipa::path(
     post,
-    path = "/providers",
+    path = "/ee/api/v1/providers",
     request_body = CreateProviderRequest,
     responses(
         (status = 201, description = "Provider created successfully", body = ProviderResponse),
@@ -52,7 +52,7 @@ async fn create_provider_handler(
 
 #[utoipa::path(
     get,
-    path = "/providers",
+    path = "/ee/api/v1/providers",
     responses(
         (status = 200, description = "List of providers", body = Vec<ProviderResponse>),
         (status = 500, description = "Internal server error", body = ApiError)
@@ -70,7 +70,7 @@ async fn list_providers_handler(
 
 #[utoipa::path(
     get,
-    path = "/providers/{id}",
+    path = "/ee/api/v1/providers/{id}",
     params(
         ("id" = Uuid, Path, description = "Provider ID")
     ),
@@ -93,7 +93,7 @@ async fn get_provider_handler(
 
 #[utoipa::path(
     put,
-    path = "/providers/{id}",
+    path = "/ee/api/v1/providers/{id}",
     request_body = UpdateProviderRequest,
     params(
         ("id" = Uuid, Path, description = "Provider ID")
@@ -120,7 +120,7 @@ async fn update_provider_handler(
 
 #[utoipa::path(
     delete,
-    path = "/providers/{id}",
+    path = "/ee/api/v1/providers/{id}",
     params(
         ("id" = Uuid, Path, description = "Provider ID")
     ),

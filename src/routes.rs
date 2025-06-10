@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower::{Service, ServiceExt};
 use tracing::{debug, warn};
+use utoipa_swagger_ui::SwaggerUi;
 
 pub fn create_router(state: Arc<AppState>) -> Router {
     let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
@@ -25,6 +26,11 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .nest_service("/api/v1", dynamic_service)
         .route("/health", get(|| async { "Working!" }))
         .route("/metrics", get(|| async move { metric_handle.render() }))
+        // Add OpenAPI documentation endpoints
+        .merge(
+            SwaggerUi::new("/swagger-ui")
+                .url("/api-docs/openapi.json", crate::openapi::get_openapi_spec()),
+        )
         .layer(prometheus_layer)
         .with_state(state)
 }
