@@ -45,3 +45,32 @@ jobs:
         
       - name: Run tests
         run: cargo test --verbose ${{ matrix.features }}
+
+  ee-tests:
+    runs-on: ubuntu-latest
+    name: "EE Integration Tests"
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check EE formatting
+        working-directory: ee
+        run: cargo fmt --check
+        
+      - name: Check EE clippy
+        working-directory: ee
+        env:
+          SQLX_OFFLINE: true
+        run: cargo clippy -- -D warnings
+        
+      - name: Build EE
+        working-directory: ee
+        env:
+          SQLX_OFFLINE: true
+        run: cargo build --verbose
+        
+      - name: Run EE integration tests
+        working-directory: ee
+        env:
+          SQLX_OFFLINE: true
+        run: cargo test --verbose
