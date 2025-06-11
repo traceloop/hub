@@ -4,7 +4,7 @@ use sqlx::types::Uuid;
 use utoipa::ToSchema;
 
 /// Enum representing the type of LLM provider.
-#[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, ToSchema, Clone, Copy, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderType {
     #[serde(rename = "azure")]
