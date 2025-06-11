@@ -5,8 +5,8 @@ use crate::{
         provider_repository::ProviderRepository,
     },
     dto::{
-        CreateModelDefinitionRequest, ModelDefinitionResponse, ProviderResponse,
-        ProviderType, UpdateModelDefinitionRequest,
+        CreateModelDefinitionRequest, ModelDefinitionResponse, ProviderResponse, ProviderType,
+        UpdateModelDefinitionRequest,
     },
     errors::ApiError,
 };
@@ -52,15 +52,17 @@ impl ModelDefinitionService {
         })?;
 
         // 3. Deserialize provider's config using the provider type
-        let provider_config = crate::services::provider_service::ProviderService::deserialize_provider_config(
-            &provider_type_enum, 
-            &provider_db.config_details
-                 ).map_err(|e| {
-            ApiError::InternalServerError(format!(
-                "Failed to deserialize provider config for provider ID {}: {:?}",
-                provider_db.id, e
-            ))
-        })?;
+        let provider_config =
+            crate::services::provider_service::ProviderService::deserialize_provider_config(
+                &provider_type_enum,
+                &provider_db.config_details,
+            )
+            .map_err(|e| {
+                ApiError::InternalServerError(format!(
+                    "Failed to deserialize provider config for provider ID {}: {:?}",
+                    provider_db.id, e
+                ))
+            })?;
 
         let provider_response = ProviderResponse {
             id: provider_db.id,

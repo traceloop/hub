@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{
     db::{models::Provider as DbProvider, repositories::provider_repository::ProviderRepository},
     dto::{
-        AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig, CreateProviderRequest, 
+        AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig, CreateProviderRequest,
         OpenAIProviderConfig, ProviderConfig, ProviderResponse, ProviderType,
         UpdateProviderRequest, VertexAIProviderConfig,
     },
@@ -33,8 +33,6 @@ impl ProviderService {
                 request.name
             )));
         }
-
-
 
         let provider_type_string_for_db = request.provider_type.to_string();
 
@@ -117,8 +115,6 @@ impl ProviderService {
         }
     }
 
-
-
     pub fn deserialize_provider_config(
         provider_type: &ProviderType,
         config_details: &serde_json::Value,
@@ -133,7 +129,8 @@ impl ProviderService {
                 ProviderConfig::Azure(config)
             }
             ProviderType::Anthropic => {
-                let config: AnthropicProviderConfig = serde_json::from_value(config_details.clone())?;
+                let config: AnthropicProviderConfig =
+                    serde_json::from_value(config_details.clone())?;
                 ProviderConfig::Anthropic(config)
             }
             ProviderType::Bedrock => {
@@ -141,7 +138,8 @@ impl ProviderService {
                 ProviderConfig::Bedrock(config)
             }
             ProviderType::VertexAI => {
-                let config: VertexAIProviderConfig = serde_json::from_value(config_details.clone())?;
+                let config: VertexAIProviderConfig =
+                    serde_json::from_value(config_details.clone())?;
                 ProviderConfig::VertexAI(config)
             }
         };
@@ -156,7 +154,8 @@ impl ProviderService {
             ))
         })?;
 
-        let config_enum = Self::deserialize_provider_config(&provider_type_enum, &db_provider.config_details)?;
+        let config_enum =
+            Self::deserialize_provider_config(&provider_type_enum, &db_provider.config_details)?;
 
         Ok(ProviderResponse {
             id: db_provider.id,
