@@ -4,8 +4,9 @@ use std::sync::Arc;
 use crate::{
     db::{models::Provider as DbProvider, repositories::provider_repository::ProviderRepository},
     dto::{
-        CreateProviderRequest, ProviderConfig, ProviderResponse, ProviderType,
-        UpdateProviderRequest,
+        AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig, CreateProviderRequest, 
+        OpenAIProviderConfig, ProviderConfig, ProviderResponse, ProviderType,
+        UpdateProviderRequest, VertexAIProviderConfig,
     },
     errors::ApiError,
 };
@@ -32,6 +33,8 @@ impl ProviderService {
                 request.name
             )));
         }
+
+
 
         let provider_type_string_for_db = request.provider_type.to_string();
 
@@ -114,6 +117,37 @@ impl ProviderService {
         }
     }
 
+
+
+    pub fn deserialize_provider_config(
+        provider_type: &ProviderType,
+        config_details: &serde_json::Value,
+    ) -> Result<ProviderConfig, ApiError> {
+        let config_enum = match provider_type {
+            ProviderType::OpenAI => {
+                let config: OpenAIProviderConfig = serde_json::from_value(config_details.clone())?;
+                ProviderConfig::OpenAI(config)
+            }
+            ProviderType::Azure => {
+                let config: AzureProviderConfig = serde_json::from_value(config_details.clone())?;
+                ProviderConfig::Azure(config)
+            }
+            ProviderType::Anthropic => {
+                let config: AnthropicProviderConfig = serde_json::from_value(config_details.clone())?;
+                ProviderConfig::Anthropic(config)
+            }
+            ProviderType::Bedrock => {
+                let config: BedrockProviderConfig = serde_json::from_value(config_details.clone())?;
+                ProviderConfig::Bedrock(config)
+            }
+            ProviderType::VertexAI => {
+                let config: VertexAIProviderConfig = serde_json::from_value(config_details.clone())?;
+                ProviderConfig::VertexAI(config)
+            }
+        };
+        Ok(config_enum)
+    }
+
     fn map_db_provider_to_response(db_provider: DbProvider) -> Result<ProviderResponse, ApiError> {
         let provider_type_enum: ProviderType = db_provider.provider_type.parse().map_err(|e| {
             ApiError::InternalServerError(format!(
@@ -122,8 +156,7 @@ impl ProviderService {
             ))
         })?;
 
-        let config_enum: ProviderConfig =
-            serde_json::from_value(db_provider.config_details.clone())?;
+        let config_enum = Self::deserialize_provider_config(&provider_type_enum, &db_provider.config_details)?;
 
         Ok(ProviderResponse {
             id: db_provider.id,

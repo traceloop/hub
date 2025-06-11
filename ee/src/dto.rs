@@ -88,24 +88,19 @@ pub struct VertexAIProviderConfig {
 /// Enum to hold the configuration for different provider types.
 /// The correct variant will be determined by the provider_type field in the request.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq)]
-#[serde(tag = "type")]
+#[serde(untagged)]
 pub enum ProviderConfig {
-    #[serde(rename = "azure")]
-    Azure(AzureProviderConfig),
-    #[serde(rename = "openai")]
-    OpenAI(OpenAIProviderConfig),
-    #[serde(rename = "anthropic")]
-    Anthropic(AnthropicProviderConfig),
-    #[serde(rename = "bedrock")]
-    Bedrock(BedrockProviderConfig),
-    #[serde(rename = "vertexai")]
-    VertexAI(VertexAIProviderConfig),
+    VertexAI(VertexAIProviderConfig),  // 4 fields - most specific
+    Azure(AzureProviderConfig),        // 3 fields
+    Bedrock(BedrockProviderConfig),    // 4 fields but some optional
+    OpenAI(OpenAIProviderConfig),      // 2 fields (1 optional) - must come before Anthropic
+    Anthropic(AnthropicProviderConfig), // 1 field - least specific, must be last
 }
 
 // --- API Request DTOs ---
 
 /// Request payload for creating a new provider configuration.
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct CreateProviderRequest {
     /// A unique, user-friendly name for this provider configuration.
     pub name: String,
@@ -118,8 +113,62 @@ pub struct CreateProviderRequest {
     pub enabled: Option<bool>,
 }
 
+impl<'de> serde::Deserialize<'de> for CreateProviderRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        
+        #[derive(serde::Deserialize)]
+        struct CreateProviderRequestHelper {
+            name: String,
+            provider_type: ProviderType,
+            config: serde_json::Value,
+            enabled: Option<bool>,
+        }
+        
+        let helper = CreateProviderRequestHelper::deserialize(deserializer)?;
+        
+        let config = match helper.provider_type {
+            ProviderType::OpenAI => {
+                let config: OpenAIProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize OpenAI config: {}", e)))?;
+                ProviderConfig::OpenAI(config)
+            }
+            ProviderType::Azure => {
+                let config: AzureProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize Azure config: {}", e)))?;
+                ProviderConfig::Azure(config)
+            }
+            ProviderType::Anthropic => {
+                let config: AnthropicProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize Anthropic config: {}", e)))?;
+                ProviderConfig::Anthropic(config)
+            }
+            ProviderType::Bedrock => {
+                let config: BedrockProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize Bedrock config: {}", e)))?;
+                ProviderConfig::Bedrock(config)
+            }
+            ProviderType::VertexAI => {
+                let config: VertexAIProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize VertexAI config: {}", e)))?;
+                ProviderConfig::VertexAI(config)
+            }
+        };
+        
+        Ok(CreateProviderRequest {
+            name: helper.name,
+            provider_type: helper.provider_type,
+            config,
+            enabled: helper.enabled,
+        })
+    }
+}
+
 /// Request payload for updating an existing provider configuration.
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct UpdateProviderRequest {
     /// A new unique, user-friendly name for this provider configuration.
     pub name: Option<String>,
@@ -130,10 +179,43 @@ pub struct UpdateProviderRequest {
     pub enabled: Option<bool>,
 }
 
+impl<'de> serde::Deserialize<'de> for UpdateProviderRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        
+        #[derive(serde::Deserialize)]
+        struct UpdateProviderRequestHelper {
+            name: Option<String>,
+            config: Option<serde_json::Value>,
+            enabled: Option<bool>,
+        }
+        
+        let helper = UpdateProviderRequestHelper::deserialize(deserializer)?;
+        
+        // For update requests, we can't determine the provider type from the request alone
+        // So we'll just store the config as a raw value and let the service layer handle it
+        let config = helper.config.map(|config_value| {
+            // We'll try to deserialize as untagged enum, but this might still have ambiguity
+            // The service layer should handle this by using the existing provider's type
+            serde_json::from_value(config_value)
+                .map_err(|e| D::Error::custom(format!("Failed to deserialize config: {}", e)))
+        }).transpose()?;
+        
+        Ok(UpdateProviderRequest {
+            name: helper.name,
+            config,
+            enabled: helper.enabled,
+        })
+    }
+}
+
 // --- API Response DTO ---
 
 /// Response payload representing a provider configuration.
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, PartialEq)]
+#[derive(Debug, Serialize, ToSchema, PartialEq, Clone)]
 pub struct ProviderResponse {
     pub id: Uuid,
     pub name: String,
@@ -143,6 +225,66 @@ pub struct ProviderResponse {
     pub enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+impl<'de> serde::Deserialize<'de> for ProviderResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        
+        #[derive(serde::Deserialize)]
+        struct ProviderResponseHelper {
+            id: Uuid,
+            name: String,
+            provider_type: ProviderType,
+            config: serde_json::Value,
+            enabled: bool,
+            created_at: DateTime<Utc>,
+            updated_at: DateTime<Utc>,
+        }
+        
+        let helper = ProviderResponseHelper::deserialize(deserializer)?;
+        
+        let config = match helper.provider_type {
+            ProviderType::OpenAI => {
+                let config: OpenAIProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize OpenAI config: {}", e)))?;
+                ProviderConfig::OpenAI(config)
+            }
+            ProviderType::Azure => {
+                let config: AzureProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize Azure config: {}", e)))?;
+                ProviderConfig::Azure(config)
+            }
+            ProviderType::Anthropic => {
+                let config: AnthropicProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize Anthropic config: {}", e)))?;
+                ProviderConfig::Anthropic(config)
+            }
+            ProviderType::Bedrock => {
+                let config: BedrockProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize Bedrock config: {}", e)))?;
+                ProviderConfig::Bedrock(config)
+            }
+            ProviderType::VertexAI => {
+                let config: VertexAIProviderConfig = serde_json::from_value(helper.config)
+                    .map_err(|e| D::Error::custom(format!("Failed to deserialize VertexAI config: {}", e)))?;
+                ProviderConfig::VertexAI(config)
+            }
+        };
+        
+        Ok(ProviderResponse {
+            id: helper.id,
+            name: helper.name,
+            provider_type: helper.provider_type,
+            config,
+            enabled: helper.enabled,
+            created_at: helper.created_at,
+            updated_at: helper.updated_at,
+        })
+    }
 }
 
 // --- Model Definition DTOs ---
