@@ -73,6 +73,7 @@ config:
   providers:
     - key: openai
       # Configuration for the OpenAI provider
+
 # Secret management configuration
 secrets:
   # Name of the existing Kubernetes secret containing API keys
@@ -88,3 +89,68 @@ secrets:
     # Uncomment to use Traceloop API key for tracing
     # traceloopApiKey: "TRACELOOP_API_KEY"
     # Add mappings for any other provider API keys as needed
+
+# Enterprise Edition configuration
+ee:
+  # Enable Enterprise Edition features
+  enabled: false  # Default to OSS mode
+  
+  # PostgreSQL configuration for EE mode
+  database:
+    host: "postgres"
+    port: 5432
+    name: "hub_gateway"
+    user: "hub_user"
+    # Password will come from existing secret
+    existingSecret: "hub-postgres-secret"
+    passwordKey: "password"
+    
+  # EE-specific settings
+  config:
+    pollIntervalSeconds: 30
+    
+  # Image override for EE
+  image:
+    repository: "docker.io/traceloop/hub-ee"
+    # tag will default to chart version
+    
+  # Migration job configuration
+  migrations:
+    image:
+      repository: "docker.io/traceloop/hub-ee-migrations"
+      # tag will default to chart version
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    backoffLimit: 3
+    activeDeadlineSeconds: 300  # 5 minutes timeout
+
+# Example EE configuration (commented out)
+# ee:
+#   enabled: true
+#   database:
+#     host: "my-postgres.example.com"
+#     port: 5432
+#     name: "hub_gateway"
+#     user: "hub_user"
+#     existingSecret: "hub-postgres-secret"
+#     passwordKey: "password"
+#   config:
+#     pollIntervalSeconds: 60  # Production setting
+#   migrations:
+#     image:
+#       repository: "docker.io/traceloop/hub-ee-migrations"
+#       # tag: "1.0.0"  # Defaults to chart version
+#     resources:
+#       limits:
+#         cpu: 500m
+#         memory: 512Mi
+#       requests:
+#         cpu: 200m
+#         memory: 256Mi
+#     backoffLimit: 5
+#     activeDeadlineSeconds: 600  # 10 minutes for large migrations
