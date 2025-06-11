@@ -144,15 +144,27 @@ impl ConfigProviderService {
                 params.insert("api_version".to_string(), c.api_version);
                 Some(c.api_key)
             }
+            EeProviderConfig::Anthropic(c) => Some(c.api_key),
             EeProviderConfig::Bedrock(c) => {
                 params.insert("region".to_string(), c.region);
+                if let Some(access_key) = c.aws_access_key_id {
+                    params.insert("AWS_ACCESS_KEY_ID".to_string(), access_key);
+                }
                 if let Some(secret) = c.aws_secret_access_key {
-                    params.insert("aws_secret_access_key".to_string(), secret);
+                    params.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret);
                 }
                 if let Some(token) = c.aws_session_token {
-                    params.insert("aws_session_token".to_string(), token);
+                    params.insert("AWS_SESSION_TOKEN".to_string(), token);
                 }
-                c.aws_access_key_id.clone()
+                None
+            }
+            EeProviderConfig::VertexAI(c) => {
+                params.insert("project_id".to_string(), c.project_id);
+                params.insert("location".to_string(), c.location);
+                if let Some(credentials_path) = c.credentials_path {
+                    params.insert("credentials_path".to_string(), credentials_path);
+                }
+                c.api_key.clone()
             }
         };
 

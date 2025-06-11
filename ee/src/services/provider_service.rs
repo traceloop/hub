@@ -122,17 +122,8 @@ impl ProviderService {
             ))
         })?;
 
-        let config_enum = match provider_type_enum {
-            ProviderType::OpenAI => {
-                ProviderConfig::OpenAI(serde_json::from_value(db_provider.config_details.clone())?)
-            }
-            ProviderType::Azure => {
-                ProviderConfig::Azure(serde_json::from_value(db_provider.config_details.clone())?)
-            }
-            ProviderType::Bedrock => {
-                ProviderConfig::Bedrock(serde_json::from_value(db_provider.config_details.clone())?)
-            }
-        };
+        let config_enum: ProviderConfig =
+            serde_json::from_value(db_provider.config_details.clone())?;
 
         Ok(ProviderResponse {
             id: db_provider.id,

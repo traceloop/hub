@@ -11,9 +11,12 @@ pub enum ProviderType {
     Azure,
     #[serde(rename = "openai")]
     OpenAI,
+    #[serde(rename = "anthropic")]
+    Anthropic,
     #[serde(rename = "bedrock")]
     Bedrock,
-    // Add other types like Gemini, Anthropic here as they are supported
+    #[serde(rename = "vertexai")]
+    VertexAI,
 }
 
 impl std::fmt::Display for ProviderType {
@@ -21,7 +24,9 @@ impl std::fmt::Display for ProviderType {
         match self {
             ProviderType::Azure => write!(f, "azure"),
             ProviderType::OpenAI => write!(f, "openai"),
+            ProviderType::Anthropic => write!(f, "anthropic"),
             ProviderType::Bedrock => write!(f, "bedrock"),
+            ProviderType::VertexAI => write!(f, "vertexai"),
         }
     }
 }
@@ -33,7 +38,9 @@ impl std::str::FromStr for ProviderType {
         match s.to_lowercase().as_str() {
             "azure" => Ok(ProviderType::Azure),
             "openai" => Ok(ProviderType::OpenAI),
+            "anthropic" => Ok(ProviderType::Anthropic),
             "bedrock" => Ok(ProviderType::Bedrock),
+            "vertexai" => Ok(ProviderType::VertexAI),
             _ => Err(format!("Unknown provider type: {}", s)),
         }
     }
@@ -44,6 +51,12 @@ impl std::str::FromStr for ProviderType {
 pub struct OpenAIProviderConfig {
     pub api_key: String,
     pub organization_id: Option<String>,
+}
+
+/// Configuration specific to Anthropic providers.
+#[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
+pub struct AnthropicProviderConfig {
+    pub api_key: String,
 }
 
 /// Configuration specific to Azure OpenAI providers.
@@ -63,14 +76,30 @@ pub struct BedrockProviderConfig {
     pub region: String,
 }
 
+/// Configuration specific to Google VertexAI providers.
+#[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
+pub struct VertexAIProviderConfig {
+    pub project_id: String,
+    pub location: String,
+    pub credentials_path: Option<String>,
+    pub api_key: Option<String>,
+}
+
 /// Enum to hold the configuration for different provider types.
 /// The correct variant will be determined by the provider_type field in the request.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq)]
-#[serde(untagged)]
+#[serde(tag = "type")]
 pub enum ProviderConfig {
+    #[serde(rename = "azure")]
     Azure(AzureProviderConfig),
+    #[serde(rename = "openai")]
     OpenAI(OpenAIProviderConfig),
+    #[serde(rename = "anthropic")]
+    Anthropic(AnthropicProviderConfig),
+    #[serde(rename = "bedrock")]
     Bedrock(BedrockProviderConfig),
+    #[serde(rename = "vertexai")]
+    VertexAI(VertexAIProviderConfig),
 }
 
 // --- API Request DTOs ---

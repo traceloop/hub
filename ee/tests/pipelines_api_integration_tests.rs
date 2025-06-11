@@ -11,11 +11,12 @@ use std::sync::Arc;
 use ee::{
     // DTOs needed for requests/responses
     dto::{
-        AzureProviderConfig, BedrockProviderConfig, CreateModelDefinitionRequest,
-        CreatePipelineRequestDto, CreateProviderRequest, ModelDefinitionResponse,
-        ModelRouterConfigDto, ModelRouterModelEntryDto, ModelRouterStrategyDto,
-        OpenAIProviderConfig, PipelinePluginConfigDto, PipelineResponseDto, PluginType,
-        ProviderConfig, ProviderResponse, ProviderType, UpdatePipelineRequestDto,
+        AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig,
+        CreateModelDefinitionRequest, CreatePipelineRequestDto, CreateProviderRequest,
+        ModelDefinitionResponse, ModelRouterConfigDto, ModelRouterModelEntryDto,
+        ModelRouterStrategyDto, OpenAIProviderConfig, PipelinePluginConfigDto, PipelineResponseDto,
+        PluginType, ProviderConfig, ProviderResponse, ProviderType, UpdatePipelineRequestDto,
+        VertexAIProviderConfig,
     },
     // Potentially services or repos if we need to setup data directly (though API is preferred)
     // services::{provider_service::ProviderService, model_definition_service::ModelDefinitionService, pipeline_service::PipelineService},
@@ -93,18 +94,27 @@ async fn create_test_provider(
     let provider_config = match provider_type_enum {
         ProviderType::OpenAI => ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: format!("openai_key_{}", key_suffix),
-            organization_id: None,
+            organization_id: Some(format!("openai_org_{}", key_suffix)),
         }),
         ProviderType::Azure => ProviderConfig::Azure(AzureProviderConfig {
             api_key: format!("azure_key_{}", key_suffix),
             api_version: "2023-05-15".to_string(),
             resource_name: format!("azure_res_{}", key_suffix),
         }),
+        ProviderType::Anthropic => ProviderConfig::Anthropic(AnthropicProviderConfig {
+            api_key: format!("anthropic_key_{}", key_suffix),
+        }),
         ProviderType::Bedrock => ProviderConfig::Bedrock(BedrockProviderConfig {
             region: "us-east-1".to_string(),
             aws_access_key_id: Some(format!("bedrock_access_{}", key_suffix)),
             aws_secret_access_key: Some(format!("bedrock_secret_{}", key_suffix)),
             aws_session_token: None,
+        }),
+        ProviderType::VertexAI => ProviderConfig::VertexAI(VertexAIProviderConfig {
+            project_id: format!("vertexai_project_{}", key_suffix),
+            location: "us-central1".to_string(),
+            credentials_path: Some(format!("/path/to/vertexai_creds_{}.json", key_suffix)),
+            api_key: None,
         }),
     };
 
