@@ -9,7 +9,7 @@ use ee::{
     db::models::Provider as DbProvider,
     dto::{
         AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig, CreateProviderRequest,
-        OpenAIProviderConfig, ProviderConfig, ProviderResponse, ProviderType,
+        OpenAIProviderConfig, ProviderConfig, ProviderResponse, ProviderType, SecretObject,
         VertexAIProviderConfig,
     },
     ee_api_bundle,
@@ -40,11 +40,11 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
             name: "Test OpenAI Provider".to_string(),
             provider_type: ProviderType::OpenAI,
             config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-                api_key: "test_openai_key".to_string(),
+                api_key: SecretObject::literal("test_openai_key".to_string()),
                 organization_id: Some("test_org".to_string()),
             }),
             updated_config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-                api_key: "updated_openai_key".to_string(),
+                api_key: SecretObject::literal("updated_openai_key".to_string()),
                 organization_id: Some("updated_org".to_string()),
             }),
         },
@@ -52,12 +52,12 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
             name: "Test Azure Provider".to_string(),
             provider_type: ProviderType::Azure,
             config: ProviderConfig::Azure(AzureProviderConfig {
-                api_key: "test_azure_key".to_string(),
+                api_key: SecretObject::literal("test_azure_key".to_string()),
                 resource_name: "test_resource".to_string(),
                 api_version: "2023-05-15".to_string(),
             }),
             updated_config: ProviderConfig::Azure(AzureProviderConfig {
-                api_key: "updated_azure_key".to_string(),
+                api_key: SecretObject::literal("updated_azure_key".to_string()),
                 resource_name: "updated_resource".to_string(),
                 api_version: "2024-02-01".to_string(),
             }),
@@ -66,25 +66,27 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
             name: "Test Anthropic Provider".to_string(),
             provider_type: ProviderType::Anthropic,
             config: ProviderConfig::Anthropic(AnthropicProviderConfig {
-                api_key: "test_anthropic_key".to_string(),
+                api_key: SecretObject::literal("test_anthropic_key".to_string()),
             }),
             updated_config: ProviderConfig::Anthropic(AnthropicProviderConfig {
-                api_key: "updated_anthropic_key".to_string(),
+                api_key: SecretObject::literal("updated_anthropic_key".to_string()),
             }),
         },
         ProviderTestData {
             name: "Test Bedrock Provider".to_string(),
             provider_type: ProviderType::Bedrock,
             config: ProviderConfig::Bedrock(BedrockProviderConfig {
-                aws_access_key_id: Some("test_access_key".to_string()),
-                aws_secret_access_key: Some("test_secret_key".to_string()),
+                aws_access_key_id: Some(SecretObject::literal("test_access_key".to_string())),
+                aws_secret_access_key: Some(SecretObject::literal("test_secret_key".to_string())),
                 aws_session_token: None,
                 region: "us-east-1".to_string(),
             }),
             updated_config: ProviderConfig::Bedrock(BedrockProviderConfig {
-                aws_access_key_id: Some("updated_access_key".to_string()),
-                aws_secret_access_key: Some("updated_secret_key".to_string()),
-                aws_session_token: Some("session_token".to_string()),
+                aws_access_key_id: Some(SecretObject::literal("updated_access_key".to_string())),
+                aws_secret_access_key: Some(SecretObject::literal(
+                    "updated_secret_key".to_string(),
+                )),
+                aws_session_token: Some(SecretObject::literal("session_token".to_string())),
                 region: "us-west-2".to_string(),
             }),
         },
@@ -101,7 +103,7 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
                 project_id: "updated-project-456".to_string(),
                 location: "europe-west1".to_string(),
                 credentials_path: None,
-                api_key: Some("updated_vertex_api_key".to_string()),
+                api_key: Some(SecretObject::literal("updated_vertex_api_key".to_string())),
             }),
         },
     ]
@@ -154,7 +156,7 @@ async fn test_create_provider_success() {
         name: "Test OpenAI Provider".to_string(),
         provider_type: ProviderType::OpenAI,
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "test_openai_key".to_string(),
+            api_key: SecretObject::literal("test_openai_key".to_string()),
             organization_id: Some("test_org".to_string()),
         }),
         enabled: Some(true),
@@ -237,7 +239,7 @@ async fn test_create_vertexai_provider_with_api_key() {
             project_id: "test-project-456".to_string(),
             location: "europe-west1".to_string(),
             credentials_path: None,
-            api_key: Some("test-vertex-api-key".to_string()),
+            api_key: Some(SecretObject::literal("test-vertex-api-key".to_string())),
         }),
         enabled: Some(false),
     };
@@ -265,7 +267,7 @@ async fn test_create_provider_duplicate_name() {
         name: "Unique Name Provider".to_string(),
         provider_type: ProviderType::OpenAI,
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "openai_key_1".to_string(),
+            api_key: SecretObject::literal("openai_key_1".to_string()),
             organization_id: None,
         }),
         enabled: Some(true),
@@ -282,7 +284,7 @@ async fn test_create_provider_duplicate_name() {
         name: "Unique Name Provider".to_string(),
         provider_type: ProviderType::Azure,
         config: ProviderConfig::Azure(AzureProviderConfig {
-            api_key: "azure_key_2".to_string(),
+            api_key: SecretObject::literal("azure_key_2".to_string()),
             resource_name: "res2".to_string(),
             api_version: "v2".to_string(),
         }),
@@ -308,8 +310,8 @@ async fn test_get_provider_success() {
         name: "Provider to GET".to_string(),
         provider_type: ProviderType::Bedrock,
         config: ProviderConfig::Bedrock(BedrockProviderConfig {
-            aws_access_key_id: Some("bedrock_access_key".to_string()),
-            aws_secret_access_key: Some("bedrock_secret_key".to_string()),
+            aws_access_key_id: Some(SecretObject::literal("bedrock_access_key".to_string())),
+            aws_secret_access_key: Some(SecretObject::literal("bedrock_secret_key".to_string())),
             aws_session_token: None,
             region: "us-east-1".to_string(),
         }),
@@ -383,7 +385,7 @@ async fn test_list_providers_multiple() {
         name: "List Provider B - OpenAI".to_string(),
         provider_type: ProviderType::OpenAI,
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "key1".to_string(),
+            api_key: SecretObject::literal("key1".to_string()),
             organization_id: None,
         }),
         enabled: Some(true),
@@ -400,7 +402,7 @@ async fn test_list_providers_multiple() {
         name: "List Provider A - Azure".to_string(),
         provider_type: ProviderType::Azure,
         config: ProviderConfig::Azure(AzureProviderConfig {
-            api_key: "key2".to_string(),
+            api_key: SecretObject::literal("key2".to_string()),
             resource_name: "res2".to_string(),
             api_version: "v2".to_string(),
         }),
@@ -444,7 +446,7 @@ async fn test_update_provider_success() {
         name: "Initial Provider Name".to_string(),
         provider_type: ProviderType::OpenAI,
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "initial_openai_key".to_string(),
+            api_key: SecretObject::literal("initial_openai_key".to_string()),
             organization_id: Some("org_initial".to_string()),
         }),
         enabled: Some(true),
@@ -459,7 +461,7 @@ async fn test_update_provider_success() {
 
     let updated_name = "Updated Provider Name".to_string();
     let updated_config = ProviderConfig::OpenAI(OpenAIProviderConfig {
-        api_key: "updated_openai_key".to_string(),
+        api_key: SecretObject::literal("updated_openai_key".to_string()),
         organization_id: Some("org_updated".to_string()),
     });
     let updated_enabled = false;
@@ -585,7 +587,7 @@ async fn test_update_provider_duplicate_name_conflict() {
         name: provider1_name.clone(),
         provider_type: ProviderType::OpenAI,
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "key_A".to_string(),
+            api_key: SecretObject::literal("key_A".to_string()),
             organization_id: None,
         }),
         enabled: Some(true),
@@ -601,7 +603,7 @@ async fn test_update_provider_duplicate_name_conflict() {
         name: "Name B - To Be Updated".to_string(),
         provider_type: ProviderType::Azure,
         config: ProviderConfig::Azure(AzureProviderConfig {
-            api_key: "key_B".to_string(),
+            api_key: SecretObject::literal("key_B".to_string()),
             resource_name: "resB".to_string(),
             api_version: "vB".to_string(),
         }),
@@ -645,7 +647,7 @@ async fn test_delete_provider_success() {
         name: "Provider To Delete".to_string(),
         provider_type: ProviderType::Azure,
         config: ProviderConfig::Azure(AzureProviderConfig {
-            api_key: "delete_key".to_string(),
+            api_key: SecretObject::literal("delete_key".to_string()),
             resource_name: "del_res".to_string(),
             api_version: "del_v".to_string(),
         }),
@@ -755,7 +757,7 @@ async fn test_create_anthropic_provider_success() {
         name: "Test Anthropic Provider".to_string(),
         provider_type: ProviderType::Anthropic,
         config: ProviderConfig::Anthropic(AnthropicProviderConfig {
-            api_key: "test_anthropic_key".to_string(),
+            api_key: SecretObject::literal("test_anthropic_key".to_string()),
         }),
         enabled: Some(true),
     };
@@ -772,7 +774,10 @@ async fn test_create_anthropic_provider_success() {
 
     // Verify the configuration was stored correctly
     if let ProviderConfig::Anthropic(config) = provider_response.config {
-        assert_eq!(config.api_key, "test_anthropic_key");
+        assert_eq!(
+            config.api_key,
+            SecretObject::literal("test_anthropic_key".to_string())
+        );
     } else {
         panic!(
             "Expected Anthropic config, got {:?}",
@@ -1187,7 +1192,7 @@ async fn test_update_provider_empty_payload() {
         name: "Provider for Empty Update Test".to_string(),
         provider_type: ProviderType::OpenAI,
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "test_key".to_string(),
+            api_key: SecretObject::literal("test_key".to_string()),
             organization_id: Some("test_org".to_string()),
         }),
         enabled: Some(true),
@@ -1239,7 +1244,7 @@ async fn test_update_provider_toggle_enabled_multiple_times() {
         name: "Toggle Test Provider".to_string(),
         provider_type: ProviderType::Anthropic,
         config: ProviderConfig::Anthropic(AnthropicProviderConfig {
-            api_key: "test_anthropic_key".to_string(),
+            api_key: SecretObject::literal("test_anthropic_key".to_string()),
         }),
         enabled: Some(true),
     };
@@ -1301,7 +1306,7 @@ async fn test_update_provider_config_type_validation() {
         name: "OpenAI Provider for Config Validation".to_string(),
         provider_type: ProviderType::OpenAI,
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "initial_openai_key".to_string(),
+            api_key: SecretObject::literal("initial_openai_key".to_string()),
             organization_id: Some("initial_org".to_string()),
         }),
         enabled: Some(true),
@@ -1318,7 +1323,7 @@ async fn test_update_provider_config_type_validation() {
     let invalid_config_payload = ee::dto::UpdateProviderRequest {
         name: None,
         config: Some(ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "updated_openai_key".to_string(),
+            api_key: SecretObject::literal("updated_openai_key".to_string()),
             organization_id: Some("updated_org".to_string()),
         })),
         enabled: None,
@@ -1334,7 +1339,10 @@ async fn test_update_provider_config_type_validation() {
 
     let updated_provider: ProviderResponse = update_response.json::<ProviderResponse>();
     if let ProviderConfig::OpenAI(config) = updated_provider.config {
-        assert_eq!(config.api_key, "updated_openai_key");
+        assert_eq!(
+            config.api_key,
+            SecretObject::literal("updated_openai_key".to_string())
+        );
         assert_eq!(config.organization_id, Some("updated_org".to_string()));
     } else {
         panic!("Expected OpenAI config after update");
@@ -1350,7 +1358,7 @@ async fn test_update_provider_with_very_long_name() {
         name: "Short Name".to_string(),
         provider_type: ProviderType::Azure,
         config: ProviderConfig::Azure(AzureProviderConfig {
-            api_key: "test_key".to_string(),
+            api_key: SecretObject::literal("test_key".to_string()),
             resource_name: "test_resource".to_string(),
             api_version: "2023-05-15".to_string(),
         }),

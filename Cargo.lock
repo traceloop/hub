@@ -1640,6 +1640,7 @@ dependencies = [
  "testcontainers",
  "testcontainers-modules",
  "tokio",
+ "tracing",
  "utoipa 4.2.3",
  "utoipa-scalar",
  "utoipa-swagger-ui",

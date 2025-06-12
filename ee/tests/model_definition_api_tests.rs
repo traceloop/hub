@@ -12,7 +12,7 @@ use ee::{
     dto::{
         self, AzureProviderConfig, CreateModelDefinitionRequest, CreateProviderRequest,
         ModelDefinitionResponse, OpenAIProviderConfig, ProviderConfig, ProviderResponse,
-        ProviderType, UpdateModelDefinitionRequest,
+        ProviderType, SecretObject, UpdateModelDefinitionRequest,
     },
     ee_api_bundle,    // Main router function from lib.rs
     errors::ApiError, // Assuming ApiError is serializable for error responses
@@ -73,12 +73,12 @@ async fn create_test_provider(
 ) -> ProviderResponse {
     let config = match provider_type {
         ProviderType::Azure => ProviderConfig::Azure(AzureProviderConfig {
-            api_key: "test_azure_key".to_string(),
+            api_key: SecretObject::literal("test_azure_key".to_string()),
             resource_name: "test_resource".to_string(),
             api_version: "2023-05-15".to_string(),
         }),
         ProviderType::OpenAI => ProviderConfig::OpenAI(OpenAIProviderConfig {
-            api_key: "test_openai_key".to_string(),
+            api_key: SecretObject::literal("test_openai_key".to_string()),
             organization_id: None,
         }),
         _ => panic!("Unsupported provider type for test helper"),

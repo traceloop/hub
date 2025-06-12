@@ -110,7 +110,10 @@ mod ee_integration_tests {
                 "name": name,
                 "provider_type": "openai",
                 "config": {
-                    "api_key": api_key,
+                    "api_key": {
+                        "type": "literal",
+                        "value": api_key
+                    },
                     "organization_id": null
                 }
             });

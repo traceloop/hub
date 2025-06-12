@@ -24,6 +24,7 @@ utoipa-scalar = { version = "0.3.0", features = ["axum"] }
 hub_gateway_core_types = { path = "../hub_gateway_core_types" }
 anyhow = "1.0" # For Result type in transformations
 log = "0.4" # For logging
+tracing = "0.1" # For structured logging
 
 [dev-dependencies]
 # Add development dependencies like those for testing

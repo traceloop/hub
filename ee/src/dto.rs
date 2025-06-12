@@ -3,6 +3,53 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 use utoipa::ToSchema;
 
+/// Represents different ways to store and retrieve secrets
+#[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
+#[serde(tag = "type")]
+pub enum SecretObject {
+    #[serde(rename = "literal")]
+    Literal {
+        value: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        encrypted: Option<bool>, // Future: indicates if value is encrypted
+    },
+
+    #[serde(rename = "kubernetes")]
+    Kubernetes {
+        secret_name: String,
+        key: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        namespace: Option<String>,
+    },
+
+    #[serde(rename = "environment")]
+    Environment { variable_name: String },
+}
+
+impl SecretObject {
+    /// Create a literal secret object from a string value
+    pub fn literal(value: String) -> Self {
+        Self::Literal {
+            value,
+            encrypted: None,
+        }
+    }
+
+    /// Create a Kubernetes secret reference
+    pub fn kubernetes(secret_name: String, key: String, namespace: Option<String>) -> Self {
+        Self::Kubernetes {
+            secret_name,
+            key,
+            namespace,
+        }
+    }
+
+    /// Create an environment variable reference
+    pub fn environment(variable_name: String) -> Self {
+        Self::Environment { variable_name }
+    }
+}
+
 /// Enum representing the type of LLM provider.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, Copy, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
@@ -49,20 +96,20 @@ impl std::str::FromStr for ProviderType {
 /// Configuration specific to OpenAI providers.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
 pub struct OpenAIProviderConfig {
-    pub api_key: String,
+    pub api_key: SecretObject,
     pub organization_id: Option<String>,
 }
 
 /// Configuration specific to Anthropic providers.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
 pub struct AnthropicProviderConfig {
-    pub api_key: String,
+    pub api_key: SecretObject,
 }
 
 /// Configuration specific to Azure OpenAI providers.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
 pub struct AzureProviderConfig {
-    pub api_key: String,
+    pub api_key: SecretObject,
     pub resource_name: String,
     pub api_version: String,
 }
@@ -70,9 +117,9 @@ pub struct AzureProviderConfig {
 /// Configuration specific to AWS Bedrock providers.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
 pub struct BedrockProviderConfig {
-    pub aws_access_key_id: Option<String>,
-    pub aws_secret_access_key: Option<String>,
-    pub aws_session_token: Option<String>,
+    pub aws_access_key_id: Option<SecretObject>,
+    pub aws_secret_access_key: Option<SecretObject>,
+    pub aws_session_token: Option<SecretObject>,
     pub region: String,
 }
 
@@ -82,7 +129,7 @@ pub struct VertexAIProviderConfig {
     pub project_id: String,
     pub location: String,
     pub credentials_path: Option<String>,
-    pub api_key: Option<String>,
+    pub api_key: Option<SecretObject>,
 }
 
 /// Enum to hold the configuration for different provider types.

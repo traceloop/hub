@@ -17,7 +17,7 @@ use crate::{
     },
     services::{
         model_definition_service::ModelDefinitionService, pipeline_service::PipelineService,
-        provider_service::ProviderService,
+        provider_service::ProviderService, secret_resolver::SecretResolver,
     },
     // errors::ApiError, // Assuming ApiError can be converted to anyhow::Error or handled
 };
@@ -57,6 +57,7 @@ pub struct ConfigProviderService {
     provider_service: Arc<ProviderService>,
     model_definition_service: Arc<ModelDefinitionService>,
     pipeline_service: Arc<PipelineService>,
+    secret_resolver: SecretResolver,
 }
 
 impl ConfigProviderService {
@@ -69,6 +70,7 @@ impl ConfigProviderService {
             provider_service,
             model_definition_service,
             pipeline_service,
+            secret_resolver: SecretResolver::new(),
         }
     }
 
@@ -88,7 +90,7 @@ impl ConfigProviderService {
         for p_dto in ee_providers.into_iter().filter(|p| p.enabled) {
             // Store the original DTO ID for mapping before transforming
             let original_dto_id = p_dto.id;
-            match Self::transform_provider_dto(p_dto) {
+            match self.transform_provider_dto(p_dto).await {
                 Ok(core_provider) => {
                     // Use the DTO's id for the map key, and core_provider's key for the value
                     provider_dto_id_to_key_map.insert(original_dto_id, core_provider.key.clone());
@@ -130,31 +132,36 @@ impl ConfigProviderService {
         Ok(gateway_config)
     }
 
-    fn transform_provider_dto(dto: ProviderResponse) -> Result<Provider> {
+    async fn transform_provider_dto(&self, dto: ProviderResponse) -> Result<Provider> {
         let mut params = HashMap::new();
         let api_key_from_dto = match dto.config {
             EeProviderConfig::OpenAI(c) => {
                 if let Some(org_id) = c.organization_id {
                     params.insert("organization_id".to_string(), org_id);
                 }
-                Some(c.api_key)
+                Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
             EeProviderConfig::Azure(c) => {
                 params.insert("resource_name".to_string(), c.resource_name);
                 params.insert("api_version".to_string(), c.api_version);
-                Some(c.api_key)
+                Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
-            EeProviderConfig::Anthropic(c) => Some(c.api_key),
+            EeProviderConfig::Anthropic(c) => {
+                Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
+            }
             EeProviderConfig::Bedrock(c) => {
                 params.insert("region".to_string(), c.region);
-                if let Some(access_key) = c.aws_access_key_id {
-                    params.insert("AWS_ACCESS_KEY_ID".to_string(), access_key);
+                if let Some(access_key) = &c.aws_access_key_id {
+                    let resolved_key = self.secret_resolver.resolve_secret(access_key).await?;
+                    params.insert("AWS_ACCESS_KEY_ID".to_string(), resolved_key);
                 }
-                if let Some(secret) = c.aws_secret_access_key {
-                    params.insert("AWS_SECRET_ACCESS_KEY".to_string(), secret);
+                if let Some(secret) = &c.aws_secret_access_key {
+                    let resolved_secret = self.secret_resolver.resolve_secret(secret).await?;
+                    params.insert("AWS_SECRET_ACCESS_KEY".to_string(), resolved_secret);
                 }
-                if let Some(token) = c.aws_session_token {
-                    params.insert("AWS_SESSION_TOKEN".to_string(), token);
+                if let Some(token) = &c.aws_session_token {
+                    let resolved_token = self.secret_resolver.resolve_secret(token).await?;
+                    params.insert("AWS_SESSION_TOKEN".to_string(), resolved_token);
                 }
                 None
             }
@@ -164,7 +171,11 @@ impl ConfigProviderService {
                 if let Some(credentials_path) = c.credentials_path {
                     params.insert("credentials_path".to_string(), credentials_path);
                 }
-                c.api_key.clone()
+                if let Some(api_key) = &c.api_key {
+                    Some(self.secret_resolver.resolve_secret(api_key).await?)
+                } else {
+                    None
+                }
             }
         };
 
