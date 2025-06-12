@@ -1,6 +1,7 @@
 pub mod ai_models;
 pub mod config;
 pub mod models;
+pub mod openapi;
 pub mod pipelines;
 pub mod providers;
 pub mod routes;

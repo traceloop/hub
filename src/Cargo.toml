@@ -1,0 +1,25 @@
+[package]
+name = "hub_llm_gateway_src" # Placeholder, actual name might be just 'hub-llm-gateway' or similar
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7" # Assuming a version, adjust if known
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+anyhow = "1.0"
+log = "0.4"
+tower = "0.4"
+tower_http = { version = "0.5", features = ["trace", "cors"] }
+
+hub_gateway_core_types = { path = "../hub_gateway_core_types" }
+
+# Conditional dependency on the ee crate
+ee = { path = "../ee", optional = true }
+
+# Add other original dependencies of src/Cargo.toml if known
+
+[features]
+default = []
+ee_feature = ["dep:ee"] # Activates the ee crate dependency 

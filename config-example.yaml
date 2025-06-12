@@ -13,6 +13,12 @@ providers:
     type: openai
     api_key: "<your-openai-api-key>"
     base_url: "optional base url. If not provided, defaults to https://api.openai.com/v1"
+
+  # Anthropic configuration
+  - key: anthropic
+    type: anthropic
+    api_key: "<your-anthropic-api-key>"
+
   - key: bedrock
     type: bedrock
     api_key: ""# Not used for AWS Bedrock
@@ -39,6 +45,14 @@ models:
   - key: gpt-3.5-turbo
     type: gpt-3.5-turbo
     provider: openai
+
+  # Anthropic Models
+  - key: claude-3-5-sonnet
+    type: claude-3-5-sonnet-20241022
+    provider: anthropic
+  - key: claude-3-haiku
+    type: claude-3-haiku-20240307
+    provider: anthropic
 
   # Azure OpenAI Models
   - key: gpt-4-azure
@@ -83,6 +97,7 @@ pipelines:
           models:  # List the models you want to use for chat
             - gpt-4
             - gpt-4-azure
+            - claude-3-5-sonnet
             - gemini-1.5-flash
 
   # Pipeline for text completions
@@ -93,6 +108,7 @@ pipelines:
           models:  # List the models you want to use for completions
             - gpt-3.5-turbo
             - gpt-35-turbo-azure
+            - claude-3-haiku
             - gemini-1.5-flash
 
   # Pipeline for embeddings
