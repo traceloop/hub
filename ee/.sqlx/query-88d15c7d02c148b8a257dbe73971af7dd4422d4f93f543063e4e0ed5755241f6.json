@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM hub_llmgateway_ee_pipeline_plugin_configs WHERE pipeline_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "88d15c7d02c148b8a257dbe73971af7dd4422d4f93f543063e4e0ed5755241f6"
+}
