@@ -109,6 +109,25 @@ Not sure where to get started? You can:
 - Azure OpenAI
 - Google VertexAI (Gemini)
 
+## 🏢 Enterprise Edition
+
+The Enterprise Edition provides advanced features for production deployments:
+
+### SecretObject System
+Instead of storing API keys as plain text, use flexible secret references:
+
+- **Environment Variables**: `{"type": "environment", "variable_name": "OPENAI_API_KEY"}`
+- **Kubernetes Secrets**: `{"type": "kubernetes", "secret_name": "openai-creds", "key": "api-key"}`
+- **Literal Values**: `{"type": "literal", "value": "sk-...", "encrypted": false}`
+
+### Benefits
+- **Enhanced Security**: No plain text secrets in database
+- **Centralized Management**: Use existing secret management infrastructure  
+- **Easy Rotation**: Update secrets without changing configurations
+- **Audit Trail**: Secret access logged through your secret management system
+
+See [Enterprise Edition API Documentation](ee/API_DOCS.md) for complete details.
+
 ## Configuration
 
 See `config-example.yaml` for a complete configuration example.
