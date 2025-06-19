@@ -131,14 +131,9 @@ pub async fn chat_completions(
         }
     }
 
-    if let Some(error) = last_error {
-        tracer.log_error(format!("All models failed with error: {}", error));
-        Err(error)
-    } else {
-        tracer.log_error("No matching model found".to_string());
-        eprintln!("No matching model found for: {}", payload.model);
-        Err(StatusCode::NOT_FOUND)
-    }
+    let error = last_error.unwrap();
+    tracer.log_error(format!("All models failed with error: {}", error));
+    Err(error)
 }
 
 fn is_transient_error(status_code: StatusCode) -> bool {
@@ -205,14 +200,9 @@ pub async fn completions(
         }
     }
 
-    if let Some(error) = last_error {
-        tracer.log_error(format!("All models failed with error: {}", error));
-        Err(error)
-    } else {
-        tracer.log_error("No matching model found".to_string());
-        eprintln!("No matching model found for: {}", payload.model);
-        Err(StatusCode::NOT_FOUND)
-    }
+    let error = last_error.unwrap();
+    tracer.log_error(format!("All models failed with error: {}", error));
+    Err(error)
 }
 
 pub async fn embeddings(
@@ -268,12 +258,7 @@ pub async fn embeddings(
         }
     }
 
-    if let Some(error) = last_error {
-        tracer.log_error(format!("All models failed with error: {}", error));
-        Err(error)
-    } else {
-        tracer.log_error("No matching model found".to_string());
-        eprintln!("No matching model found for: {}", payload.model);
-        Err(StatusCode::NOT_FOUND)
-    }
+    let error = last_error.unwrap();
+    tracer.log_error(format!("All models failed with error: {}", error));
+    Err(error)
 }
