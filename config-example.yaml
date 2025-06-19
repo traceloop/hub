@@ -18,9 +18,14 @@ providers:
     api_key: ""# Not used for AWS Bedrock
     region: "<your-aws-region>" # like "us-east-1"
     inference_profile_id: "<your-inference-profile-id>" # like "us"
-    AWS_ACCESS_KEY_ID: "<your-aws-access-key>"
-    AWS_SECRET_ACCESS_KEY: "<your-aws-secret-key>"
-    AWS_SESSION_TOKEN: "<your-session-token>"  # Optional
+    # Authentication options - choose one:
+    # Option 1: Use IAM roles (recommended for production)
+    use_iam_role: "true"  # Use IAM roles for service accounts (IRSA) or instance profiles
+    # Option 2: Use explicit credentials (for development/testing)
+    # use_iam_role: "false"  # or omit this line
+    # AWS_ACCESS_KEY_ID: "<your-aws-access-key>"
+    # AWS_SECRET_ACCESS_KEY: "<your-aws-secret-key>"
+    # AWS_SESSION_TOKEN: "<your-session-token>"  # Optional
 
   # Vertex AI configuration
   # Uses service account authentication
