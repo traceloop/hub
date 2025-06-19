@@ -20,7 +20,7 @@ providers:
     inference_profile_id: "<your-inference-profile-id>" # like "us"
     # Authentication options - choose one:
     # Option 1: Use IAM roles (recommended for production)
-    use_iam_role: "true"  # Use IAM roles for service accounts (IRSA) or instance profiles
+    use_iam_role: true  # Use IAM roles for service accounts (IRSA) or instance profiles
     # Option 2: Use explicit credentials (for development/testing)
     # use_iam_role: "false"  # or omit this line
     # AWS_ACCESS_KEY_ID: "<your-aws-access-key>"
