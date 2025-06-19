@@ -46,7 +46,7 @@ impl ClientProvider for BedrockProvider {
             .get("use_iam_role")
             .map_or("false", |s| &**s);
 
-        let sdk_config = if use_iam_role == "true" {
+        let sdk_config = if use_iam_role.parse::<bool>().unwrap_or(false) {
             aws_config::defaults(BehaviorVersion::latest())
                 .region(Region::new(region))
                 .load()
