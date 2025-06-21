@@ -40,22 +40,36 @@ impl ClientProvider for BedrockProvider {
         use aws_credential_types::Credentials;
 
         let region = self.config.params.get("region").unwrap().clone();
-        let access_key_id = self.config.params.get("AWS_ACCESS_KEY_ID").unwrap().clone();
-        let secret_access_key = self
+        let use_iam_role = self
             .config
             .params
-            .get("AWS_SECRET_ACCESS_KEY")
-            .unwrap()
-            .clone();
-        let session_token = self.config.params.get("AWS_SESSION_TOKEN").cloned();
+            .get("use_iam_role")
+            .map_or("false", |s| &**s);
 
-        let credentials = Credentials::from_keys(access_key_id, secret_access_key, session_token);
+        let sdk_config = if use_iam_role.parse::<bool>().unwrap_or(false) {
+            aws_config::defaults(BehaviorVersion::latest())
+                .region(Region::new(region))
+                .load()
+                .await
+        } else {
+            let access_key_id = self.config.params.get("AWS_ACCESS_KEY_ID").unwrap().clone();
+            let secret_access_key = self
+                .config
+                .params
+                .get("AWS_SECRET_ACCESS_KEY")
+                .unwrap()
+                .clone();
+            let session_token = self.config.params.get("AWS_SESSION_TOKEN").cloned();
 
-        let sdk_config = aws_config::defaults(BehaviorVersion::latest())
-            .region(Region::new(region))
-            .credentials_provider(credentials)
-            .load()
-            .await;
+            let credentials =
+                Credentials::from_keys(access_key_id, secret_access_key, session_token);
+
+            aws_config::defaults(BehaviorVersion::latest())
+                .region(Region::new(region))
+                .credentials_provider(credentials)
+                .load()
+                .await
+        };
 
         Ok(BedrockRuntimeClient::new(&sdk_config))
     }
