@@ -57,6 +57,8 @@ jobs:
           labels: ${{ steps.docker-metadata.outputs.labels }}
           platforms: |
             linux/amd64, linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
   deploy:
     name: Deploy to Traceloop
     runs-on: ubuntu-latest
