@@ -389,7 +389,7 @@ mod ai21_tests {
 
 #[cfg(test)]
 mod arn_tests {
-    use crate::models::chat::{ChaåtCompletionRequest, ChatCompletionResponse};
+    use crate::models::chat::ChatCompletionRequest;
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
     use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::bedrock::BedrockProvider;
@@ -403,11 +403,11 @@ mod arn_tests {
         // Test with full ARN - should not be transformed
         let model_config = get_test_model_config(
             "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0",
-            "anthropic"
+            "anthropic",
         );
 
-        let arn_model = "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0";
-        
+        let arn_model =
+            "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0";
         let payload = ChatCompletionRequest {
             model: arn_model.to_string(),
             messages: vec![ChatCompletionMessage {
@@ -441,9 +441,13 @@ mod arn_tests {
         // The test here is that we don't get a transformation error
         // The mock will handle the actual response
         let result = provider.chat_completions(payload, &model_config).await;
-        
+
         // Should not fail due to model identifier transformation
-        assert!(result.is_ok(), "ARN model identifier should be handled correctly: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "ARN model identifier should be handled correctly: {:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]
@@ -451,14 +455,10 @@ mod arn_tests {
         let config = get_test_provider_config("us-east-1", "anthropic_chat_completion");
         let provider = BedrockProvider::new(&config);
 
-        // Test with inference profile ID - should not be transformed  
-        let model_config = get_test_model_config(
-            "us-east-1-inference-profile-123",
-            "anthropic"
-        );
+        // Test with inference profile ID - should not be transformed
+        let model_config = get_test_model_config("us-east-1-inference-profile-123", "anthropic");
 
         let inference_profile_model = "us-east-1-inference-profile-123";
-        
         let payload = ChatCompletionRequest {
             model: inference_profile_model.to_string(),
             messages: vec![ChatCompletionMessage {
@@ -490,9 +490,13 @@ mod arn_tests {
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
-        
-        // Should not fail due to model identifier transformation  
-        assert!(result.is_ok(), "Inference profile identifier should be handled correctly: {:?}", result.err());
+
+        // Should not fail due to model identifier transformation
+        assert!(
+            result.is_ok(),
+            "Inference profile identifier should be handled correctly: {:?}",
+            result.err()
+        );
     }
 }
 

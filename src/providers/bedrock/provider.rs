@@ -121,10 +121,11 @@ impl Provider for BedrockProvider {
         })?;
 
         let mut transformed_payload = payload;
-        
+
         // Check if the model is already an ARN or inference profile ID
-        if transformed_payload.model.starts_with("arn:aws:bedrock:") || 
-           transformed_payload.model.contains("inference-profile") {
+        if transformed_payload.model.starts_with("arn:aws:bedrock:")
+            || transformed_payload.model.contains("inference-profile")
+        {
             // Use the model identifier as-is for ARNs and inference profiles
             // No transformation needed
         } else {
@@ -164,10 +165,11 @@ impl Provider for BedrockProvider {
         })?;
 
         let mut transformed_payload = payload;
-        
+
         // Check if the model is already an ARN or inference profile ID
-        if transformed_payload.model.starts_with("arn:aws:bedrock:") || 
-           transformed_payload.model.contains("inference-profile") {
+        if transformed_payload.model.starts_with("arn:aws:bedrock:")
+            || transformed_payload.model.contains("inference-profile")
+        {
             // Use the model identifier as-is for ARNs and inference profiles
             // No transformation needed
         } else {
@@ -207,10 +209,11 @@ impl Provider for BedrockProvider {
         })?;
 
         let mut transformed_payload = payload;
-        
+
         // Check if the model is already an ARN or inference profile ID
-        if transformed_payload.model.starts_with("arn:aws:bedrock:") || 
-           transformed_payload.model.contains("inference-profile") {
+        if transformed_payload.model.starts_with("arn:aws:bedrock:")
+            || transformed_payload.model.contains("inference-profile")
+        {
             // Use the model identifier as-is for ARNs and inference profiles
             // No transformation needed
         } else {
