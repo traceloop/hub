@@ -120,25 +120,33 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        // Transform model name to include provider prefix
-        let model_provider = model_config.params.get("model_provider").unwrap();
-        let inference_profile_id = self.config.params.get("inference_profile_id");
         let mut transformed_payload = payload;
-        let model_version = model_config
-            .params
-            .get("model_version")
-            .map_or("v1:0", |s| &**s);
-        transformed_payload.model = if let Some(profile_id) = inference_profile_id {
-            format!(
-                "{}.{}.{}-{}",
-                profile_id, model_provider, transformed_payload.model, model_version
-            )
+        
+        // Check if the model is already an ARN or inference profile ID
+        if transformed_payload.model.starts_with("arn:aws:bedrock:") || 
+           transformed_payload.model.contains("inference-profile") {
+            // Use the model identifier as-is for ARNs and inference profiles
+            // No transformation needed
         } else {
-            format!(
-                "{}.{}-{}",
-                model_provider, transformed_payload.model, model_version
-            )
-        };
+            // Transform model name to include provider prefix for regular model IDs
+            let model_provider = model_config.params.get("model_provider").unwrap();
+            let inference_profile_id = self.config.params.get("inference_profile_id");
+            let model_version = model_config
+                .params
+                .get("model_version")
+                .map_or("v1:0", |s| &**s);
+            transformed_payload.model = if let Some(profile_id) = inference_profile_id {
+                format!(
+                    "{}.{}.{}-{}",
+                    profile_id, model_provider, transformed_payload.model, model_version
+                )
+            } else {
+                format!(
+                    "{}.{}-{}",
+                    model_provider, transformed_payload.model, model_version
+                )
+            };
+        }
 
         self.get_provider_implementation(model_config)
             .chat_completion(&client, transformed_payload)
@@ -155,8 +163,36 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
+        let mut transformed_payload = payload;
+        
+        // Check if the model is already an ARN or inference profile ID
+        if transformed_payload.model.starts_with("arn:aws:bedrock:") || 
+           transformed_payload.model.contains("inference-profile") {
+            // Use the model identifier as-is for ARNs and inference profiles
+            // No transformation needed
+        } else {
+            // Transform model name to include provider prefix for regular model IDs
+            let model_provider = model_config.params.get("model_provider").unwrap();
+            let inference_profile_id = self.config.params.get("inference_profile_id");
+            let model_version = model_config
+                .params
+                .get("model_version")
+                .map_or("v1:0", |s| &**s);
+            transformed_payload.model = if let Some(profile_id) = inference_profile_id {
+                format!(
+                    "{}.{}.{}-{}",
+                    profile_id, model_provider, transformed_payload.model, model_version
+                )
+            } else {
+                format!(
+                    "{}.{}-{}",
+                    model_provider, transformed_payload.model, model_version
+                )
+            };
+        }
+
         self.get_provider_implementation(model_config)
-            .completion(&client, payload)
+            .completion(&client, transformed_payload)
             .await
     }
 
@@ -170,8 +206,36 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
+        let mut transformed_payload = payload;
+        
+        // Check if the model is already an ARN or inference profile ID
+        if transformed_payload.model.starts_with("arn:aws:bedrock:") || 
+           transformed_payload.model.contains("inference-profile") {
+            // Use the model identifier as-is for ARNs and inference profiles
+            // No transformation needed
+        } else {
+            // Transform model name to include provider prefix for regular model IDs
+            let model_provider = model_config.params.get("model_provider").unwrap();
+            let inference_profile_id = self.config.params.get("inference_profile_id");
+            let model_version = model_config
+                .params
+                .get("model_version")
+                .map_or("v1:0", |s| &**s);
+            transformed_payload.model = if let Some(profile_id) = inference_profile_id {
+                format!(
+                    "{}.{}.{}-{}",
+                    profile_id, model_provider, transformed_payload.model, model_version
+                )
+            } else {
+                format!(
+                    "{}.{}-{}",
+                    model_provider, transformed_payload.model, model_version
+                )
+            };
+        }
+
         self.get_provider_implementation(model_config)
-            .embedding(&client, payload)
+            .embedding(&client, transformed_payload)
             .await
     }
 }
