@@ -1,3 +1,10 @@
+## v0.4.4 (2025-06-24)
+
+### Fix
+
+- **bedrock**: handle ARN and inference profile identifiers without transformation (#48)
+- **bedrock**: support IAM role auth (#47)
+
 ## v0.4.3 (2025-05-29)
 
 ### Fix
