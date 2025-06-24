@@ -40,22 +40,36 @@ impl ClientProvider for BedrockProvider {
         use aws_credential_types::Credentials;
 
         let region = self.config.params.get("region").unwrap().clone();
-        let access_key_id = self.config.params.get("AWS_ACCESS_KEY_ID").unwrap().clone();
-        let secret_access_key = self
+        let use_iam_role = self
             .config
             .params
-            .get("AWS_SECRET_ACCESS_KEY")
-            .unwrap()
-            .clone();
-        let session_token = self.config.params.get("AWS_SESSION_TOKEN").cloned();
+            .get("use_iam_role")
+            .map_or("false", |s| &**s);
 
-        let credentials = Credentials::from_keys(access_key_id, secret_access_key, session_token);
+        let sdk_config = if use_iam_role.parse::<bool>().unwrap_or(false) {
+            aws_config::defaults(BehaviorVersion::latest())
+                .region(Region::new(region))
+                .load()
+                .await
+        } else {
+            let access_key_id = self.config.params.get("AWS_ACCESS_KEY_ID").unwrap().clone();
+            let secret_access_key = self
+                .config
+                .params
+                .get("AWS_SECRET_ACCESS_KEY")
+                .unwrap()
+                .clone();
+            let session_token = self.config.params.get("AWS_SESSION_TOKEN").cloned();
 
-        let sdk_config = aws_config::defaults(BehaviorVersion::latest())
-            .region(Region::new(region))
-            .credentials_provider(credentials)
-            .load()
-            .await;
+            let credentials =
+                Credentials::from_keys(access_key_id, secret_access_key, session_token);
+
+            aws_config::defaults(BehaviorVersion::latest())
+                .region(Region::new(region))
+                .credentials_provider(credentials)
+                .load()
+                .await
+        };
 
         Ok(BedrockRuntimeClient::new(&sdk_config))
     }
@@ -77,6 +91,31 @@ impl BedrockProvider {
             };
 
         provider_implementation
+    }
+
+    fn transform_model_identifier(&self, model: String, model_config: &ModelConfig) -> String {
+        // Check if the model is already an ARN or inference profile ID
+        if model.starts_with("arn:aws:bedrock:") || model.contains("inference-profile") {
+            // Use the model identifier as-is for ARNs and inference profiles
+            model
+        } else {
+            // Transform model name to include provider prefix for regular model IDs
+            let model_provider = model_config.params.get("model_provider").unwrap();
+            let inference_profile_id = self.config.params.get("inference_profile_id");
+            let model_version = model_config
+                .params
+                .get("model_version")
+                .map_or("v1:0", |s| &**s);
+
+            if let Some(profile_id) = inference_profile_id {
+                format!(
+                    "{}.{}.{}-{}",
+                    profile_id, model_provider, model, model_version
+                )
+            } else {
+                format!("{}.{}-{}", model_provider, model, model_version)
+            }
+        }
     }
 }
 
@@ -106,25 +145,10 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        // Transform model name to include provider prefix
-        let model_provider = model_config.params.get("model_provider").unwrap();
-        let inference_profile_id = self.config.params.get("inference_profile_id");
         let mut transformed_payload = payload;
-        let model_version = model_config
-            .params
-            .get("model_version")
-            .map_or("v1:0", |s| &**s);
-        transformed_payload.model = if let Some(profile_id) = inference_profile_id {
-            format!(
-                "{}.{}.{}-{}",
-                profile_id, model_provider, transformed_payload.model, model_version
-            )
-        } else {
-            format!(
-                "{}.{}-{}",
-                model_provider, transformed_payload.model, model_version
-            )
-        };
+
+        transformed_payload.model =
+            self.transform_model_identifier(transformed_payload.model, model_config);
 
         self.get_provider_implementation(model_config)
             .chat_completion(&client, transformed_payload)
@@ -141,8 +165,13 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
+        let mut transformed_payload = payload;
+
+        transformed_payload.model =
+            self.transform_model_identifier(transformed_payload.model, model_config);
+
         self.get_provider_implementation(model_config)
-            .completion(&client, payload)
+            .completion(&client, transformed_payload)
             .await
     }
 
@@ -156,8 +185,13 @@ impl Provider for BedrockProvider {
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
+        let mut transformed_payload = payload;
+
+        transformed_payload.model =
+            self.transform_model_identifier(transformed_payload.model, model_config);
+
         self.get_provider_implementation(model_config)
-            .embedding(&client, payload)
+            .embedding(&client, transformed_payload)
             .await
     }
 }

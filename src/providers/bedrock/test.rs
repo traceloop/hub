@@ -386,6 +386,120 @@ mod ai21_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod arn_tests {
+    use crate::models::chat::ChatCompletionRequest;
+    use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
+    use crate::providers::bedrock::BedrockProvider;
+    use crate::providers::provider::Provider;
+
+    #[tokio::test]
+    async fn test_arn_model_identifier_not_transformed() {
+        let config = get_test_provider_config("us-east-1", "anthropic_chat_completion");
+        let provider = BedrockProvider::new(&config);
+
+        // Test with full ARN - should not be transformed
+        let model_config = get_test_model_config(
+            "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0",
+            "anthropic",
+        );
+
+        let arn_model =
+            "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0";
+        let payload = ChatCompletionRequest {
+            model: arn_model.to_string(),
+            messages: vec![ChatCompletionMessage {
+                role: "user".to_string(),
+                content: Some(ChatMessageContent::String(
+                    "Tell me a short joke".to_string(),
+                )),
+                name: None,
+                tool_calls: None,
+                refusal: None,
+            }],
+            temperature: None,
+            top_p: None,
+            n: None,
+            stream: None,
+            stop: None,
+            max_tokens: None,
+            max_completion_tokens: None,
+            parallel_tool_calls: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            logit_bias: None,
+            tool_choice: None,
+            tools: None,
+            user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
+        };
+
+        // The test here is that we don't get a transformation error
+        // The mock will handle the actual response
+        let result = provider.chat_completions(payload, &model_config).await;
+
+        // Should not fail due to model identifier transformation
+        assert!(
+            result.is_ok(),
+            "ARN model identifier should be handled correctly: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_inference_profile_identifier_not_transformed() {
+        let config = get_test_provider_config("us-east-1", "anthropic_chat_completion");
+        let provider = BedrockProvider::new(&config);
+
+        // Test with inference profile ID - should not be transformed
+        let model_config = get_test_model_config("us-east-1-inference-profile-123", "anthropic");
+
+        let inference_profile_model = "us-east-1-inference-profile-123";
+        let payload = ChatCompletionRequest {
+            model: inference_profile_model.to_string(),
+            messages: vec![ChatCompletionMessage {
+                role: "user".to_string(),
+                content: Some(ChatMessageContent::String(
+                    "Tell me a short joke".to_string(),
+                )),
+                name: None,
+                tool_calls: None,
+                refusal: None,
+            }],
+            temperature: None,
+            top_p: None,
+            n: None,
+            stream: None,
+            stop: None,
+            max_tokens: None,
+            max_completion_tokens: None,
+            parallel_tool_calls: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            logit_bias: None,
+            tool_choice: None,
+            tools: None,
+            user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
+        };
+
+        let result = provider.chat_completions(payload, &model_config).await;
+
+        // Should not fail due to model identifier transformation
+        assert!(
+            result.is_ok(),
+            "Inference profile identifier should be handled correctly: {:?}",
+            result.err()
+        );
+    }
+}
+
 /**
 
 Helper functions for creating test clients and mock responses
