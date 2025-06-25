@@ -1,3 +1,9 @@
+## v0.4.5 (2025-06-25)
+
+### Fix
+
+- **deps**: revert commitizen unwanted chrono version change (#49)
+
 ## v0.4.4 (2025-06-24)
 
 ### Fix
