@@ -112,6 +112,7 @@ pub struct AzureProviderConfig {
     pub api_key: SecretObject,
     pub resource_name: String,
     pub api_version: String,
+    pub base_url: Option<String>,
 }
 
 /// Configuration specific to AWS Bedrock providers.
