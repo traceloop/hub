@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
 use super::usage::EmbeddingUsage;
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct EmbeddingsRequest {
     pub model: String,
     pub input: EmbeddingsInput,
@@ -13,7 +14,7 @@ pub struct EmbeddingsRequest {
     pub encoding_format: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 #[serde(untagged)]
 pub enum EmbeddingsInput {
     Single(String),
@@ -22,7 +23,7 @@ pub enum EmbeddingsInput {
     MultipleTokenIds(Vec<Vec<i32>>),
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct EmbeddingsResponse {
     pub object: String,
     pub data: Vec<Embeddings>,
@@ -30,14 +31,14 @@ pub struct EmbeddingsResponse {
     pub usage: EmbeddingUsage,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct Embeddings {
     pub object: String,
     pub embedding: Embedding,
     pub index: usize,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 #[serde(untagged)]
 pub enum Embedding {
     String(String),
