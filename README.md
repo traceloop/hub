@@ -298,6 +298,29 @@ For enterprise licensing inquiries, please contact us at [enterprise@traceloop.c
 
 The enterprise features are conditionally compiled and only available when building with the `ee_feature` flag.
 
+### Deployment Options
+
+#### Helm Chart Deployment
+
+The Hub LLM Gateway includes a Helm chart that supports both OSS and Enterprise Edition deployments:
+
+- **OSS Deployment**: Uses static YAML configuration files
+- **EE Deployment**: Uses PostgreSQL database with dynamic configuration management
+
+For detailed EE deployment instructions, see [docs/EE_HELM_DEPLOYMENT.md](docs/EE_HELM_DEPLOYMENT.md).
+
+Quick EE deployment:
+```bash
+# Create PostgreSQL secret
+kubectl create secret generic hub-postgres-secret \
+  --from-literal=password=your-secure-password
+
+# Deploy with EE enabled
+helm upgrade --install hub ./helm \
+  --set ee.enabled=true \
+  --set ee.database.host=your-postgres-host
+```
+
 ---
 
 *Distributed under the Apache 2.0 License for core functionality. See `LICENSE` for more information. Enterprise features require a separate commercial license.*
