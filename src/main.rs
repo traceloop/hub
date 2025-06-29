@@ -122,8 +122,8 @@ async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "ee_feature")]
     {
         if let Some(ee_router) = _ee_router_opt {
-            main_router = main_router.nest("/ee/api/v1", ee_router);
-            info!("EE Management API router mounted at /ee/api/v1.");
+            main_router = main_router.nest("/api/v1/ee", ee_router);
+            info!("EE Management API router mounted at /api/v1/ee.");
         }
 
         if let Some(ee_config_provider) = _ee_config_provider_opt {

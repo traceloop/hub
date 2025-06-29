@@ -120,7 +120,7 @@ mod ee_integration_tests {
 
             let response = self
                 .client
-                .post(format!("{}/ee/api/v1/providers", self.base_url))
+                .post(format!("{}/api/v1/ee/providers", self.base_url))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
@@ -149,7 +149,7 @@ mod ee_integration_tests {
 
             let response = self
                 .client
-                .post(format!("{}/ee/api/v1/model-definitions", self.base_url))
+                .post(format!("{}/api/v1/ee/model-definitions", self.base_url))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
@@ -204,7 +204,7 @@ mod ee_integration_tests {
 
             let response = self
                 .client
-                .post(format!("{}/ee/api/v1/pipelines", self.base_url))
+                .post(format!("{}/api/v1/ee/pipelines", self.base_url))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
@@ -494,7 +494,7 @@ mod ee_integration_tests {
 
         let response = env
             .client
-            .post(format!("{}/ee/api/v1/model-definitions", env.base_url))
+            .post(format!("{}/api/v1/ee/model-definitions", env.base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()
@@ -537,7 +537,7 @@ mod ee_integration_tests {
 
         let response = env
             .client
-            .post(format!("{}/ee/api/v1/pipelines", env.base_url))
+            .post(format!("{}/api/v1/ee/pipelines", env.base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()
@@ -570,7 +570,7 @@ mod ee_integration_tests {
 
         let response = env
             .client
-            .post(format!("{}/ee/api/v1/pipelines", env.base_url))
+            .post(format!("{}/api/v1/ee/pipelines", env.base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()

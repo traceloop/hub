@@ -33,18 +33,18 @@ fn test_ee_openapi_contains_management_routes() {
     let spec = get_openapi_spec();
 
     // Check that EE management routes are present when feature is enabled
-    assert!(spec.paths.paths.contains_key("/ee/api/v1/providers"));
-    assert!(spec.paths.paths.contains_key("/ee/api/v1/providers/{id}"));
+    assert!(spec.paths.paths.contains_key("/api/v1/ee/providers"));
+    assert!(spec.paths.paths.contains_key("/api/v1/ee/providers/{id}"));
     assert!(spec
         .paths
         .paths
-        .contains_key("/ee/api/v1/model-definitions"));
+        .contains_key("/api/v1/ee/model-definitions"));
     assert!(spec
         .paths
         .paths
-        .contains_key("/ee/api/v1/model-definitions/{id}"));
-    assert!(spec.paths.paths.contains_key("/ee/api/v1/pipelines"));
-    assert!(spec.paths.paths.contains_key("/ee/api/v1/pipelines/{id}"));
+        .contains_key("/api/v1/ee/model-definitions/{id}"));
+    assert!(spec.paths.paths.contains_key("/api/v1/ee/pipelines"));
+    assert!(spec.paths.paths.contains_key("/api/v1/ee/pipelines/{id}"));
 
     // Check that EE schemas are present
     let components = spec.components.as_ref().unwrap();
@@ -62,12 +62,12 @@ fn test_oss_only_openapi_excludes_ee_routes() {
     let spec = get_openapi_spec();
 
     // Check that EE routes are NOT present when feature is disabled
-    assert!(!spec.paths.paths.contains_key("/ee/api/v1/providers"));
+    assert!(!spec.paths.paths.contains_key("/api/v1/ee/providers"));
     assert!(!spec
         .paths
         .paths
-        .contains_key("/ee/api/v1/model-definitions"));
-    assert!(!spec.paths.paths.contains_key("/ee/api/v1/pipelines"));
+        .contains_key("/api/v1/ee/model-definitions"));
+    assert!(!spec.paths.paths.contains_key("/api/v1/ee/pipelines"));
 
     // Check that EE-specific schemas are NOT present
     let components = spec.components.as_ref().unwrap();
@@ -106,7 +106,7 @@ fn test_openapi_spec_is_valid() {
             "Should indicate EE in title"
         );
         assert!(
-            spec.paths.paths.contains_key("/ee/api/v1/providers"),
+            spec.paths.paths.contains_key("/api/v1/ee/providers"),
             "Should contain EE provider endpoints"
         );
     }
@@ -119,7 +119,7 @@ fn test_openapi_spec_is_valid() {
             "Should not indicate EE in title"
         );
         assert!(
-            !spec.paths.paths.contains_key("/ee/api/v1/providers"),
+            !spec.paths.paths.contains_key("/api/v1/ee/providers"),
             "Should not contain EE endpoints"
         );
     }
@@ -187,7 +187,7 @@ async fn test_ee_openapi_routes_no_conflict() {
     // This tests the route structure without the Prometheus layer that causes conflicts
     let _test_router = axum::Router::new()
         .route("/health", axum::routing::get(|| async { "Working!" }))
-        .nest("/ee/api/v1", ee_router);
+        .nest("/api/v1/ee", ee_router);
 
     // If we get here, the combined router was created successfully without conflicts
     assert!(

@@ -16,7 +16,7 @@ use crate::{
 
 #[utoipa::path(
     post,
-    path = "/ee/api/v1/pipelines",
+    path = "/api/v1/ee/pipelines",
     request_body = CreatePipelineRequestDto,
     responses(
         (status = 201, description = "Pipeline created successfully", body = PipelineResponseDto),
@@ -37,7 +37,7 @@ async fn create_pipeline_handler(
 
 #[utoipa::path(
     get,
-    path = "/ee/api/v1/pipelines",
+    path = "/api/v1/ee/pipelines",
     responses(
         (status = 200, description = "List of pipelines", body = Vec<PipelineResponseDto>),
         (status = 500, description = "Internal server error", body = ApiError)
@@ -54,7 +54,7 @@ async fn list_pipelines_handler(
 
 #[utoipa::path(
     get,
-    path = "/ee/api/v1/pipelines/{id}",
+    path = "/api/v1/ee/pipelines/{id}",
     params(
         ("id" = Uuid, Path, description = "Pipeline ID")
     ),
@@ -76,7 +76,7 @@ async fn get_pipeline_handler(
 
 #[utoipa::path(
     get,
-    path = "/ee/api/v1/pipelines/name/{name}",
+    path = "/api/v1/ee/pipelines/name/{name}",
     params(
         ("name" = String, Path, description = "Pipeline Name")
     ),
@@ -101,7 +101,7 @@ async fn get_pipeline_by_name_handler(
 
 #[utoipa::path(
     put,
-    path = "/ee/api/v1/pipelines/{id}",
+    path = "/api/v1/ee/pipelines/{id}",
     request_body = UpdatePipelineRequestDto,
     params(
         ("id" = Uuid, Path, description = "Pipeline ID")
@@ -130,7 +130,7 @@ async fn update_pipeline_handler(
 
 #[utoipa::path(
     delete,
-    path = "/ee/api/v1/pipelines/{id}",
+    path = "/api/v1/ee/pipelines/{id}",
     params(
         ("id" = Uuid, Path, description = "Pipeline ID")
     ),
