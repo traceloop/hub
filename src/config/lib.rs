@@ -67,6 +67,23 @@ pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Erro
     Ok(gateway_config)
 }
 
+#[cfg(feature = "ee_feature")]
+fn parse_env_var_bool(var: &str) -> Option<bool> {
+    match var.to_lowercase().as_str() {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
+    }
+}
+
 pub fn get_trace_content_enabled() -> bool {
+    #[cfg(feature = "ee_feature")]
+    {
+        if let Ok(env_value) = std::env::var("TRACE_CONTENT_ENABLED") {
+            if let Some(val) = parse_env_var_bool(&env_value) {
+                return val;
+            }
+        }
+    }
     *TRACE_CONTENT_ENABLED.get_or_init(|| true)
 }
