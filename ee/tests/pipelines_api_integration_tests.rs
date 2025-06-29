@@ -115,6 +115,7 @@ async fn create_test_provider(
                 key_suffix
             ))),
             aws_session_token: None,
+            use_iam_role: Some(false),
         }),
         ProviderType::VertexAI => ProviderConfig::VertexAI(VertexAIProviderConfig {
             project_id: format!("vertexai_project_{}", key_suffix),

@@ -80,6 +80,7 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
                 aws_secret_access_key: Some(SecretObject::literal("test_secret_key".to_string())),
                 aws_session_token: None,
                 region: "us-east-1".to_string(),
+                use_iam_role: Some(false),
             }),
             updated_config: ProviderConfig::Bedrock(BedrockProviderConfig {
                 aws_access_key_id: Some(SecretObject::literal("updated_access_key".to_string())),
@@ -88,6 +89,7 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
                 )),
                 aws_session_token: Some(SecretObject::literal("session_token".to_string())),
                 region: "us-west-2".to_string(),
+                use_iam_role: Some(false),
             }),
         },
         ProviderTestData {
@@ -314,6 +316,7 @@ async fn test_get_provider_success() {
             aws_secret_access_key: Some(SecretObject::literal("bedrock_secret_key".to_string())),
             aws_session_token: None,
             region: "us-east-1".to_string(),
+            use_iam_role: Some(false),
         }),
         enabled: Some(true),
     };
@@ -1399,4 +1402,24 @@ async fn test_update_provider_with_very_long_name() {
             update_response.status_code()
         );
     }
+}
+
+#[test]
+fn test_bedrock_provider_config_with_iam_role() {
+    let config_iam = BedrockProviderConfig {
+        aws_access_key_id: None,
+        aws_secret_access_key: None,
+        aws_session_token: None,
+        region: "us-east-1".to_string(),
+        use_iam_role: Some(true),
+    };
+    let config_explicit = BedrockProviderConfig {
+        aws_access_key_id: Some(SecretObject::literal("key".to_string())),
+        aws_secret_access_key: Some(SecretObject::literal("secret".to_string())),
+        aws_session_token: None,
+        region: "us-east-1".to_string(),
+        use_iam_role: Some(false),
+    };
+    assert_eq!(config_iam.use_iam_role, Some(true));
+    assert_eq!(config_explicit.use_iam_role, Some(false));
 }

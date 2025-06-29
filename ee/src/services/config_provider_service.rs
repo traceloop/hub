@@ -150,7 +150,7 @@ impl ConfigProviderService {
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
             EeProviderConfig::Bedrock(c) => {
-                params.insert("region".to_string(), c.region);
+                params.insert("region".to_string(), c.region.clone());
                 if let Some(access_key) = &c.aws_access_key_id {
                     let resolved_key = self.secret_resolver.resolve_secret(access_key).await?;
                     params.insert("AWS_ACCESS_KEY_ID".to_string(), resolved_key);
@@ -162,6 +162,9 @@ impl ConfigProviderService {
                 if let Some(token) = &c.aws_session_token {
                     let resolved_token = self.secret_resolver.resolve_secret(token).await?;
                     params.insert("AWS_SESSION_TOKEN".to_string(), resolved_token);
+                }
+                if let Some(use_iam_role) = c.use_iam_role {
+                    params.insert("use_iam_role".to_string(), use_iam_role.to_string());
                 }
                 None
             }
