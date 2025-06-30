@@ -19,6 +19,9 @@ jobs:
           - variant: "ee"
             dockerfile: "Dockerfile.ee"
             suffix: "-ee"
+          - variant: "ee-migrations"
+            dockerfile: "Dockerfile.ee-migrations"
+            suffix: "-ee-migrations"
     
     permissions:
       id-token: write
