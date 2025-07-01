@@ -122,6 +122,8 @@ pub struct BedrockProviderConfig {
     pub aws_secret_access_key: Option<SecretObject>,
     pub aws_session_token: Option<SecretObject>,
     pub region: String,
+    pub use_iam_role: Option<bool>,
+    pub inference_profile_id: Option<String>,
 }
 
 /// Configuration specific to Google VertexAI providers.

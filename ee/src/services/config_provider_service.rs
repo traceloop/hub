@@ -154,6 +154,12 @@ impl ConfigProviderService {
             }
             EeProviderConfig::Bedrock(c) => {
                 params.insert("region".to_string(), c.region);
+                if let Some(use_iam_role) = c.use_iam_role {
+                    params.insert("use_iam_role".to_string(), use_iam_role.to_string());
+                }
+                if let Some(inference_profile_id) = c.inference_profile_id {
+                    params.insert("inference_profile_id".to_string(), inference_profile_id);
+                }
                 if let Some(access_key) = &c.aws_access_key_id {
                     let resolved_key = self.secret_resolver.resolve_secret(access_key).await?;
                     params.insert("AWS_ACCESS_KEY_ID".to_string(), resolved_key);
