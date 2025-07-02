@@ -144,6 +144,9 @@ impl ConfigProviderService {
             EeProviderConfig::Azure(c) => {
                 params.insert("resource_name".to_string(), c.resource_name);
                 params.insert("api_version".to_string(), c.api_version);
+                if let Some(base_url) = c.base_url {
+                    params.insert("base_url".to_string(), base_url);
+                }
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
             EeProviderConfig::Anthropic(c) => {
@@ -165,6 +168,9 @@ impl ConfigProviderService {
                 }
                 if let Some(use_iam_role) = c.use_iam_role {
                     params.insert("use_iam_role".to_string(), use_iam_role.to_string());
+                }
+                if let Some(inference_profile_id) = c.inference_profile_id {
+                    params.insert("inference_profile_id".to_string(), inference_profile_id);
                 }
                 None
             }

@@ -1,4 +1,4 @@
-use hub_gateway_core_types::GatewayConfig; // For type hint
+use hub_gateway_core_types::GatewayConfig;
 use hub_lib::{config, routes, state::AppState};
 use std::sync::Arc;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};

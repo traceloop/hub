@@ -72,6 +72,15 @@ spec:
                   key: {{ .Values.ee.database.passwordKey }}
             - name: DB_POLL_INTERVAL_SECONDS
               value: {{ .Values.ee.config.pollIntervalSeconds | quote }}
+            # Dynamic environment variables from arbitrary secrets
+            {{- range $envVar, $secretRef := .Values.ee.secrets }}
+            - name: {{ $envVar }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretRef.secretName }}
+                  key: {{ $secretRef.key }}
+                  optional: false
+            {{- end }}
             {{- end }}
           ports:
             - name: http

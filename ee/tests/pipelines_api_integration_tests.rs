@@ -100,6 +100,7 @@ async fn create_test_provider(
             api_key: SecretObject::literal(format!("azure_key_{}", key_suffix)),
             api_version: "2023-05-15".to_string(),
             resource_name: format!("azure_res_{}", key_suffix),
+            base_url: None,
         }),
         ProviderType::Anthropic => ProviderConfig::Anthropic(AnthropicProviderConfig {
             api_key: SecretObject::literal(format!("anthropic_key_{}", key_suffix)),
@@ -116,6 +117,7 @@ async fn create_test_provider(
             ))),
             aws_session_token: None,
             use_iam_role: Some(false),
+            inference_profile_id: None,
         }),
         ProviderType::VertexAI => ProviderConfig::VertexAI(VertexAIProviderConfig {
             project_id: format!("vertexai_project_{}", key_suffix),

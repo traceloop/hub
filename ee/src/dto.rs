@@ -112,6 +112,7 @@ pub struct AzureProviderConfig {
     pub api_key: SecretObject,
     pub resource_name: String,
     pub api_version: String,
+    pub base_url: Option<String>,
 }
 
 /// Configuration specific to AWS Bedrock providers.
@@ -122,6 +123,7 @@ pub struct BedrockProviderConfig {
     pub aws_session_token: Option<SecretObject>,
     pub region: String,
     pub use_iam_role: Option<bool>,
+    pub inference_profile_id: Option<String>,
 }
 
 /// Configuration specific to Google VertexAI providers.

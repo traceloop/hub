@@ -55,11 +55,13 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
                 api_key: SecretObject::literal("test_azure_key".to_string()),
                 resource_name: "test_resource".to_string(),
                 api_version: "2023-05-15".to_string(),
+                base_url: None,
             }),
             updated_config: ProviderConfig::Azure(AzureProviderConfig {
                 api_key: SecretObject::literal("updated_azure_key".to_string()),
                 resource_name: "updated_resource".to_string(),
                 api_version: "2024-02-01".to_string(),
+                base_url: None,
             }),
         },
         ProviderTestData {
@@ -81,6 +83,7 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
                 aws_session_token: None,
                 region: "us-east-1".to_string(),
                 use_iam_role: Some(false),
+                inference_profile_id: None,
             }),
             updated_config: ProviderConfig::Bedrock(BedrockProviderConfig {
                 aws_access_key_id: Some(SecretObject::literal("updated_access_key".to_string())),
@@ -90,6 +93,7 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
                 aws_session_token: Some(SecretObject::literal("session_token".to_string())),
                 region: "us-west-2".to_string(),
                 use_iam_role: Some(false),
+                inference_profile_id: None,
             }),
         },
         ProviderTestData {
@@ -289,6 +293,7 @@ async fn test_create_provider_duplicate_name() {
             api_key: SecretObject::literal("azure_key_2".to_string()),
             resource_name: "res2".to_string(),
             api_version: "v2".to_string(),
+            base_url: None,
         }),
         enabled: Some(false),
     };
@@ -317,6 +322,7 @@ async fn test_get_provider_success() {
             aws_session_token: None,
             region: "us-east-1".to_string(),
             use_iam_role: Some(false),
+            inference_profile_id: None,
         }),
         enabled: Some(true),
     };
@@ -408,6 +414,7 @@ async fn test_list_providers_multiple() {
             api_key: SecretObject::literal("key2".to_string()),
             resource_name: "res2".to_string(),
             api_version: "v2".to_string(),
+            base_url: None,
         }),
         enabled: Some(false),
     };
@@ -609,6 +616,7 @@ async fn test_update_provider_duplicate_name_conflict() {
             api_key: SecretObject::literal("key_B".to_string()),
             resource_name: "resB".to_string(),
             api_version: "vB".to_string(),
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -653,6 +661,7 @@ async fn test_delete_provider_success() {
             api_key: SecretObject::literal("delete_key".to_string()),
             resource_name: "del_res".to_string(),
             api_version: "del_v".to_string(),
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -1364,6 +1373,7 @@ async fn test_update_provider_with_very_long_name() {
             api_key: SecretObject::literal("test_key".to_string()),
             resource_name: "test_resource".to_string(),
             api_version: "2023-05-15".to_string(),
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -1412,6 +1422,7 @@ fn test_bedrock_provider_config_with_iam_role() {
         aws_session_token: None,
         region: "us-east-1".to_string(),
         use_iam_role: Some(true),
+        inference_profile_id: None,
     };
     let config_explicit = BedrockProviderConfig {
         aws_access_key_id: Some(SecretObject::literal("key".to_string())),
@@ -1419,6 +1430,7 @@ fn test_bedrock_provider_config_with_iam_role() {
         aws_session_token: None,
         region: "us-east-1".to_string(),
         use_iam_role: Some(false),
+        inference_profile_id: None,
     };
     assert_eq!(config_iam.use_iam_role, Some(true));
     assert_eq!(config_explicit.use_iam_role, Some(false));

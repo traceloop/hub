@@ -76,6 +76,7 @@ async fn create_test_provider(
             api_key: SecretObject::literal("test_azure_key".to_string()),
             resource_name: "test_resource".to_string(),
             api_version: "2023-05-15".to_string(),
+            base_url: None,
         }),
         ProviderType::OpenAI => ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal("test_openai_key".to_string()),
