@@ -102,7 +102,7 @@ pub async fn chat_completions(
         }
     }
 
-    tracer.log_error("No matching model found".to_string());
+    tracer.log_error("No matching model found ".to_string());
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
