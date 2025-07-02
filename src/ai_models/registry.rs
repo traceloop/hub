@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use super::instance::ModelInstance;
 use crate::config::models::ModelConfig;
-use crate::providers::registry::ProviderRegistry;
 use crate::models::responses::{ModelInfoResponse, ModelListResponse};
+use crate::providers::registry::ProviderRegistry;
 
 #[derive(Clone)]
 pub struct ModelRegistry {
@@ -42,7 +42,8 @@ impl ModelRegistry {
     pub fn get_filtered_model_info(&self, allowed_models: &[String]) -> ModelListResponse {
         ModelListResponse {
             object: "list".to_string(),
-            data: self.models
+            data: self
+                .models
                 .values()
                 .filter(|model| allowed_models.contains(&model.name))
                 .map(|model| ModelInfoResponse {
@@ -50,7 +51,7 @@ impl ModelRegistry {
                     object: "model".to_string(),
                     owned_by: model.provider.key(),
                 })
-                .collect()
+                .collect(),
         }
     }
 }

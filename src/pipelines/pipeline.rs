@@ -12,7 +12,12 @@ use crate::{
 use async_stream::stream;
 use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Sse};
-use axum::{extract::State, http::StatusCode, routing::{post, get}, Json, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
 use reqwest_streams::error::StreamBodyError;
@@ -20,8 +25,10 @@ use std::sync::Arc;
 
 pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> Router {
     let mut router = Router::new();
-    
-    let available_models: Vec<String> = pipeline.plugins.iter()
+
+    let available_models: Vec<String> = pipeline
+        .plugins
+        .iter()
         .find_map(|plugin| {
             if let PluginConfig::ModelRouter { models } = plugin {
                 Some(models.clone())
@@ -33,10 +40,12 @@ pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> R
 
     router = router.route(
         "/models",
-        get(move |State(model_registry): State<Arc<ModelRegistry>>| async move {
-            let model_info = model_registry.get_filtered_model_info(&available_models);
-            Json(model_info)
-        }),
+        get(
+            move |State(model_registry): State<Arc<ModelRegistry>>| async move {
+                let model_info = model_registry.get_filtered_model_info(&available_models);
+                Json(model_info)
+            },
+        ),
     );
 
     for plugin in pipeline.plugins.clone() {
