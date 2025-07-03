@@ -186,11 +186,11 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let port_str = std::env::var("PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port_str))
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port_str}"))
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to bind to port {}: {}", port_str, e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to bind to port {port_str}: {e}"))?;
 
-    info!("Server is running on port {}", port_str);
+    info!("Server is running on port {port_str}");
     axum::serve(listener, app_with_tracing.into_make_service())
         .await
         .unwrap();
