@@ -41,10 +41,10 @@ async fn get_initial_config_and_services(
         // info!("EE migrations run successfully.");
         // For now, assume migrations are run separately or by the EE crate itself if it exposes such a utility.
 
-        let dbIntegration = db_based_config_integration(pool).await?;
+        let db_integration = db_based_config_integration(pool).await?;
         info!("DB based config integration initialized.");
 
-        match dbIntegration.config_provider.fetch_live_config().await {
+        match db_integration.config_provider.fetch_live_config().await {
             Ok(initial_db_config) => {
                 info!("Successfully fetched initial configuration from database.");
                 if let Err(val_errors) =
@@ -62,8 +62,8 @@ async fn get_initial_config_and_services(
                 info!("Initial database configuration validated successfully.");
                 Ok((
                     initial_db_config,
-                    Some(dbIntegration.router.clone()),
-                    Some(dbIntegration.config_provider.clone()),
+                    Some(db_integration.router.clone()),
+                    Some(db_integration.config_provider.clone()),
                 ))
             }
             Err(e) => {
