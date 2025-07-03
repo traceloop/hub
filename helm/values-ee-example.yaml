@@ -158,6 +158,23 @@ ee:
 #     passwordKey: "password"
 #   config:
 #     pollIntervalSeconds: 60  # Production setting
+#   # Arbitrary environment variables from secrets
+#   secrets:
+#     OPENAI_API_KEY:
+#       secretName: "llm-providers"
+#       key: "openai_key"
+#     ANTHROPIC_API_KEY:
+#       secretName: "llm-providers"  
+#       key: "anthropic_key"
+#     AWS_ACCESS_KEY_ID:
+#       secretName: "cloud-credentials"
+#       key: "aws_access_key"
+#     AWS_SECRET_ACCESS_KEY:
+#       secretName: "cloud-credentials"
+#       key: "aws_secret_key"
+#     AZURE_OPENAI_API_KEY:
+#       secretName: "azure-config"
+#       key: "api_key"
 #   migrations:
 #     image:
 #       repository: "docker.io/traceloop/hub-ee-migrations"
