@@ -164,9 +164,7 @@ impl Provider for VertexAIProvider {
                 "projects/{}/locations/{}/publishers/google/models/{}",
                 self.project_id, self.location, payload.model
             );
-            format!(
-                "https://{service_endpoint}/v1/{full_model_path}:{endpoint_suffix}"
-            )
+            format!("https://{service_endpoint}/v1/{full_model_path}:{endpoint_suffix}")
         };
 
         let request_body = GeminiChatRequest::from(payload.clone());

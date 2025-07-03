@@ -475,7 +475,7 @@ impl std::str::FromStr for PluginType {
             "model-router" => Ok(PluginType::ModelRouter),
             "logging" => Ok(PluginType::Logging),
             "tracing" => Ok(PluginType::Tracing),
-            _ => Err(format!("Unknown plugin type: {s}"))
+            _ => Err(format!("Unknown plugin type: {s}")),
         }
     }
 }
