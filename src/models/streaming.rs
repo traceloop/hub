@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use super::logprob::ChoiceLogprobs;
 use super::tool_calls::ChatMessageToolCall;
 use super::usage::Usage;
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, ToSchema)]
 pub struct Delta {
     pub role: Option<String>,
     pub content: Option<String>,
@@ -12,7 +13,7 @@ pub struct Delta {
     pub tool_calls: Option<Vec<ChatMessageToolCall>>,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ToSchema)]
 pub struct ChoiceDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
@@ -22,7 +23,7 @@ pub struct ChoiceDelta {
     pub tool_calls: Option<Vec<ChatMessageToolCall>>,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ToSchema)]
 pub struct Choice {
     pub delta: ChoiceDelta,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,7 +33,7 @@ pub struct Choice {
     pub logprobs: Option<ChoiceLogprobs>,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ToSchema)]
 pub struct ChatCompletionChunk {
     pub id: String,
     pub choices: Vec<Choice>,

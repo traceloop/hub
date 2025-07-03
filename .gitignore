@@ -22,3 +22,11 @@ config.yaml
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 .vscode/
+.DS_Store
+
+prd/
+memory-bank/
+.cursor/
+
+# Environment variables
+.env
