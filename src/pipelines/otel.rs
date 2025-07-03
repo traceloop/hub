@@ -28,7 +28,7 @@ impl OtelTracer {
     pub fn init(endpoint: String, api_key: String) {
         global::set_text_map_propagator(TraceContextPropagator::new());
         let mut headers = HashMap::new();
-        headers.insert("Authorization".to_string(), format!("Bearer {}", api_key));
+        headers.insert("Authorization".to_string(), format!("Bearer {api_key}"));
 
         let exporter: SpanExporter = SpanExporter::builder()
             .with_http()
@@ -47,7 +47,7 @@ impl OtelTracer {
     pub fn start<T: RecordSpan>(operation: &str, request: &T) -> Self {
         let tracer = global::tracer("traceloop_hub");
         let mut span = tracer
-            .span_builder(format!("traceloop_hub.{}", operation))
+            .span_builder(format!("traceloop_hub.{operation}"))
             .with_kind(SpanKind::Client)
             .start(&tracer);
 
@@ -159,11 +159,11 @@ impl RecordSpan for ChatCompletionRequest {
             for (i, message) in self.messages.iter().enumerate() {
                 if let Some(content) = &message.content {
                     span.set_attribute(KeyValue::new(
-                        format!("gen_ai.prompt.{}.role", i),
+                        format!("gen_ai.prompt.{i}.role"),
                         message.role.clone(),
                     ));
                     span.set_attribute(KeyValue::new(
-                        format!("gen_ai.prompt.{}.content", i),
+                        format!("gen_ai.prompt.{i}.content"),
                         match &content {
                             ChatMessageContent::String(content) => content.clone(),
                             ChatMessageContent::Array(content) => {
@@ -274,11 +274,11 @@ impl RecordSpan for EmbeddingsRequest {
                 EmbeddingsInput::Multiple(texts) => {
                     for (i, text) in texts.iter().enumerate() {
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.role", i),
+                            format!("llm.prompt.{i}.role"),
                             "user".to_string(),
                         ));
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.content", i),
+                            format!("llm.prompt.{i}.content"),
                             text.clone(),
                         ));
                     }
@@ -286,18 +286,18 @@ impl RecordSpan for EmbeddingsRequest {
                 EmbeddingsInput::SingleTokenIds(token_ids) => {
                     span.set_attribute(KeyValue::new(
                         "llm.prompt.0.content",
-                        format!("{:?}", token_ids),
+                        format!("{token_ids:?}"),
                     ));
                 }
                 EmbeddingsInput::MultipleTokenIds(token_ids) => {
                     for (i, token_ids) in token_ids.iter().enumerate() {
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.role", i),
+                            format!("llm.prompt.{i}.role"),
                             "user".to_string(),
                         ));
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.content", i),
-                            format!("{:?}", token_ids),
+                            format!("llm.prompt.{i}.content"),
+                            format!("{token_ids:?}"),
                         ));
                     }
                 }

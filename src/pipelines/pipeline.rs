@@ -62,7 +62,7 @@ fn trace_and_stream(
                     Event::default().json_data(chunk)
                 }
                 Err(e) => {
-                    eprintln!("Error in stream: {:?}", e);
+                    eprintln!("Error in stream: {e:?}");
                     tracer.log_error(e.to_string());
                     Err(axum::Error::new(e))
                 }
@@ -87,7 +87,7 @@ pub async fn chat_completions(
                 .chat_completions(payload.clone())
                 .await
                 .inspect_err(|e| {
-                    eprintln!("Chat completion error for model {}: {:?}", model_key, e);
+                    eprintln!("Chat completion error for model {model_key}: {e:?}");
                 })?;
 
             if let ChatCompletionResponse::NonStream(completion) = response {
@@ -120,7 +120,7 @@ pub async fn completions(
 
         if payload.model == model.model_type {
             let response = model.completions(payload.clone()).await.inspect_err(|e| {
-                eprintln!("Completion error for model {}: {:?}", model_key, e);
+                eprintln!("Completion error for model {model_key}: {e:?}");
             })?;
             tracer.log_success(&response);
             return Ok(Json(response));
@@ -144,7 +144,7 @@ pub async fn embeddings(
 
         if payload.model == model.model_type {
             let response = model.embeddings(payload.clone()).await.inspect_err(|e| {
-                eprintln!("Embeddings error for model {}: {:?}", model_key, e);
+                eprintln!("Embeddings error for model {model_key}: {e:?}");
             })?;
             tracer.log_success(&response);
             return Ok(Json(response));

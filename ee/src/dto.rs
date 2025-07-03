@@ -88,7 +88,7 @@ impl std::str::FromStr for ProviderType {
             "anthropic" => Ok(ProviderType::Anthropic),
             "bedrock" => Ok(ProviderType::Bedrock),
             "vertexai" => Ok(ProviderType::VertexAI),
-            _ => Err(format!("Unknown provider type: {}", s)),
+            _ => Err(format!("Unknown provider type: {s}")),
         }
     }
 }
@@ -475,7 +475,7 @@ impl std::str::FromStr for PluginType {
             "model-router" => Ok(PluginType::ModelRouter),
             "logging" => Ok(PluginType::Logging),
             "tracing" => Ok(PluginType::Tracing),
-            _ => Err(format!("Unknown plugin type: {}", s)),
+            _ => Err(format!("Unknown plugin type: {s}"))
         }
     }
 }
