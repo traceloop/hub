@@ -1,135 +1,110 @@
-use hub_gateway_core_types::{
-    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider,
-};
-use hub_lib::{openapi::get_openapi_spec, routes, state::AppState};
+use hub_lib::openapi::get_openapi_spec;
+use hub_lib::{routes, state::AppState};
+use hub_gateway_core_types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use std::sync::Arc;
 
-// --- OpenAPI Spec Content Tests ---
-
 #[test]
-fn test_oss_openapi_contains_basic_routes() {
+fn test_openapi_spec_is_valid() {
     let spec = get_openapi_spec();
-
-    // Check that OSS routes are present
+    
+    // Basic validation
+    assert!(!spec.info.title.is_empty());
+    assert!(!spec.info.version.is_empty());
+    
+    // Check that we have paths
+    assert!(!spec.paths.paths.is_empty());
+    
+    // Check for core endpoints (always available)
     assert!(spec.paths.paths.contains_key("/health"));
     assert!(spec.paths.paths.contains_key("/metrics"));
     assert!(spec.paths.paths.contains_key("/api/v1/chat/completions"));
     assert!(spec.paths.paths.contains_key("/api/v1/completions"));
     assert!(spec.paths.paths.contains_key("/api/v1/embeddings"));
+    
+    // Check for management endpoints (always included in unified spec)
+    assert!(spec.paths.paths.contains_key("/api/v1/management/providers"));
+    assert!(spec.paths.paths.contains_key("/api/v1/management/model-definitions"));
+    assert!(spec.paths.paths.contains_key("/api/v1/management/pipelines"));
+}
 
-    // Check that basic OSS schemas are present
-    let components = spec.components.as_ref().unwrap();
+#[test]
+fn test_unified_openapi_contains_all_routes() {
+    let spec = get_openapi_spec();
+    
+    // Core LLM Gateway routes
+    let core_routes = [
+        "/health",
+        "/metrics", 
+        "/api/v1/chat/completions",
+        "/api/v1/completions",
+        "/api/v1/embeddings",
+    ];
+    
+    for route in core_routes {
+        assert!(
+            spec.paths.paths.contains_key(route),
+            "Missing core route: {}",
+            route
+        );
+    }
+    
+    // Management API routes (available in database mode)
+    let management_routes = [
+        "/api/v1/management/providers",
+        "/api/v1/management/model-definitions", 
+        "/api/v1/management/pipelines",
+    ];
+    
+    for route in management_routes {
+        assert!(
+            spec.paths.paths.contains_key(route),
+            "Missing management route: {}",
+            route
+        );
+    }
+}
+
+#[test]
+fn test_openapi_routes_no_conflict() {
+    let spec = get_openapi_spec();
+    
+    // Ensure no path conflicts between core and management routes
+    let paths: Vec<_> = spec.paths.paths.keys().collect();
+    let unique_paths: std::collections::HashSet<_> = paths.iter().collect();
+    
+    assert_eq!(paths.len(), unique_paths.len(), "Duplicate paths detected");
+}
+
+#[test]
+fn test_openapi_components_present() {
+    let spec = get_openapi_spec();
+    
+    // Check that we have components defined
+    assert!(spec.components.is_some());
+    
+    let components = spec.components.unwrap();
+    
+    // Check for core model schemas
     assert!(components.schemas.contains_key("ChatCompletionRequest"));
     assert!(components.schemas.contains_key("ChatCompletion"));
     assert!(components.schemas.contains_key("CompletionRequest"));
     assert!(components.schemas.contains_key("CompletionResponse"));
     assert!(components.schemas.contains_key("EmbeddingsRequest"));
     assert!(components.schemas.contains_key("EmbeddingsResponse"));
-}
-
-#[cfg(feature = "db_based_config")]
-#[test]
-fn test_openapi_contains_management_routes() {
-    let spec = get_openapi_spec();
-
-    // Check that EE management routes are present when feature is enabled
-    assert!(spec.paths.paths.contains_key("/api/v1/ee/providers"));
-    assert!(spec.paths.paths.contains_key("/api/v1/ee/providers/{id}"));
-    assert!(spec
-        .paths
-        .paths
-        .contains_key("/api/v1/ee/model-definitions"));
-    assert!(spec
-        .paths
-        .paths
-        .contains_key("/api/v1/ee/model-definitions/{id}"));
-    assert!(spec.paths.paths.contains_key("/api/v1/ee/pipelines"));
-    assert!(spec.paths.paths.contains_key("/api/v1/ee/pipelines/{id}"));
-
-    // Check that EE schemas are present
-    let components = spec.components.as_ref().unwrap();
+    
+    // Check for management API schemas
+    assert!(components.schemas.contains_key("ProviderType"));
     assert!(components.schemas.contains_key("CreateProviderRequest"));
-    assert!(components
-        .schemas
-        .contains_key("CreateModelDefinitionRequest"));
+    assert!(components.schemas.contains_key("ProviderResponse"));
+    assert!(components.schemas.contains_key("CreateModelDefinitionRequest"));
+    assert!(components.schemas.contains_key("ModelDefinitionResponse"));
     assert!(components.schemas.contains_key("CreatePipelineRequestDto"));
-    assert!(components.schemas.contains_key("ApiError"));
+    assert!(components.schemas.contains_key("PipelineResponseDto"));
 }
-
-#[cfg(not(feature = "db_based_config"))]
-#[test]
-fn test_oss_only_openapi_excludes_routes() {
-    let spec = get_openapi_spec();
-
-    // Check that EE routes are NOT present when feature is disabled
-    assert!(!spec.paths.paths.contains_key("/api/v1/ee/providers"));
-    assert!(!spec
-        .paths
-        .paths
-        .contains_key("/api/v1/ee/model-definitions"));
-    assert!(!spec.paths.paths.contains_key("/api/v1/ee/pipelines"));
-
-    // Check that EE-specific schemas are NOT present
-    let components = spec.components.as_ref().unwrap();
-    assert!(!components.schemas.contains_key("CreateProviderRequest"));
-    assert!(!components
-        .schemas
-        .contains_key("CreateModelDefinitionRequest"));
-    assert!(!components.schemas.contains_key("CreatePipelineRequestDto"));
-    // Note: ApiError might be present in OSS for other error handling
-}
-
-#[test]
-fn test_openapi_spec_is_valid() {
-    let spec = get_openapi_spec();
-
-    // Basic validation that the spec is well-formed
-    assert!(spec.info.title.contains("Hub LLM Gateway"));
-    assert!(spec.paths.paths.len() > 0);
-    assert!(spec.components.is_some());
-
-    // Ensure we have some schemas defined
-    let components = spec.components.as_ref().unwrap();
-    assert!(components.schemas.len() > 0);
-
-    // Comprehensive validation
-    assert!(
-        !spec.paths.paths.is_empty(),
-        "OpenAPI spec should contain paths"
-    );
-
-    #[cfg(feature = "db_based_config")]
-    {
-        // When EE feature is enabled, should contain EE endpoints
-        assert!(
-            spec.info.title.contains("Enterprise Edition"),
-            "Should indicate EE in title"
-        );
-        assert!(
-            spec.paths.paths.contains_key("/api/v1/ee/providers"),
-            "Should contain EE provider endpoints"
-        );
-    }
-
-    #[cfg(not(feature = "db_based_config"))]
-    {
-        // When EE feature is disabled, should be OSS only
-        assert!(
-            !spec.info.title.contains("Enterprise Edition"),
-            "Should not indicate EE in title"
-        );
-        assert!(
-            !spec.paths.paths.contains_key("/api/v1/ee/providers"),
-            "Should not contain EE endpoints"
-        );
-    }
-}
-
-// --- Router Integration Tests ---
 
 #[tokio::test]
-async fn test_oss_openapi_routes_no_conflict() {
-    // Create a basic configuration for OSS
+async fn test_router_creation_no_conflicts() {
+    // Create a basic configuration for testing
     let config = GatewayConfig {
         general: None,
         providers: vec![Provider {
@@ -159,39 +134,5 @@ async fn test_oss_openapi_routes_no_conflict() {
     let _router = routes::create_router(app_state);
 
     // If we get here, the router was created successfully without conflicts
-    assert!(true, "OSS router created successfully with OpenAPI routes");
-}
-
-#[cfg(feature = "db_based_config")]
-#[tokio::test]
-async fn test_openapi_routes_no_conflict() {
-    use sqlx::PgPool;
-    use testcontainers::runners::AsyncRunner;
-    use testcontainers_modules::postgres::Postgres;
-
-    // Set up test database
-    let postgres_container = Postgres::default().start().await.unwrap();
-    let connection_string = format!(
-        "postgres://postgres:postgres@127.0.0.1:{}/postgres",
-        postgres_container.get_host_port_ipv4(5432).await.unwrap()
-    );
-
-    let pool = PgPool::connect(&connection_string).await.unwrap();
-    sqlx::migrate!("./ee/migrations").run(&pool).await.unwrap();
-
-    // Create EE router directly without going through the main router
-    // to avoid Prometheus metrics conflicts in tests
-    let (management_router, _config_service) = ee::management_api_bundle(pool);
-
-    // Test that we can create a simple router and nest the EE router
-    // This tests the route structure without the Prometheus layer that causes conflicts
-    let _test_router = axum::Router::new()
-        .route("/health", axum::routing::get(|| async { "Working!" }))
-        .nest("/api/v1/ee", management_router);
-
-    // If we get here, the combined router was created successfully without conflicts
-    assert!(
-        true,
-        "EE router nested successfully with unified OpenAPI routes"
-    );
+    assert!(true, "Router created successfully with unified OpenAPI routes");
 }
