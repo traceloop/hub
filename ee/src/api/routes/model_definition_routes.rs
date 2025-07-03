@@ -86,7 +86,7 @@ async fn get_model_definition_handler(
     Path(id_str): Path<String>,
 ) -> Result<Json<ModelDefinitionResponse>, ApiError> {
     let id = Uuid::parse_str(&id_str)
-        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {}", id_str)))?;
+        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {id_str}")))?;
     let response = service.get_model_definition(id).await?;
     Ok(Json(response))
 }
@@ -136,7 +136,7 @@ async fn update_model_definition_handler(
     Json(payload): Json<UpdateModelDefinitionRequest>,
 ) -> Result<Json<ModelDefinitionResponse>, ApiError> {
     let id = Uuid::parse_str(&id_str)
-        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {}", id_str)))?;
+        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {id_str}")))?;
     let response = service.update_model_definition(id, payload).await?;
     Ok(Json(response))
 }
@@ -161,7 +161,7 @@ async fn delete_model_definition_handler(
 ) -> Result<(), ApiError> {
     // Returns 200 OK with no body on success
     let id = Uuid::parse_str(&id_str)
-        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {}", id_str)))?;
+        .map_err(|_| ApiError::ValidationError(format!("Invalid UUID format: {id_str}")))?;
     service.delete_model_definition(id).await?;
     Ok(())
 }

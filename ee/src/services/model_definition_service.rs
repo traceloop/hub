@@ -120,7 +120,7 @@ impl ModelDefinitionService {
         id: Uuid,
     ) -> Result<ModelDefinitionResponse, ApiError> {
         let db_model = self.repo.find_by_id(id).await?.ok_or_else(|| {
-            ApiError::NotFound(format!("Model Definition with ID {} not found", id))
+            ApiError::NotFound(format!("Model Definition with ID {id} not found"))
         })?;
         self.map_db_model_to_response(db_model).await
     }
@@ -130,7 +130,7 @@ impl ModelDefinitionService {
         key: String,
     ) -> Result<ModelDefinitionResponse, ApiError> {
         let db_model = self.repo.find_by_key(&key).await?.ok_or_else(|| {
-            ApiError::NotFound(format!("Model Definition with key '{}' not found", key))
+            ApiError::NotFound(format!("Model Definition with key '{key}' not found"))
         })?;
         self.map_db_model_to_response(db_model).await
     }
@@ -151,7 +151,7 @@ impl ModelDefinitionService {
     ) -> Result<ModelDefinitionResponse, ApiError> {
         // Ensure the model definition to update exists
         let _ = self.repo.find_by_id(id).await?.ok_or_else(|| {
-            ApiError::NotFound(format!("Model Definition with ID {} not found", id))
+            ApiError::NotFound(format!("Model Definition with ID {id} not found"))
         })?;
 
         // If key is being updated, check for uniqueness
@@ -159,8 +159,7 @@ impl ModelDefinitionService {
             if let Some(existing_by_key) = self.repo.find_by_key(key).await? {
                 if existing_by_key.id != id {
                     return Err(ApiError::Conflict(format!(
-                        "Model Definition key '{}' already exists",
-                        key
+                        "Model Definition key '{key}' already exists"
                     )));
                 }
             }
@@ -170,8 +169,7 @@ impl ModelDefinitionService {
         if let Some(provider_id) = data.provider_id {
             if self.provider_repo.find_by_id(provider_id).await?.is_none() {
                 return Err(ApiError::ValidationError(format!(
-                    "Provider with ID {} does not exist",
-                    provider_id
+                    "Provider with ID {provider_id} does not exist"
                 )));
             }
         }
@@ -184,8 +182,7 @@ impl ModelDefinitionService {
         let rows_affected = self.repo.delete(id).await?;
         if rows_affected == 0 {
             return Err(ApiError::NotFound(format!(
-                "Model Definition with ID {} not found",
-                id
+                "Model Definition with ID {id} not found"
             )));
         }
         Ok(())

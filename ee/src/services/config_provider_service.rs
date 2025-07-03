@@ -33,8 +33,7 @@ fn convert_json_value_to_string(json_value: &JsonValue) -> String {
         JsonValue::Array(_) | JsonValue::Object(_) => serde_json::to_string(json_value)
             .unwrap_or_else(|e| {
                 warn!(
-                    "Failed to serialize complex JsonValue to string: {}. Using empty string.",
-                    e
+                    "Failed to serialize complex JsonValue to string: {e}. Using empty string."
                 );
                 String::new()
             }),
@@ -97,8 +96,7 @@ impl ConfigProviderService {
                     gateway_config.providers.push(core_provider);
                 }
                 Err(e) => error!(
-                    "Failed to transform provider DTO with ID {}: {:?}. Skipping.",
-                    original_dto_id, e
+                    "Failed to transform provider DTO with ID {original_dto_id}: {e:?}. Skipping."
                 ),
             }
         }
@@ -112,7 +110,7 @@ impl ConfigProviderService {
             // Use the provider_id from the model DTO (which is a Uuid) to lookup in the map
             match Self::transform_model_dto(m_dto, &provider_dto_id_to_key_map) {
                 Ok(core_model) => gateway_config.models.push(core_model),
-                Err(e) => error!("Failed to transform model DTO: {:?}. Skipping.", e),
+                Err(e) => error!("Failed to transform model DTO: {e:?}. Skipping."),
             }
         }
 
@@ -124,7 +122,7 @@ impl ConfigProviderService {
         for pl_dto in db_pipelines.into_iter().filter(|pl| pl.enabled) {
             match Self::transform_pipeline_dto(pl_dto) {
                 Ok(core_pipeline) => gateway_config.pipelines.push(core_pipeline),
-                Err(e) => error!("Failed to transform pipeline DTO: {:?}. Skipping.", e),
+                Err(e) => error!("Failed to transform pipeline DTO: {e:?}. Skipping."),
             }
         }
 

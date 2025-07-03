@@ -40,7 +40,7 @@ impl From<sqlx::Error> for ApiError {
             // Add more specific mappings if needed, e.g., for unique constraint violations
             _ => {
                 // Log the detailed database error to the console for debugging
-                eprintln!("Detailed Database Error: {:?}", err);
+                eprintln!("Detailed Database Error: {err:?}");
                 ApiError::DatabaseError("A database error occurred".to_string())
             }
         }
@@ -56,10 +56,9 @@ impl From<serde_json::Error> for ApiError {
             err
         );
         eprintln!(
-            "Detailed Serde JSON Error before wrapping in ApiError: {}",
-            detailed_error_message
+            "Detailed Serde JSON Error before wrapping in ApiError: {detailed_error_message}"
         );
-        ApiError::InternalServerError(format!("JSON processing error: {}", err))
+        ApiError::InternalServerError(format!("JSON processing error: {err}"))
         // Keep original response message for client
     }
 }

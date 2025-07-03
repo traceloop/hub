@@ -50,7 +50,7 @@ impl ProviderService {
             .repo
             .find_by_id(id)
             .await?
-            .ok_or_else(|| ApiError::NotFound(format!("Provider with ID {} not found.", id)))?;
+            .ok_or_else(|| ApiError::NotFound(format!("Provider with ID {id} not found.")))?;
         Self::map_db_provider_to_response(db_provider)
     }
 
@@ -68,7 +68,7 @@ impl ProviderService {
         request: UpdateProviderRequest,
     ) -> Result<ProviderResponse, ApiError> {
         let existing_provider = self.repo.find_by_id(id).await?.ok_or_else(|| {
-            ApiError::NotFound(format!("Provider with ID {} not found to update.", id))
+            ApiError::NotFound(format!("Provider with ID {id} not found to update."))
         })?;
 
         if let Some(new_name) = &request.name {
@@ -76,8 +76,7 @@ impl ProviderService {
                 && self.repo.find_by_name(new_name).await?.is_some()
             {
                 return Err(ApiError::Conflict(format!(
-                    "Another provider with name '{}' already exists.",
-                    new_name
+                    "Another provider with name '{new_name}' already exists."
                 )));
             }
         }
@@ -95,8 +94,7 @@ impl ProviderService {
             .await?
             .ok_or_else(|| {
                 ApiError::NotFound(format!(
-                    "Provider with ID {} not found after update attempt.",
-                    id
+                    "Provider with ID {id} not found after update attempt."
                 ))
             })?;
 
@@ -107,8 +105,7 @@ impl ProviderService {
         let affected_rows = self.repo.delete(id).await?;
         if affected_rows == 0 {
             Err(ApiError::NotFound(format!(
-                "Provider with ID {} not found, nothing deleted.",
-                id
+                "Provider with ID {id} not found, nothing deleted."
             )))
         } else {
             Ok(())
@@ -149,8 +146,8 @@ impl ProviderService {
     fn map_db_provider_to_response(db_provider: DbProvider) -> Result<ProviderResponse, ApiError> {
         let provider_type_enum: ProviderType = db_provider.provider_type.parse().map_err(|e| {
             ApiError::InternalServerError(format!(
-                "Failed to parse provider_type '{}' from DB: {}",
-                db_provider.provider_type, e
+                "Failed to parse provider_type '{}' from DB: {e}",
+                db_provider.provider_type
             ))
         })?;
 

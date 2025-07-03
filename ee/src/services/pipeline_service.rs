@@ -45,7 +45,7 @@ impl PipelineService {
                 .plugin_type
                 .parse::<PluginType>()
                 .map_err(|e| {
-                    ApiError::InternalServerError(format!("Invalid plugin type in database: {}", e))
+                    ApiError::InternalServerError(format!("Invalid plugin type in database: {e}"))
                 })?;
 
             plugin_dtos.push(PipelinePluginConfigDto {
@@ -77,8 +77,7 @@ impl PipelineService {
         // Validate pipeline name uniqueness for new pipelines
         if self.repo.find_pipeline_by_name(name).await?.is_some() {
             return Err(ApiError::Conflict(format!(
-                "Pipeline name '{}' already exists",
-                name
+                "Pipeline name '{name}' already exists"
             )));
         }
         // Validate plugin configurations
@@ -95,8 +94,7 @@ impl PipelineService {
                 let model_router_config: ModelRouterConfigDto =
                     serde_json::from_value(plugin_dto.config_data.clone()).map_err(|e| {
                         ApiError::ValidationError(format!(
-                            "Invalid model-router config_data: {}",
-                            e
+                            "Invalid model-router config_data: {e}"
                         ))
                     })?;
                 for model_entry in model_router_config.models {
@@ -144,8 +142,7 @@ impl PipelineService {
         match db_pipeline {
             Some(p) => self.map_db_pipeline_to_response(p),
             None => Err(ApiError::NotFound(format!(
-                "Pipeline with ID {} not found",
-                id
+                "Pipeline with ID {id} not found"
             ))),
         }
     }
@@ -155,8 +152,7 @@ impl PipelineService {
         match db_pipeline {
             Some(p) => self.map_db_pipeline_to_response(p),
             None => Err(ApiError::NotFound(format!(
-                "Pipeline with name '{}' not found",
-                name
+                "Pipeline with name '{name}' not found"
             ))),
         }
     }
@@ -178,8 +174,7 @@ impl PipelineService {
         let existing_pipeline_opt = self.repo.find_pipeline_by_id(id).await?;
         if existing_pipeline_opt.is_none() {
             return Err(ApiError::NotFound(format!(
-                "Pipeline with ID {} not found for update",
-                id
+                "Pipeline with ID {id} not found for update"
             )));
         }
 
@@ -189,8 +184,7 @@ impl PipelineService {
                 if found_pipeline_by_name.id != id {
                     // It's a different pipeline with the same new name
                     return Err(ApiError::Conflict(format!(
-                        "Pipeline name '{}' already exists",
-                        new_name
+                        "Pipeline name '{new_name}' already exists"
                     )));
                 }
             }
@@ -208,8 +202,7 @@ impl PipelineService {
         let affected_rows = self.repo.delete_pipeline(id).await?;
         if affected_rows == 0 {
             return Err(ApiError::NotFound(format!(
-                "Pipeline with ID {} not found for deletion",
-                id
+                "Pipeline with ID {id} not found for deletion"
             )));
         }
         Ok(())
