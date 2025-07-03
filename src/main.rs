@@ -5,26 +5,26 @@ use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info, Level};
 
 // Conditionally import EE crate components
-#[cfg(feature = "ee_feature")]
-use {ee::ee_integration, sqlx::PgPool, std::time::Duration};
+#[cfg(feature = "db_based_config")]
+use {ee::db_based_config_integration, sqlx::PgPool, std::time::Duration};
 
 #[allow(dead_code)]
 const DEFAULT_CONFIG_PATH: &str = "config.yaml";
 const DEFAULT_PORT: &str = "3000";
-#[cfg(feature = "ee_feature")]
+#[cfg(feature = "db_based_config")]
 const DEFAULT_DB_POLL_INTERVAL_SECONDS: u64 = 30;
 
-#[cfg(feature = "ee_feature")]
-type EeConfigProvider = Arc<ee::services::config_provider_service::ConfigProviderService>;
-#[cfg(not(feature = "ee_feature"))]
-type EeConfigProvider = ();
+#[cfg(feature = "db_based_config")]
+type ConfigProvider = Arc<ee::services::config_provider_service::ConfigProviderService>;
+#[cfg(not(feature = "db_based_config"))]
+type ConfigProvider = ();
 
 async fn get_initial_config_and_services() -> anyhow::Result<(
     GatewayConfig,
     Option<axum::Router>,
-    Option<EeConfigProvider>,
+    Option<ConfigProvider>,
 )> {
-    #[cfg(feature = "ee_feature")]
+    #[cfg(feature = "db_based_config")]
     {
         info!("EE feature enabled. Attempting to load configuration from database.");
         let database_url = std::env::var("DATABASE_URL")
@@ -44,7 +44,7 @@ async fn get_initial_config_and_services() -> anyhow::Result<(
         // info!("EE migrations run successfully.");
         // For now, assume migrations are run separately or by the EE crate itself if it exposes such a utility.
 
-        let ee = ee_integration(pool).await?;
+        let ee = db_based_config_integration(pool).await?;
         info!("EE API bundle initialized.");
 
         match ee.config_provider.fetch_live_config().await {
@@ -76,7 +76,7 @@ async fn get_initial_config_and_services() -> anyhow::Result<(
         }
     }
 
-    #[cfg(not(feature = "ee_feature"))]
+    #[cfg(not(feature = "db_based_config"))]
     {
         info!("EE feature not enabled. Loading configuration from YAML.");
         let config_path =
@@ -108,7 +108,7 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting Traceloop Hub Gateway...");
 
-    let (initial_config, _ee_router_opt, _ee_config_provider_opt) =
+    let (initial_config, _router_opt, _config_provider_opt) =
         get_initial_config_and_services().await?;
 
     let app_state = Arc::new(
@@ -116,17 +116,17 @@ async fn main() -> anyhow::Result<()> {
             .map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?,
     );
 
-    #[allow(unused_mut)] // main_router is modified when ee_feature is enabled
+    #[allow(unused_mut)] // main_router is modified when db_based_config is enabled
     let mut main_router = routes::create_router(app_state.clone());
 
-    #[cfg(feature = "ee_feature")]
+    #[cfg(feature = "db_based_config")]
     {
-        if let Some(ee_router) = _ee_router_opt {
+        if let Some(ee_router) = _router_opt {
             main_router = main_router.nest("/api/v1/ee", ee_router);
             info!("EE Management API router mounted at /api/v1/ee.");
         }
 
-        if let Some(ee_config_provider) = _ee_config_provider_opt {
+        if let Some(ee_config_provider) = _config_provider_opt {
             // Clone Arcs for the poller task
             let poller_app_state = app_state.clone();
             let poller_config_provider = ee_config_provider.clone();

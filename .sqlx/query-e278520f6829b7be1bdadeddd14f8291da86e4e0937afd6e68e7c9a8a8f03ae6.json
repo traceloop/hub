@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, name, provider_type, config_details, enabled, created_at, updated_at\n                FROM hub_llmgateway_ee_providers\n                WHERE id = $1\n                ",
+  "query": "\n                SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at\n                FROM hub_llmgateway_pipeline_plugin_configs\n                WHERE pipeline_id = $1\n                ORDER BY order_in_pipeline ASC\n                ",
   "describe": {
     "columns": [
       {
@@ -10,17 +10,17 @@
       },
       {
         "ordinal": 1,
-        "name": "name",
-        "type_info": "Varchar"
+        "name": "pipeline_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 2,
-        "name": "provider_type",
+        "name": "plugin_type",
         "type_info": "Varchar"
       },
       {
         "ordinal": 3,
-        "name": "config_details",
+        "name": "config_data",
         "type_info": "Jsonb"
       },
       {
@@ -30,11 +30,16 @@
       },
       {
         "ordinal": 5,
+        "name": "order_in_pipeline",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -51,8 +56,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "37da513ae788a342883b931cf7f3978cebfec76b09c26ebd33053f93129d3163"
+  "hash": "e278520f6829b7be1bdadeddd14f8291da86e4e0937afd6e68e7c9a8a8f03ae6"
 }

@@ -27,9 +27,9 @@ fn test_oss_openapi_contains_basic_routes() {
     assert!(components.schemas.contains_key("EmbeddingsResponse"));
 }
 
-#[cfg(feature = "ee_feature")]
+#[cfg(feature = "db_based_config")]
 #[test]
-fn test_ee_openapi_contains_management_routes() {
+fn test_openapi_contains_management_routes() {
     let spec = get_openapi_spec();
 
     // Check that EE management routes are present when feature is enabled
@@ -56,9 +56,9 @@ fn test_ee_openapi_contains_management_routes() {
     assert!(components.schemas.contains_key("ApiError"));
 }
 
-#[cfg(not(feature = "ee_feature"))]
+#[cfg(not(feature = "db_based_config"))]
 #[test]
-fn test_oss_only_openapi_excludes_ee_routes() {
+fn test_oss_only_openapi_excludes_routes() {
     let spec = get_openapi_spec();
 
     // Check that EE routes are NOT present when feature is disabled
@@ -98,7 +98,7 @@ fn test_openapi_spec_is_valid() {
         "OpenAPI spec should contain paths"
     );
 
-    #[cfg(feature = "ee_feature")]
+    #[cfg(feature = "db_based_config")]
     {
         // When EE feature is enabled, should contain EE endpoints
         assert!(
@@ -111,7 +111,7 @@ fn test_openapi_spec_is_valid() {
         );
     }
 
-    #[cfg(not(feature = "ee_feature"))]
+    #[cfg(not(feature = "db_based_config"))]
     {
         // When EE feature is disabled, should be OSS only
         assert!(
@@ -162,9 +162,9 @@ async fn test_oss_openapi_routes_no_conflict() {
     assert!(true, "OSS router created successfully with OpenAPI routes");
 }
 
-#[cfg(feature = "ee_feature")]
+#[cfg(feature = "db_based_config")]
 #[tokio::test]
-async fn test_ee_openapi_routes_no_conflict() {
+async fn test_openapi_routes_no_conflict() {
     use sqlx::PgPool;
     use testcontainers::runners::AsyncRunner;
     use testcontainers_modules::postgres::Postgres;
@@ -181,13 +181,13 @@ async fn test_ee_openapi_routes_no_conflict() {
 
     // Create EE router directly without going through the main router
     // to avoid Prometheus metrics conflicts in tests
-    let (ee_router, _config_service) = ee::ee_api_bundle(pool);
+    let (management_router, _config_service) = ee::management_api_bundle(pool);
 
     // Test that we can create a simple router and nest the EE router
     // This tests the route structure without the Prometheus layer that causes conflicts
     let _test_router = axum::Router::new()
         .route("/health", axum::routing::get(|| async { "Working!" }))
-        .nest("/api/v1/ee", ee_router);
+        .nest("/api/v1/ee", management_router);
 
     // If we get here, the combined router was created successfully without conflicts
     assert!(

@@ -22,4 +22,4 @@ ee = { path = "../ee", optional = true }
 
 [features]
 default = []
-ee_feature = ["dep:ee"] # Activates the ee crate dependency 
+db_based_config = ["dep:ee"] # Activates the ee crate dependency 

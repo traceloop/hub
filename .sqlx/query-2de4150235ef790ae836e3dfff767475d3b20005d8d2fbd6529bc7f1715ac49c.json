@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions WHERE key = $1",
+  "query": "\n            INSERT INTO hub_llmgateway_model_definitions (key, model_type, provider_id, config_details, enabled)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, key, model_type, provider_id, config_details, enabled, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -46,7 +46,11 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "Text",
+        "Uuid",
+        "Jsonb",
+        "Bool"
       ]
     },
     "nullable": [
@@ -60,5 +64,5 @@
       false
     ]
   },
-  "hash": "00186f72a9d187814c526886ec3be987d210c857cc3aa9ca2c6cb0352ff2f47a"
+  "hash": "2de4150235ef790ae836e3dfff767475d3b20005d8d2fbd6529bc7f1715ac49c"
 }

@@ -29,7 +29,7 @@ impl PipelineRepository {
         let pipeline = query_as!(
             Pipeline,
             r#"
-            INSERT INTO hub_llmgateway_ee_pipelines (name, pipeline_type, description, enabled)
+            INSERT INTO hub_llmgateway_pipelines (name, pipeline_type, description, enabled)
             VALUES ($1, $2, $3, $4)
             RETURNING id, name, pipeline_type, description, enabled, created_at, updated_at
             "#,
@@ -47,7 +47,7 @@ impl PipelineRepository {
             for plugin_dto in &pipeline_data.plugins {
                 let plugin_config = query_as!(PipelinePluginConfig,
                     r#"
-                    INSERT INTO hub_llmgateway_ee_pipeline_plugin_configs 
+                    INSERT INTO hub_llmgateway_pipeline_plugin_configs 
                         (pipeline_id, plugin_type, config_data, enabled, order_in_pipeline)
                     VALUES ($1, $2, $3, $4, $5)
                     RETURNING id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
@@ -86,7 +86,7 @@ impl PipelineRepository {
         let pipeline_row = sqlx::query!(
             r#"
             SELECT id, name, pipeline_type, description, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_pipelines
+            FROM hub_llmgateway_pipelines
             WHERE id = $1
             "#,
             id
@@ -100,7 +100,7 @@ impl PipelineRepository {
                 PipelinePluginConfig,
                 r#"
                 SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
-                FROM hub_llmgateway_ee_pipeline_plugin_configs
+                FROM hub_llmgateway_pipeline_plugin_configs
                 WHERE pipeline_id = $1
                 ORDER BY order_in_pipeline ASC
                 "#,
@@ -132,7 +132,7 @@ impl PipelineRepository {
         let pipeline_row = sqlx::query!(
             r#"
             SELECT id, name, pipeline_type, description, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_pipelines
+            FROM hub_llmgateway_pipelines
             WHERE name = $1
             "#,
             name
@@ -146,7 +146,7 @@ impl PipelineRepository {
                 PipelinePluginConfig,
                 r#"
                 SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
-                FROM hub_llmgateway_ee_pipeline_plugin_configs
+                FROM hub_llmgateway_pipeline_plugin_configs
                 WHERE pipeline_id = $1
                 ORDER BY order_in_pipeline ASC
                 "#,
@@ -176,7 +176,7 @@ impl PipelineRepository {
             Pipeline,
             r#"
             SELECT id, name, pipeline_type, description, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_pipelines
+            FROM hub_llmgateway_pipelines
             ORDER BY created_at DESC
             "#
         )
@@ -194,7 +194,7 @@ impl PipelineRepository {
             PipelinePluginConfig,
             r#"
             SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
-            FROM hub_llmgateway_ee_pipeline_plugin_configs
+            FROM hub_llmgateway_pipeline_plugin_configs
             WHERE pipeline_id = ANY($1)
             ORDER BY pipeline_id, order_in_pipeline ASC
             "#,
@@ -239,7 +239,7 @@ impl PipelineRepository {
         // Fetch current pipeline to check existence and for returning non-updated fields
         let current_pipeline = sqlx::query_as!(
             Pipeline,
-            "SELECT * FROM hub_llmgateway_ee_pipelines WHERE id = $1",
+            "SELECT * FROM hub_llmgateway_pipelines WHERE id = $1",
             id
         )
         .fetch_optional(&mut *tx)
@@ -250,7 +250,7 @@ impl PipelineRepository {
         let updated_pipeline = query_as!(
             Pipeline,
             r#"
-            UPDATE hub_llmgateway_ee_pipelines
+            UPDATE hub_llmgateway_pipelines
             SET 
                 name = COALESCE($1, name),
                 pipeline_type = COALESCE($2, pipeline_type),
@@ -279,7 +279,7 @@ impl PipelineRepository {
         if let Some(plugins_dto_list) = &data.plugins {
             // Delete existing plugins for this pipeline
             sqlx::query!(
-                "DELETE FROM hub_llmgateway_ee_pipeline_plugin_configs WHERE pipeline_id = $1",
+                "DELETE FROM hub_llmgateway_pipeline_plugin_configs WHERE pipeline_id = $1",
                 id
             )
             .execute(&mut *tx)
@@ -290,7 +290,7 @@ impl PipelineRepository {
             for plugin_dto in plugins_dto_list {
                 let new_plugin = query_as!(PipelinePluginConfig,
                     r#"
-                    INSERT INTO hub_llmgateway_ee_pipeline_plugin_configs 
+                    INSERT INTO hub_llmgateway_pipeline_plugin_configs 
                         (pipeline_id, plugin_type, config_data, enabled, order_in_pipeline)
                     VALUES ($1, $2, $3, $4, $5)
                     RETURNING id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
@@ -312,7 +312,7 @@ impl PipelineRepository {
                 PipelinePluginConfig,
                 r#"
                 SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at
-                FROM hub_llmgateway_ee_pipeline_plugin_configs
+                FROM hub_llmgateway_pipeline_plugin_configs
                 WHERE pipeline_id = $1
                 ORDER BY order_in_pipeline ASC
                 "#,
@@ -341,7 +341,7 @@ impl PipelineRepository {
     pub async fn delete_pipeline(&self, id: Uuid) -> Result<u64, ApiError> {
         // The `ON DELETE CASCADE` constraint on `pipeline_plugin_configs.pipeline_id`
         // should handle deleting associated plugins automatically.
-        let result = sqlx::query!("DELETE FROM hub_llmgateway_ee_pipelines WHERE id = $1", id)
+        let result = sqlx::query!("DELETE FROM hub_llmgateway_pipelines WHERE id = $1", id)
             .execute(&self.pool)
             .await
             .map_err(ApiError::from)?;
@@ -362,10 +362,10 @@ impl PipelineRepository {
             return Ok(true); // No keys to check, so they all "exist"
         }
 
-        // Construct a query like: SELECT key FROM hub_llmgateway_ee_model_definitions WHERE key = ANY($1)
+        // Construct a query like: SELECT key FROM hub_llmgateway_model_definitions WHERE key = ANY($1)
         // This is more efficient than querying one by one.
         let existing_keys: Vec<String> =
-            sqlx::query("SELECT key FROM hub_llmgateway_ee_model_definitions WHERE key = ANY($1)")
+            sqlx::query("SELECT key FROM hub_llmgateway_model_definitions WHERE key = ANY($1)")
                 .bind(keys)
                 .fetch_all(&self.pool)
                 .await

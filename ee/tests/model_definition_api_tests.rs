@@ -14,7 +14,7 @@ use ee::{
         ModelDefinitionResponse, OpenAIProviderConfig, ProviderConfig, ProviderResponse,
         ProviderType, SecretObject, UpdateModelDefinitionRequest,
     },
-    ee_api_bundle,    // Main router function from lib.rs
+    management_api_bundle,    // Main router function from lib.rs
     errors::ApiError, // Assuming ApiError is serializable for error responses
     AppState,         // Main AppState
 };
@@ -59,7 +59,7 @@ async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
         .await
         .expect("Failed to run migrations on test DB");
 
-    let (router, _config_provider) = ee_api_bundle(pool.clone());
+    let (router, _config_provider) = management_api_bundle(pool.clone());
     let client = TestServer::new(router).expect("Failed to create TestServer");
 
     (client, pool, container)
@@ -140,7 +140,7 @@ async fn test_create_model_definition_success() {
     // Verify in DB
     let db_md = sqlx::query_as!(
         ModelDefinition,
-        "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
+        "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_model_definitions WHERE id = $1",
         md_response.id
     )
     .fetch_one(&pool)
@@ -535,7 +535,7 @@ async fn test_delete_model_definition_success() {
     // Verify it's gone from DB
     let db_model_after_delete = sqlx::query_as!(
         ModelDefinition,
-        "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
+        "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_model_definitions WHERE id = $1",
         created_md.id
     )
     .fetch_optional(&pool)

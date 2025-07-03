@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, provider_type, config_details, enabled, created_at, updated_at\n            FROM hub_llmgateway_ee_providers\n            WHERE name = $1\n            ",
+  "query": "SELECT * FROM hub_llmgateway_pipelines WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -15,13 +15,13 @@
       },
       {
         "ordinal": 2,
-        "name": "provider_type",
+        "name": "pipeline_type",
         "type_info": "Varchar"
       },
       {
         "ordinal": 3,
-        "name": "config_details",
-        "type_info": "Jsonb"
+        "name": "description",
+        "type_info": "Text"
       },
       {
         "ordinal": 4,
@@ -41,18 +41,18 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
       false,
       false,
       false,
-      false,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "33a16092f72b1216b9e327790c6724748da29958ea161ddcae252c81e8091a3f"
+  "hash": "f4dc97d78e5d3750a9a76b1b6c4bdc38f3d21b3b0458aa025d470e1aabd51ef7"
 }

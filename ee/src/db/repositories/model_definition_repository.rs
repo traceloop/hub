@@ -18,7 +18,7 @@ impl ModelDefinitionRepository {
         let default_enabled = data.enabled.unwrap_or(true);
         let model_def = query_as!(ModelDefinition,
             r#"
-            INSERT INTO hub_llmgateway_ee_model_definitions (key, model_type, provider_id, config_details, enabled)
+            INSERT INTO hub_llmgateway_model_definitions (key, model_type, provider_id, config_details, enabled)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id, key, model_type, provider_id, config_details, enabled, created_at, updated_at
             "#,
@@ -35,7 +35,7 @@ impl ModelDefinitionRepository {
 
     pub async fn find_by_id(&self, id: Uuid) -> Result<Option<ModelDefinition>> {
         query_as!(ModelDefinition,
-            "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
+            "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_model_definitions WHERE id = $1",
             id
         )
         .fetch_optional(&self.pool)
@@ -44,7 +44,7 @@ impl ModelDefinitionRepository {
 
     pub async fn find_by_key(&self, key: &str) -> Result<Option<ModelDefinition>> {
         query_as!(ModelDefinition,
-            "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions WHERE key = $1",
+            "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_model_definitions WHERE key = $1",
             key
         )
         .fetch_optional(&self.pool)
@@ -52,7 +52,7 @@ impl ModelDefinitionRepository {
     }
 
     pub async fn list(&self) -> Result<Vec<ModelDefinition>> {
-        query_as!(ModelDefinition, "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_ee_model_definitions ORDER BY key ASC")
+        query_as!(ModelDefinition, "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_model_definitions ORDER BY key ASC")
             .fetch_all(&self.pool)
             .await
     }
@@ -85,7 +85,7 @@ impl ModelDefinitionRepository {
 
         let model_def = query_as!(ModelDefinition,
             r#"
-            UPDATE hub_llmgateway_ee_model_definitions
+            UPDATE hub_llmgateway_model_definitions
             SET key = $1, model_type = $2, provider_id = $3, config_details = $4, enabled = $5, updated_at = NOW()
             WHERE id = $6
             RETURNING id, key, model_type, provider_id, config_details, enabled, created_at, updated_at
@@ -104,7 +104,7 @@ impl ModelDefinitionRepository {
 
     pub async fn delete(&self, id: Uuid) -> Result<u64> {
         let result = query!(
-            "DELETE FROM hub_llmgateway_ee_model_definitions WHERE id = $1",
+            "DELETE FROM hub_llmgateway_model_definitions WHERE id = $1",
             id
         )
         .execute(&self.pool)

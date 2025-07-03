@@ -16,12 +16,12 @@ jobs:
           - variant: "oss"
             dockerfile: "Dockerfile"
             suffix: ""
-          - variant: "ee"
-            dockerfile: "Dockerfile.ee"
-            suffix: "-ee"
-          - variant: "ee-migrations"
-            dockerfile: "Dockerfile.ee-migrations"
-            suffix: "-ee-migrations"
+          - variant: "db-based"
+            dockerfile: "Dockerfile.db-based"
+            suffix: "-db-based"
+          - variant: "db-based-migrations"
+            dockerfile: "Dockerfile.db-based-migrations"
+            suffix: "-db-based-migrations"
     
     permissions:
       id-token: write

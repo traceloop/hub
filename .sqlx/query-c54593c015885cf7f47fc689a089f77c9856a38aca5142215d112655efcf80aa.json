@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at\n                FROM hub_llmgateway_ee_pipeline_plugin_configs\n                WHERE pipeline_id = $1\n                ORDER BY order_in_pipeline ASC\n                ",
+  "query": "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_model_definitions WHERE key = $1",
   "describe": {
     "columns": [
       {
@@ -10,28 +10,28 @@
       },
       {
         "ordinal": 1,
-        "name": "pipeline_id",
-        "type_info": "Uuid"
+        "name": "key",
+        "type_info": "Text"
       },
       {
         "ordinal": 2,
-        "name": "plugin_type",
-        "type_info": "Varchar"
+        "name": "model_type",
+        "type_info": "Text"
       },
       {
         "ordinal": 3,
-        "name": "config_data",
-        "type_info": "Jsonb"
+        "name": "provider_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 4,
-        "name": "enabled",
-        "type_info": "Bool"
+        "name": "config_details",
+        "type_info": "Jsonb"
       },
       {
         "ordinal": 5,
-        "name": "order_in_pipeline",
-        "type_info": "Int4"
+        "name": "enabled",
+        "type_info": "Bool"
       },
       {
         "ordinal": 6,
@@ -46,7 +46,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -54,11 +54,11 @@
       false,
       false,
       false,
-      false,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "e053ca7eb0c3a95cbe3bc94efa21d3bb998e091a7e77fbf8d5f2c390aa0b71f3"
+  "hash": "c54593c015885cf7f47fc689a089f77c9856a38aca5142215d112655efcf80aa"
 }

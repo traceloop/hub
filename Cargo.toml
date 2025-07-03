@@ -51,7 +51,7 @@ uuid = { version = "1.16.0", features = ["v4"] }
 # Pin base64ct to avoid edition2024 requirement
 base64ct = "=1.6.0"
 
-# EE dependencies - only included when ee_feature is enabled
+# EE dependencies - only included when db_based_config is enabled
 ee = { path = "ee", optional = true }
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"], optional = true }
 
@@ -62,7 +62,7 @@ utoipa-swagger-ui = { version = "7", features = ["axum"] }
 hub_gateway_core_types = { path = "hub_gateway_core_types" }
 
 [features]
-ee_feature = ["dep:ee", "dep:sqlx"]
+db_based_config = ["dep:ee", "dep:sqlx"]
 
 [lib]
 name = "hub_lib"

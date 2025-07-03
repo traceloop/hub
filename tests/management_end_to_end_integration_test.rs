@@ -1,5 +1,5 @@
-#[cfg(feature = "ee_feature")]
-mod ee_integration_tests {
+#[cfg(feature = "db_based_config")]
+mod management_integration_tests {
     use serde_json::{json, Value};
     use sqlx::PgPool;
     use std::fs;
@@ -52,7 +52,7 @@ mod ee_integration_tests {
 
             // Build the application binary
             let build_output = Command::new("cargo")
-                .args(["build", "--features", "ee_feature"])
+                .args(["build", "--features", "db_based_config"])
                 .output()?;
 
             if !build_output.status.success() {
@@ -315,7 +315,7 @@ mod ee_integration_tests {
     }
 
     #[tokio::test]
-    async fn test_end_to_end_ee_integration() {
+    async fn test_end_to_end_integration() {
         let env = TestEnvironment::setup()
             .await
             .expect("Failed to setup test environment");
@@ -452,21 +452,21 @@ mod ee_integration_tests {
         println!("Step 7: Verifying database state...");
 
         let provider_count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_ee_providers")
+            sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_providers")
                 .fetch_one(&env.pool)
                 .await
                 .expect("Failed to count providers");
         assert_eq!(provider_count, 1, "Expected 1 provider in database");
 
         let model_count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_ee_model_definitions")
+            sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_model_definitions")
                 .fetch_one(&env.pool)
                 .await
                 .expect("Failed to count models");
         assert_eq!(model_count, 1, "Expected 1 model in database");
 
         let pipeline_count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_ee_pipelines")
+            sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_pipelines")
                 .fetch_one(&env.pool)
                 .await
                 .expect("Failed to count pipelines");
@@ -584,11 +584,11 @@ mod ee_integration_tests {
     }
 }
 
-#[cfg(not(feature = "ee_feature"))]
-mod ee_integration_tests {
+#[cfg(not(feature = "db_based_config"))]
+mod management_integration_tests {
     #[tokio::test]
-    async fn test_ee_features_disabled() {
-        println!("EE features are disabled - skipping EE integration tests");
-        // This test always passes when EE features are disabled
+    async fn test_db_based_configs_disabled() {
+        println!("DB-based features are disabled - skipping DB-based integration tests");
+        // This test always passes when DB-based features are disabled
     }
 }

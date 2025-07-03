@@ -1,7 +1,7 @@
 -- Add migration script here
 
 -- Table for Pipelines
-CREATE TABLE hub_llmgateway_ee_pipelines (
+CREATE TABLE hub_llmgateway_pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) UNIQUE NOT NULL,
     pipeline_type VARCHAR(100) NOT NULL,
@@ -12,9 +12,9 @@ CREATE TABLE hub_llmgateway_ee_pipelines (
 );
 
 -- Table for Pipeline Plugin Configurations
-CREATE TABLE hub_llmgateway_ee_pipeline_plugin_configs (
+CREATE TABLE hub_llmgateway_pipeline_plugin_configs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pipeline_id UUID NOT NULL REFERENCES hub_llmgateway_ee_pipelines(id) ON DELETE CASCADE,
+    pipeline_id UUID NOT NULL REFERENCES hub_llmgateway_pipelines(id) ON DELETE CASCADE,
     plugin_type VARCHAR(100) NOT NULL,
     config_data JSONB NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -25,9 +25,9 @@ CREATE TABLE hub_llmgateway_ee_pipeline_plugin_configs (
 );
 
 -- Create indexes for faster lookups
-CREATE INDEX idx_pipeline_name ON hub_llmgateway_ee_pipelines(name);
-CREATE INDEX idx_pipeline_plugin_pipeline_id ON hub_llmgateway_ee_pipeline_plugin_configs(pipeline_id);
-CREATE INDEX idx_pipeline_plugin_type ON hub_llmgateway_ee_pipeline_plugin_configs(plugin_type);
+CREATE INDEX idx_pipeline_name ON hub_llmgateway_pipelines(name);
+CREATE INDEX idx_pipeline_plugin_pipeline_id ON hub_llmgateway_pipeline_plugin_configs(pipeline_id);
+CREATE INDEX idx_pipeline_plugin_type ON hub_llmgateway_pipeline_plugin_configs(plugin_type);
 
 -- Trigger to update 'updated_at' timestamp on row update for pipelines
 CREATE OR REPLACE FUNCTION update_modified_column()
@@ -39,12 +39,12 @@ END;
 $$ language 'plpgsql';
 
 CREATE TRIGGER update_pipelines_updated_at
-BEFORE UPDATE ON hub_llmgateway_ee_pipelines
+BEFORE UPDATE ON hub_llmgateway_pipelines
 FOR EACH ROW
 EXECUTE FUNCTION update_modified_column();
 
 -- Trigger to update 'updated_at' timestamp on row update for pipeline_plugin_configs
 CREATE TRIGGER update_pipeline_plugin_configs_updated_at
-BEFORE UPDATE ON hub_llmgateway_ee_pipeline_plugin_configs
+BEFORE UPDATE ON hub_llmgateway_pipeline_plugin_configs
 FOR EACH ROW
 EXECUTE FUNCTION update_modified_column();

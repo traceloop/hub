@@ -9,7 +9,7 @@ use crate::models::{
 };
 
 // Conditionally import EE types when feature is enabled
-#[cfg(feature = "ee_feature")]
+#[cfg(feature = "db_based_config")]
 use ee::{
     api::routes::{model_definition_routes::*, pipeline_routes::*, provider_routes::*},
     dto::{
@@ -74,7 +74,7 @@ use ee::{
 pub struct OssApiDoc;
 
 /// Extended OpenAPI documentation that includes EE features when available
-#[cfg(feature = "ee_feature")]
+#[cfg(feature = "db_based_config")]
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -165,15 +165,15 @@ pub struct OssApiDoc;
         (url = "/", description = "Local server")
     )
 )]
-pub struct EeApiDoc;
+pub struct DbBasedApiDoc;
 
 /// Get the appropriate OpenAPI documentation based on feature flags
 pub fn get_openapi_spec() -> utoipa::openapi::OpenApi {
-    #[cfg(feature = "ee_feature")]
+    #[cfg(feature = "db_based_config")]
     {
-        EeApiDoc::openapi()
+        DbBasedApiDoc::openapi()
     }
-    #[cfg(not(feature = "ee_feature"))]
+    #[cfg(not(feature = "db_based_config"))]
     {
         OssApiDoc::openapi()
     }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE hub_llmgateway_ee_model_definitions\n            SET key = $1, model_type = $2, provider_id = $3, config_details = $4, enabled = $5, updated_at = NOW()\n            WHERE id = $6\n            RETURNING id, key, model_type, provider_id, config_details, enabled, created_at, updated_at\n            ",
+  "query": "SELECT id, key, model_type, provider_id, config_details, enabled, created_at, updated_at FROM hub_llmgateway_model_definitions ORDER BY key ASC",
   "describe": {
     "columns": [
       {
@@ -45,14 +45,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Text",
-        "Text",
-        "Uuid",
-        "Jsonb",
-        "Bool",
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -65,5 +58,5 @@
       false
     ]
   },
-  "hash": "fc62f4fb30c4bc6462fad28ebe4b12443d0fb563fac4d588130d57c70e764a90"
+  "hash": "d0c191555663f383ecebb0aeb1e3ebad96c5dd0e389b12760d6e5bd2bf0c40a1"
 }

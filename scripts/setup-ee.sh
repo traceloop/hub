@@ -88,7 +88,7 @@ cd ..
 echo -e "${GREEN}   ✅ Database migrations completed${NC}"
 
 echo -e "${BLUE}3. Building gateway with EE features...${NC}"
-cargo build --features ee_feature
+cargo build --features db_based_config
 
 echo -e "${GREEN}   ✅ Build completed${NC}"
 
@@ -110,7 +110,7 @@ echo -e "${GREEN}🎉 Setup completed successfully!${NC}"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Start the gateway:"
-echo -e "   ${BLUE}cargo run --features ee_feature${NC}"
+echo -e "   ${BLUE}cargo run --features db_based_config${NC}"
 echo ""
 echo "2. Verify it's running:"
 echo -e "   ${BLUE}curl http://localhost:${GATEWAY_PORT}/api/v1/ee/health${NC}"

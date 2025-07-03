@@ -24,7 +24,7 @@ echo -e "${BLUE}1. Checking if gateway is running...${NC}"
 if ! curl -s "${API_BASE}/health" > /dev/null; then
     echo -e "${RED}❌ Gateway is not running at ${GATEWAY_URL}${NC}"
     echo -e "${YELLOW}Please start the gateway first:${NC}"
-    echo -e "   ${BLUE}cargo run --features ee_feature${NC}"
+    echo -e "   ${BLUE}cargo run --features db_based_config${NC}"
     exit 1
 fi
 echo -e "${GREEN}   ✅ Gateway is running${NC}"

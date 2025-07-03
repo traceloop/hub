@@ -45,7 +45,7 @@ impl ProviderRepository {
         query_as!(
             Provider,
             r#"
-            INSERT INTO hub_llmgateway_ee_providers (id, name, provider_type, config_details, enabled)
+            INSERT INTO hub_llmgateway_providers (id, name, provider_type, config_details, enabled)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id, name, provider_type, config_details, enabled, created_at, updated_at
             "#,
@@ -64,7 +64,7 @@ impl ProviderRepository {
             Provider,
             r#"
             SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_providers
+            FROM hub_llmgateway_providers
             WHERE id = $1
             "#,
             id
@@ -78,7 +78,7 @@ impl ProviderRepository {
             Provider,
             r#"
             SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_providers
+            FROM hub_llmgateway_providers
             WHERE name = $1
             "#,
             name
@@ -92,7 +92,7 @@ impl ProviderRepository {
             Provider,
             r#"
             SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_providers
+            FROM hub_llmgateway_providers
             ORDER BY name
             "#
         )
@@ -136,7 +136,7 @@ impl ProviderRepository {
         query_as!(
             Provider,
             r#"
-            UPDATE hub_llmgateway_ee_providers
+            UPDATE hub_llmgateway_providers
             SET
                 name = $1,
                 config_details = $2,
@@ -157,7 +157,7 @@ impl ProviderRepository {
     pub async fn delete(&self, id: Uuid) -> SqlxResult<u64> {
         let result = query!(
             r#"
-            DELETE FROM hub_llmgateway_ee_providers
+            DELETE FROM hub_llmgateway_providers
             WHERE id = $1
             "#,
             id

@@ -17,8 +17,8 @@ jobs:
         include:
           - name: "OSS Build"
             features: ""
-          - name: "EE Build"
-            features: "--features ee_feature"
+          - name: "DB based configuration Build"
+            features: "--features db_based_config"
     
     name: ${{ matrix.name }}
 
@@ -32,7 +32,7 @@ jobs:
         if: matrix.features == ''
         run: cargo clippy -- -D warnings
         
-      - name: Check clippy (EE)
+      - name: Check clippy (DB based configuration)
         if: matrix.features != ''
         env:
           SQLX_OFFLINE: true
@@ -46,30 +46,30 @@ jobs:
       - name: Run tests
         run: cargo test --verbose ${{ matrix.features }}
 
-  ee-tests:
+  db-based-config-tests:
     runs-on: ubuntu-latest
-    name: "EE Integration Tests"
+    name: "DB based configuration Integration Tests"
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Check EE formatting
+      - name: Check DB based configuration formatting
         working-directory: ee
         run: cargo fmt --check
         
-      - name: Check EE clippy
+      - name: Check DB based configuration clippy
         working-directory: ee
         env:
           SQLX_OFFLINE: true
         run: cargo clippy -- -D warnings
         
-      - name: Build EE
+      - name: Build DB based configuration
         working-directory: ee
         env:
           SQLX_OFFLINE: true
         run: cargo build --verbose
         
-      - name: Run EE integration tests
+      - name: Run DB based configuration integration tests
         working-directory: ee
         env:
           SQLX_OFFLINE: true

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO hub_llmgateway_ee_pipelines (name, pipeline_type, description, enabled)\n            VALUES ($1, $2, $3, $4)\n            RETURNING id, name, pipeline_type, description, enabled, created_at, updated_at\n            ",
+  "query": "\n            INSERT INTO hub_llmgateway_providers (id, name, provider_type, config_details, enabled)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, name, provider_type, config_details, enabled, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -15,13 +15,13 @@
       },
       {
         "ordinal": 2,
-        "name": "pipeline_type",
+        "name": "provider_type",
         "type_info": "Varchar"
       },
       {
         "ordinal": 3,
-        "name": "description",
-        "type_info": "Text"
+        "name": "config_details",
+        "type_info": "Jsonb"
       },
       {
         "ordinal": 4,
@@ -41,9 +41,10 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Varchar",
         "Varchar",
-        "Text",
+        "Jsonb",
         "Bool"
       ]
     },
@@ -51,11 +52,11 @@
       false,
       false,
       false,
-      true,
+      false,
       false,
       false,
       false
     ]
   },
-  "hash": "fcd5dc8f89e83cc2bde442c5345cba7576227cffaa2dcde79102481ef37399d1"
+  "hash": "16adea128678d5377e2ca8b0c474a9ad8b1cc77017b52ad4959f2e5e3241476e"
 }

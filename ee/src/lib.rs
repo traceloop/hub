@@ -5,7 +5,7 @@ pub mod errors;
 pub mod services;
 pub mod state;
 
-pub use state::{ee_integration, EeIntegration};
+pub use state::{db_based_config_integration, DbBasedConfigIntegration};
 
 use axum::Router;
 use sqlx::PgPool;
@@ -25,7 +25,7 @@ use crate::services::{
     provider_service::ProviderService,
 };
 
-/// Shared application state for the EE API.
+/// Shared application state for the DB based config API.
 #[derive(Clone, axum::extract::FromRef)]
 pub struct AppState {
     pub db_pool: PgPool, // Keep for services that might need direct pool or for test setups
@@ -35,9 +35,9 @@ pub struct AppState {
     pub config_provider_service: Arc<ConfigProviderService>,
 }
 
-/// Initializes and returns the Axum router for the EE Management API
+/// Initializes and returns the Axum router for the DB based config Management API
 /// and the ConfigProviderService for gateway integration.
-pub fn ee_api_bundle(pool: PgPool) -> (Router, Arc<ConfigProviderService>) {
+pub fn management_api_bundle(pool: PgPool) -> (Router, Arc<ConfigProviderService>) {
     // Repositories that are direct dependencies for some services
     let model_definition_repo_for_pipeline_service =
         Arc::new(ModelDefinitionRepository::new(pool.clone()));
@@ -83,7 +83,7 @@ pub fn ee_api_bundle(pool: PgPool) -> (Router, Arc<ConfigProviderService>) {
         )
         .route(
             "/health",
-            axum::routing::get(|| async { "EE API is healthy" }),
+            axum::routing::get(|| async { "Management API is healthy" }),
         )
         .with_state(app_state);
 

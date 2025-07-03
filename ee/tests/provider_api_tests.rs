@@ -12,7 +12,7 @@ use ee::{
         OpenAIProviderConfig, ProviderConfig, ProviderResponse, ProviderType, SecretObject,
         VertexAIProviderConfig,
     },
-    ee_api_bundle,
+    management_api_bundle,
     errors::ApiError,
     AppState,
 };
@@ -148,7 +148,7 @@ async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
         .await
         .expect("Failed to run migrations on test DB");
 
-    let (router, _config_provider) = ee_api_bundle(pool.clone());
+    let (router, _config_provider) = management_api_bundle(pool.clone());
     let client = TestServer::new(router).expect("Failed to create TestServer");
 
     (client, pool, container)
@@ -519,7 +519,7 @@ async fn test_update_provider_success() {
         DbProvider,
         r#"
             SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_providers
+            FROM hub_llmgateway_providers
             WHERE id = $1
             "#,
         updated_provider_response.id
@@ -690,7 +690,7 @@ async fn test_delete_provider_success() {
         DbProvider,
         r#"
             SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
-            FROM hub_llmgateway_ee_providers
+            FROM hub_llmgateway_providers
             WHERE id = $1
             "#,
         created_provider.id
@@ -965,7 +965,7 @@ async fn test_update_all_providers_parametrized() {
             DbProvider,
             r#"
                 SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
-                FROM hub_llmgateway_ee_providers
+                FROM hub_llmgateway_providers
                 WHERE id = $1
                 "#,
             updated_provider_response.id
@@ -1068,7 +1068,7 @@ async fn test_delete_all_providers_parametrized() {
             DbProvider,
             r#"
                 SELECT id, name, provider_type, config_details, enabled, created_at, updated_at
-                FROM hub_llmgateway_ee_providers
+                FROM hub_llmgateway_providers
                 WHERE id = $1
                 "#,
             created_provider.id

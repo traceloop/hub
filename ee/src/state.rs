@@ -3,14 +3,14 @@ use axum::Router;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-pub struct EeIntegration {
+pub struct DbBasedConfigIntegration {
     pub router: Router,
     pub config_provider: Arc<ConfigProviderService>,
 }
 
-pub async fn ee_integration(pool: PgPool) -> anyhow::Result<EeIntegration> {
-    let (router, config_provider) = crate::ee_api_bundle(pool);
-    Ok(EeIntegration {
+pub async fn db_based_config_integration(pool: PgPool) -> anyhow::Result<DbBasedConfigIntegration> {
+    let (router, config_provider) = crate::management_api_bundle(pool);
+    Ok(DbBasedConfigIntegration {
         router,
         config_provider,
     })

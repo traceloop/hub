@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    INSERT INTO hub_llmgateway_ee_pipeline_plugin_configs \n                        (pipeline_id, plugin_type, config_data, enabled, order_in_pipeline)\n                    VALUES ($1, $2, $3, $4, $5)\n                    RETURNING id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at\n                    ",
+  "query": "\n                    INSERT INTO hub_llmgateway_pipeline_plugin_configs \n                        (pipeline_id, plugin_type, config_data, enabled, order_in_pipeline)\n                    VALUES ($1, $2, $3, $4, $5)\n                    RETURNING id, pipeline_id, plugin_type, config_data, enabled, order_in_pipeline, created_at, updated_at\n                    ",
   "describe": {
     "columns": [
       {
@@ -64,5 +64,5 @@
       false
     ]
   },
-  "hash": "5626477b8a10e37f558ac9b1d56ff4850a30070745daf979131dec1fc1a643f6"
+  "hash": "5284260e4c0de3a6709fcdfb6b4a7dd888941200f19237f05f3a285c13312310"
 }

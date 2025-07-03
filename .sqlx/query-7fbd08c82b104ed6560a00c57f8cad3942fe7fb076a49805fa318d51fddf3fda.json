@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE hub_llmgateway_ee_providers\n            SET\n                name = $1,\n                config_details = $2,\n                enabled = $3,\n                updated_at = now()\n            WHERE id = $4\n            RETURNING id, name, provider_type, config_details, enabled, created_at, updated_at\n            ",
+  "query": "\n            UPDATE hub_llmgateway_providers\n            SET\n                name = $1,\n                config_details = $2,\n                enabled = $3,\n                updated_at = now()\n            WHERE id = $4\n            RETURNING id, name, provider_type, config_details, enabled, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -57,5 +57,5 @@
       false
     ]
   },
-  "hash": "841dc8de845d90984c5c2cfea0ea3f8c55ad7695ce5f2dda3b7b6e800acdd6fe"
+  "hash": "7fbd08c82b104ed6560a00c57f8cad3942fe7fb076a49805fa318d51fddf3fda"
 }

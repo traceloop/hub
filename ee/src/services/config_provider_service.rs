@@ -12,7 +12,7 @@ use crate::{
     dto::{
         ModelDefinitionResponse, ModelRouterConfigDto, PipelinePluginConfigDto,
         PipelineResponseDto,
-        ProviderConfig as EeProviderConfig, /*, OpenAIProviderConfig, AzureProviderConfig, BedrockProviderConfig*/
+        ProviderConfig, /*, OpenAIProviderConfig, AzureProviderConfig, BedrockProviderConfig*/
         ProviderResponse,
     },
     services::{
@@ -78,7 +78,7 @@ impl ConfigProviderService {
         info!("Fetching live configuration from database...");
         let mut gateway_config = GatewayConfig::default();
 
-        let ee_providers = self
+        let db_providers = self
             .provider_service
             .list_providers()
             .await
@@ -87,7 +87,7 @@ impl ConfigProviderService {
         // Maps Provider DTO Uuid to its key (String) for model linking
         let mut provider_dto_id_to_key_map: HashMap<Uuid, String> = HashMap::new();
 
-        for p_dto in ee_providers.into_iter().filter(|p| p.enabled) {
+        for p_dto in db_providers.into_iter().filter(|p| p.enabled) {
             // Store the original DTO ID for mapping before transforming
             let original_dto_id = p_dto.id;
             match self.transform_provider_dto(p_dto).await {
@@ -103,12 +103,12 @@ impl ConfigProviderService {
             }
         }
 
-        let ee_models = self
+        let db_models = self
             .model_definition_service
             .list_model_definitions()
             .await
             .map_err(|e| anyhow!("Failed to fetch model definitions from DB: {:?}", e))?;
-        for m_dto in ee_models.into_iter().filter(|m| m.enabled) {
+        for m_dto in db_models.into_iter().filter(|m| m.enabled) {
             // Use the provider_id from the model DTO (which is a Uuid) to lookup in the map
             match Self::transform_model_dto(m_dto, &provider_dto_id_to_key_map) {
                 Ok(core_model) => gateway_config.models.push(core_model),
@@ -116,12 +116,12 @@ impl ConfigProviderService {
             }
         }
 
-        let ee_pipelines = self
+        let db_pipelines = self
             .pipeline_service
             .list_pipelines()
             .await
             .map_err(|e| anyhow!("Failed to fetch pipelines from DB: {:?}", e))?;
-        for pl_dto in ee_pipelines.into_iter().filter(|pl| pl.enabled) {
+        for pl_dto in db_pipelines.into_iter().filter(|pl| pl.enabled) {
             match Self::transform_pipeline_dto(pl_dto) {
                 Ok(core_pipeline) => gateway_config.pipelines.push(core_pipeline),
                 Err(e) => error!("Failed to transform pipeline DTO: {:?}. Skipping.", e),
@@ -135,13 +135,13 @@ impl ConfigProviderService {
     async fn transform_provider_dto(&self, dto: ProviderResponse) -> Result<Provider> {
         let mut params = HashMap::new();
         let api_key_from_dto = match dto.config {
-            EeProviderConfig::OpenAI(c) => {
+            ProviderConfig::OpenAI(c) => {
                 if let Some(org_id) = c.organization_id {
                     params.insert("organization_id".to_string(), org_id);
                 }
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
-            EeProviderConfig::Azure(c) => {
+            ProviderConfig::Azure(c) => {
                 params.insert("resource_name".to_string(), c.resource_name);
                 params.insert("api_version".to_string(), c.api_version);
                 if let Some(base_url) = c.base_url {
@@ -149,10 +149,10 @@ impl ConfigProviderService {
                 }
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
-            EeProviderConfig::Anthropic(c) => {
+            ProviderConfig::Anthropic(c) => {
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
-            EeProviderConfig::Bedrock(c) => {
+            ProviderConfig::Bedrock(c) => {
                 params.insert("region".to_string(), c.region.clone());
                 if let Some(access_key) = &c.aws_access_key_id {
                     let resolved_key = self.secret_resolver.resolve_secret(access_key).await?;
@@ -174,7 +174,7 @@ impl ConfigProviderService {
                 }
                 None
             }
-            EeProviderConfig::VertexAI(c) => {
+            ProviderConfig::VertexAI(c) => {
                 params.insert("project_id".to_string(), c.project_id);
                 params.insert("location".to_string(), c.location);
                 if let Some(credentials_path) = c.credentials_path {

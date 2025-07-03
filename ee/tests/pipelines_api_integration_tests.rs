@@ -21,7 +21,7 @@ use ee::{
     // Potentially services or repos if we need to setup data directly (though API is preferred)
     // services::{provider_service::ProviderService, model_definition_service::ModelDefinitionService, pipeline_service::PipelineService},
     // db::repositories::{provider_repository::ProviderRepository, model_definition_repository::ModelDefinitionRepository, pipeline_repository::PipelineRepository},
-    ee_api_bundle,
+    management_api_bundle,
     AppState,
 };
 
@@ -65,7 +65,7 @@ async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
         .await
         .expect("Failed to run migrations on test DB");
 
-    let (router, _config_provider) = ee_api_bundle(pool.clone());
+    let (router, _config_provider) = management_api_bundle(pool.clone());
     let client = TestServer::new(router).expect("Failed to create TestServer");
 
     (client, pool, container) // Return Arc<PgPool> and container
@@ -78,7 +78,7 @@ async fn test_health_check() {
     let (server, _pool, _container) = setup_test_environment().await;
     let response = server.get("/health").await;
     response.assert_status_ok();
-    response.assert_text("EE API is healthy");
+    response.assert_text("Management API is healthy");
 }
 
 // Placeholder for Pipeline Tests

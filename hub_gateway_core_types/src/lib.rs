@@ -32,8 +32,6 @@ pub struct Provider {
 
     #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
     pub params: HashMap<String, String>,
-    // ee_id: Option<Uuid>, // Removed
-    // enabled: bool, // Removed
 }
 
 impl Hash for Provider {
