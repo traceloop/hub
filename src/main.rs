@@ -19,16 +19,13 @@ type ConfigProvider = Arc<ee::services::config_provider_service::ConfigProviderS
 #[cfg(not(feature = "db_based_config"))]
 type ConfigProvider = ();
 
-async fn get_initial_config_and_services() -> anyhow::Result<(
-    GatewayConfig,
-    Option<axum::Router>,
-    Option<ConfigProvider>,
-)> {
+async fn get_initial_config_and_services(
+) -> anyhow::Result<(GatewayConfig, Option<axum::Router>, Option<ConfigProvider>)> {
     #[cfg(feature = "db_based_config")]
     {
-        info!("EE feature enabled. Attempting to load configuration from database.");
+        info!("DB based config feature enabled. Attempting to load configuration from database.");
         let database_url = std::env::var("DATABASE_URL")
-            .map_err(|e| anyhow::anyhow!("DATABASE_URL not set for EE mode: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("DATABASE_URL not set for DB based config mode: {}", e))?;
 
         let pool = PgPool::connect(&database_url).await.map_err(|e| {
             anyhow::anyhow!(
@@ -37,17 +34,17 @@ async fn get_initial_config_and_services() -> anyhow::Result<(
                 e
             )
         })?;
-        info!("Connected to EE database.");
+        info!("Connected to Management database.");
 
         // Run EE migrations if CLI arg is present or auto-run is configured
         // sqlx::migrate!("../ee/migrations").run(&pool).await?;
         // info!("EE migrations run successfully.");
         // For now, assume migrations are run separately or by the EE crate itself if it exposes such a utility.
 
-        let ee = db_based_config_integration(pool).await?;
-        info!("EE API bundle initialized.");
+        let dbIntegration = db_based_config_integration(pool).await?;
+        info!("DB based config integration initialized.");
 
-        match ee.config_provider.fetch_live_config().await {
+        match dbIntegration.config_provider.fetch_live_config().await {
             Ok(initial_db_config) => {
                 info!("Successfully fetched initial configuration from database.");
                 if let Err(val_errors) =
@@ -65,8 +62,8 @@ async fn get_initial_config_and_services() -> anyhow::Result<(
                 info!("Initial database configuration validated successfully.");
                 Ok((
                     initial_db_config,
-                    Some(ee.router.clone()),
-                    Some(ee.config_provider.clone()),
+                    Some(dbIntegration.router.clone()),
+                    Some(dbIntegration.config_provider.clone()),
                 ))
             }
             Err(e) => {

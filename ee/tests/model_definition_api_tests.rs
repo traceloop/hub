@@ -14,9 +14,9 @@ use ee::{
         ModelDefinitionResponse, OpenAIProviderConfig, ProviderConfig, ProviderResponse,
         ProviderType, SecretObject, UpdateModelDefinitionRequest,
     },
-    management_api_bundle,    // Main router function from lib.rs
-    errors::ApiError, // Assuming ApiError is serializable for error responses
-    AppState,         // Main AppState
+    errors::ApiError,      // Assuming ApiError is serializable for error responses
+    management_api_bundle, // Main router function from lib.rs
+    AppState,              // Main AppState
 };
 use serde_json::json;
 use sqlx::postgres::PgPoolOptions;

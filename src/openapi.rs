@@ -8,7 +8,6 @@ use crate::models::{
     streaming::ChatCompletionChunk,
 };
 
-// Conditionally import EE types when feature is enabled
 #[cfg(feature = "db_based_config")]
 use ee::{
     api::routes::{model_definition_routes::*, pipeline_routes::*, provider_routes::*},

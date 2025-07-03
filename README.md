@@ -294,9 +294,9 @@ For enterprise licensing inquiries, please contact us at [enterprise@traceloop.c
 ### Building Different Versions
 
 - **Open Source Build**: `cargo build` (default, no enterprise features)
-- **Enterprise Build**: `cargo build --features ee_feature` (includes enterprise features)
+- **Enterprise Build**: `cargo build --features db_based_config` (includes enterprise features)
 
-The enterprise features are conditionally compiled and only available when building with the `ee_feature` flag.
+The enterprise features are conditionally compiled and only available when building with the `db_based_config` flag.
 
 ### Deployment Options
 

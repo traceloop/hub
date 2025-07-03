@@ -12,9 +12,8 @@ use ee::{
         OpenAIProviderConfig, ProviderConfig, ProviderResponse, ProviderType, SecretObject,
         VertexAIProviderConfig,
     },
-    management_api_bundle,
     errors::ApiError,
-    AppState,
+    management_api_bundle, AppState,
 };
 use serde_json::json;
 use sqlx::postgres::PgPoolOptions;
