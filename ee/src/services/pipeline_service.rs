@@ -93,9 +93,7 @@ impl PipelineService {
             if plugin_dto.plugin_type == PluginType::ModelRouter {
                 let model_router_config: ModelRouterConfigDto =
                     serde_json::from_value(plugin_dto.config_data.clone()).map_err(|e| {
-                        ApiError::ValidationError(format!(
-                            "Invalid model-router config_data: {e}"
-                        ))
+                        ApiError::ValidationError(format!("Invalid model-router config_data: {e}"))
                     })?;
                 for model_entry in model_router_config.models {
                     // Assuming model_definition_repo.find_by_key now doesn't need PgPool

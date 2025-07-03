@@ -32,9 +32,7 @@ fn convert_json_value_to_string(json_value: &JsonValue) -> String {
         JsonValue::Null => String::new(), // Or a specific string like "null"
         JsonValue::Array(_) | JsonValue::Object(_) => serde_json::to_string(json_value)
             .unwrap_or_else(|e| {
-                warn!(
-                    "Failed to serialize complex JsonValue to string: {e}. Using empty string."
-                );
+                warn!("Failed to serialize complex JsonValue to string: {e}. Using empty string.");
                 String::new()
             }),
     }
