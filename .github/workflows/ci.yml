@@ -11,44 +11,39 @@ env:
   SQLX_OFFLINE: true
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     name: "Build and Test"
-
     steps:
       - uses: actions/checkout@v4
-      
       - name: Check formatting
         run: cargo fmt --check
-        
       - name: Check clippy
         run: cargo clippy -- -D warnings
-        
       - name: Build
         run: cargo build --verbose
-        
       - name: Run tests
         run: cargo test --verbose
 
   database-integration-tests:
     runs-on: ubuntu-latest
     name: "Database Integration Tests"
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Check database module formatting
         working-directory: ee
         run: cargo fmt --check
-        
+
       - name: Check database module clippy
         working-directory: ee
         run: cargo clippy -- -D warnings
-        
+
       - name: Build database module
         working-directory: ee
         run: cargo build --verbose
-        
+
       - name: Run database integration tests
         working-directory: ee
         run: cargo test --verbose
