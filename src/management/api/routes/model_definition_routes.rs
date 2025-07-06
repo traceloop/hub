@@ -1,13 +1,14 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::Json,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
-use sqlx::types::Uuid;
 use std::sync::Arc;
+use uuid::Uuid;
 
-use crate::{
+use crate::management::{
     dto::{CreateModelDefinitionRequest, ModelDefinitionResponse, UpdateModelDefinitionRequest},
     errors::ApiError,
     services::model_definition_service::ModelDefinitionService,

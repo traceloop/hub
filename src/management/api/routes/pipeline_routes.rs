@@ -1,12 +1,13 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::Json,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
-use sqlx::types::Uuid;
+use uuid::Uuid;
 
-use crate::{
+use crate::management::{
     dto::{CreatePipelineRequestDto, PipelineResponseDto, UpdatePipelineRequestDto},
     errors::ApiError,
     AppState,

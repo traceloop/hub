@@ -1,4 +1,4 @@
-use crate::dto::SecretObject;
+use crate::management::dto::SecretObject;
 use anyhow::{anyhow, Result};
 use std::env;
 use tracing::{debug, warn};

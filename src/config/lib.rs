@@ -1,6 +1,4 @@
-use hub_gateway_core_types::{
-    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider,
-};
+use crate::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use serde::Deserialize;
 use std::sync::OnceLock;
 // std::collections::HashMap is used by serde_yaml for flatten, but not directly here otherwise.

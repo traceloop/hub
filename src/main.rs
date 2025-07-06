@@ -1,11 +1,11 @@
-use hub_gateway_core_types::GatewayConfig;
+use hub_lib::types::GatewayConfig;
 use hub_lib::{config, routes, state::AppState};
 use std::sync::Arc;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{error, info, Level};
 
 // Always import database components - mode detection happens at runtime
-use {ee::db_based_config_integration, sqlx::PgPool, std::time::Duration};
+use {hub_lib::management::db_based_config_integration, sqlx::PgPool, std::time::Duration};
 
 #[allow(dead_code)]
 const DEFAULT_CONFIG_PATH: &str = "config.yaml";
@@ -18,7 +18,8 @@ pub enum ConfigMode {
     Database { pool: PgPool },
 }
 
-type ConfigProvider = Arc<ee::services::config_provider_service::ConfigProviderService>;
+type ConfigProvider =
+    Arc<hub_lib::management::services::config_provider_service::ConfigProviderService>;
 
 async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
     // Check HUB_MODE environment variable first
@@ -29,11 +30,7 @@ async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
                 .map_err(|e| anyhow::anyhow!("DATABASE_URL not set for database mode: {}", e))?;
 
             let pool = PgPool::connect(&database_url).await.map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to connect to database at {}: {}",
-                    database_url,
-                    e
-                )
+                anyhow::anyhow!("Failed to connect to database at {}: {}", database_url, e)
             })?;
             info!("Connected to database successfully.");
             Ok(ConfigMode::Database { pool })
@@ -45,7 +42,10 @@ async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
             Ok(ConfigMode::Yaml { path: config_path })
         }
         Ok(invalid_mode) => {
-            error!("Invalid HUB_MODE '{}'. Valid options: 'yaml', 'database'", invalid_mode);
+            error!(
+                "Invalid HUB_MODE '{}'. Valid options: 'yaml', 'database'",
+                invalid_mode
+            );
             Err(anyhow::anyhow!("Invalid HUB_MODE: {}", invalid_mode))
         }
         Err(_) => {
@@ -99,11 +99,7 @@ async fn get_initial_config_and_services(
         ConfigMode::Yaml { path } => {
             info!("Loading configuration from YAML file: {}", path);
             let yaml_config = config::load_config(&path).map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to load YAML configuration from {}: {}",
-                    path,
-                    e
-                )
+                anyhow::anyhow!("Failed to load YAML configuration from {}: {}", path, e)
             })?;
 
             if let Err(val_errors) = config::validation::validate_gateway_config(&yaml_config) {
@@ -181,14 +177,13 @@ async fn main() -> anyhow::Result<()> {
                         {
                             error!("Updated database configuration is invalid: {:?}. Retaining previous config.", val_errors);
                         } else {
-                            info!("Updated database configuration validated. Attempting to apply...");
+                            info!(
+                                "Updated database configuration validated. Attempting to apply..."
+                            );
                             if let Err(update_err) =
                                 poller_app_state.try_update_config_and_registries(new_config)
                             {
-                                error!(
-                                    "Failed to apply updated configuration: {:?}",
-                                    update_err
-                                );
+                                error!("Failed to apply updated configuration: {:?}", update_err);
                             } else {
                                 info!("Successfully applied updated configuration and rebuilt registries.");
                             }
@@ -203,8 +198,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let app = main_router.layer(
-        TraceLayer::new_for_http()
-            .make_span_with(DefaultMakeSpan::default().include_headers(true)),
+        TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)),
     );
 
     let port = std::env::var("PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());

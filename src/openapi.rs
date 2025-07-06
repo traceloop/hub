@@ -9,7 +9,7 @@ use crate::models::{
 };
 
 // Always import management API components
-use ee::{
+use crate::management::{
     api::routes::{model_definition_routes::*, pipeline_routes::*, provider_routes::*},
     dto::{
         AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig,

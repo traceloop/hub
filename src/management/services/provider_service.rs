@@ -1,7 +1,8 @@
+use serde_json;
 use sqlx::{types::Uuid, PgPool};
 use std::sync::Arc;
 
-use crate::{
+use crate::management::{
     db::{models::Provider as DbProvider, repositories::provider_repository::ProviderRepository},
     dto::{
         AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig, CreateProviderRequest,

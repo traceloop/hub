@@ -1,4 +1,4 @@
-use hub_gateway_core_types::GatewayConfig;
+use crate::types::GatewayConfig;
 use std::collections::HashSet;
 
 /// Validates the logical consistency of a GatewayConfig.
@@ -21,7 +21,7 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
     let model_keys: HashSet<&String> = config.models.iter().map(|m| &m.key).collect();
     for pipeline in &config.pipelines {
         for plugin in &pipeline.plugins {
-            if let hub_gateway_core_types::PluginConfig::ModelRouter {
+            if let crate::types::PluginConfig::ModelRouter {
                 models: router_models,
             } = plugin
             {
@@ -52,7 +52,7 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
 #[cfg(test)]
 mod tests {
     use super::*; // To import validate_gateway_config
-    use hub_gateway_core_types::{ModelConfig, Pipeline, PipelineType, PluginConfig, Provider}; // For test data
+    use crate::types::{ModelConfig, Pipeline, PipelineType, PluginConfig, Provider}; // For test data
 
     #[test]
     fn test_valid_config() {

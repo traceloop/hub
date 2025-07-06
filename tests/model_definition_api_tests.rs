@@ -6,7 +6,7 @@ use axum::{
 };
 use axum_test::TestServer; // Using axum-test
 use chrono::{DateTime, Utc};
-use ee::{
+use hub_lib::management::{
     api::routes::model_definition_routes, // Assuming this is the entry point for model definition routes
     db::models::{ModelDefinition, Provider as DbProvider}, // For direct DB checks if needed
     dto::{

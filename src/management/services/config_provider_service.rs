@@ -1,25 +1,22 @@
+use crate::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use anyhow::{anyhow, Result};
-use hub_gateway_core_types::{
-    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider,
-};
 use log::{error, info, warn};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{
-    dto::{
+use super::{
+    super::dto::{
         ModelDefinitionResponse, ModelRouterConfigDto, PipelinePluginConfigDto,
         PipelineResponseDto,
         ProviderConfig, /*, OpenAIProviderConfig, AzureProviderConfig, BedrockProviderConfig*/
         ProviderResponse,
     },
-    services::{
-        model_definition_service::ModelDefinitionService, pipeline_service::PipelineService,
-        provider_service::ProviderService, secret_resolver::SecretResolver,
-    },
-    // errors::ApiError, // Assuming ApiError can be converted to anyhow::Error or handled
+    model_definition_service::ModelDefinitionService,
+    pipeline_service::PipelineService,
+    provider_service::ProviderService,
+    secret_resolver::SecretResolver,
 };
 
 // Helper function to convert serde_json::Value to String
@@ -260,7 +257,7 @@ impl ConfigProviderService {
 
     fn transform_plugin_dto(dto: PipelinePluginConfigDto) -> Result<PluginConfig> {
         match dto.plugin_type {
-            crate::dto::PluginType::ModelRouter => {
+            super::super::dto::PluginType::ModelRouter => {
                 let mr_config: ModelRouterConfigDto = serde_json::from_value(dto.config_data)
                     .map_err(|e| {
                         anyhow!(
@@ -273,7 +270,7 @@ impl ConfigProviderService {
                 let model_keys = mr_config.models.into_iter().map(|m| m.key).collect();
                 Ok(PluginConfig::ModelRouter { models: model_keys })
             }
-            crate::dto::PluginType::Logging => {
+            super::super::dto::PluginType::Logging => {
                 let level = dto
                     .config_data
                     .get("level")
@@ -282,7 +279,7 @@ impl ConfigProviderService {
                     .to_string();
                 Ok(PluginConfig::Logging { level })
             }
-            crate::dto::PluginType::Tracing => {
+            super::super::dto::PluginType::Tracing => {
                 let endpoint = dto
                     .config_data
                     .get("endpoint")

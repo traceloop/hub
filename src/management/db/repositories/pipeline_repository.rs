@@ -1,7 +1,7 @@
-use sqlx::{query_as, types::Uuid, PgPool, Row};
+use sqlx::{query_as, types::Uuid, PgPool, Result, Row};
 use std::collections::HashMap;
 
-use crate::{
+use crate::management::{
     db::models::{Pipeline, PipelinePluginConfig, PipelineWithPlugins},
     dto::{CreatePipelineRequestDto, UpdatePipelineRequestDto},
     errors::ApiError,
@@ -371,7 +371,7 @@ impl PipelineRepository {
                 .await
                 .map_err(ApiError::from)?
                 .into_iter()
-                .map(|row| row.get("key"))
+                .map(|row| row.get::<&str, _>("key").to_string())
                 .collect();
 
         // Check if the count of found keys matches the count of input keys

@@ -1,15 +1,15 @@
 #![allow(dead_code)] // Allow dead code for work-in-progress
 #![allow(unused_imports)] // Allow unused imports for work-in-progress
 
-use axum::http::StatusCode; // For status assertions
-use axum::Router as AxumRouter; // Alias to avoid conflict if Router from testcontainers is brought in
-use sqlx::{migrate::Migrator, postgres::PgPoolOptions, Executor, PgPool};
-use std::path::Path; // For migration path
-use std::sync::Arc;
-
-// Crate-specific imports
-use ee::{
-    // DTOs needed for requests/responses
+use axum::{
+    body::Body,
+    http::{Request, StatusCode},
+};
+use axum_test::TestServer;
+use chrono::{DateTime, Utc};
+use hub_lib::management::{
+    api::routes::{model_definition_routes, pipeline_routes, provider_routes},
+    db::models::{ModelDefinition, Pipeline, Provider},
     dto::{
         AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig,
         CreateModelDefinitionRequest, CreatePipelineRequestDto, CreateProviderRequest,
@@ -18,19 +18,15 @@ use ee::{
         PluginType, ProviderConfig, ProviderResponse, ProviderType, SecretObject,
         UpdatePipelineRequestDto, VertexAIProviderConfig,
     },
-    // Potentially services or repos if we need to setup data directly (though API is preferred)
-    // services::{provider_service::ProviderService, model_definition_service::ModelDefinitionService, pipeline_service::PipelineService},
-    // db::repositories::{provider_repository::ProviderRepository, model_definition_repository::ModelDefinitionRepository, pipeline_repository::PipelineRepository},
-    management_api_bundle,
-    AppState,
+    errors::ApiError,
+    management_api_bundle, AppState,
 };
-
-// Test framework imports
-use axum_test::TestServer; // For testing the Axum app
 use serde_json::json;
-use testcontainers::{core::WaitFor, runners::AsyncRunner, ImageExt};
+use sqlx::{migrate::Migrator, postgres::PgPoolOptions, types::Uuid, PgPool};
+use std::path::Path;
+use std::sync::Arc;
+use testcontainers::{runners::AsyncRunner, ContainerAsync};
 use testcontainers_modules::postgres::Postgres;
-use uuid::Uuid;
 
 async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
     let node = Postgres::default()
@@ -51,7 +47,11 @@ async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
     println!("Test Postgres running at: {}", db_url);
 
     let pool = PgPoolOptions::new()
-        .max_connections(20)
+        .max_connections(5) // Reduce max connections per test
+        .min_connections(1) // Ensure minimum connections
+        .acquire_timeout(std::time::Duration::from_secs(30)) // Increase timeout
+        .idle_timeout(std::time::Duration::from_secs(10)) // Cleanup idle connections
+        .max_lifetime(std::time::Duration::from_secs(300)) // Recycle connections
         .connect(&db_url)
         .await
         .expect("Failed to connect to test DB");
