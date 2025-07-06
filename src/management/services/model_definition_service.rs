@@ -1,4 +1,4 @@
-use crate::{
+use crate::management::{
     db::models::ModelDefinition,
     db::repositories::{
         model_definition_repository::ModelDefinitionRepository,
@@ -53,7 +53,7 @@ impl ModelDefinitionService {
 
         // 3. Deserialize provider's config using the provider type
         let provider_config =
-            crate::services::provider_service::ProviderService::deserialize_provider_config(
+            super::provider_service::ProviderService::deserialize_provider_config(
                 &provider_type_enum,
                 &provider_db.config_details,
             )

@@ -1,5 +1,5 @@
-use hub_gateway_core_types::{GatewayConfig, Provider};
 use hub_lib::config::hash::{calculate_config_hash, configs_are_equal};
+use hub_lib::types::{GatewayConfig, Provider};
 use std::collections::HashMap;
 
 #[test]

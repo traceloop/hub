@@ -1,12 +1,13 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::Json,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
-use sqlx::types::Uuid;
+use uuid::Uuid;
 
-use crate::{
+use crate::management::{
     dto::{CreateProviderRequest, ProviderResponse, UpdateProviderRequest},
     errors::ApiError,
     AppState,
@@ -30,7 +31,7 @@ pub fn provider_routes() -> Router<AppState> {
 
 #[utoipa::path(
     post,
-    path = "/api/v1/ee/providers",
+    path = "/api/v1/management/providers",
     request_body = CreateProviderRequest,
     responses(
         (status = 201, description = "Provider created successfully", body = ProviderResponse),
@@ -52,7 +53,7 @@ async fn create_provider_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/providers",
+    path = "/api/v1/management/providers",
     responses(
         (status = 200, description = "List of providers", body = Vec<ProviderResponse>),
         (status = 500, description = "Internal server error", body = ApiError)
@@ -70,7 +71,7 @@ async fn list_providers_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/providers/{id}",
+    path = "/api/v1/management/providers/{id}",
     params(
         ("id" = Uuid, Path, description = "Provider ID")
     ),
@@ -93,7 +94,7 @@ async fn get_provider_handler(
 
 #[utoipa::path(
     put,
-    path = "/api/v1/ee/providers/{id}",
+    path = "/api/v1/management/providers/{id}",
     request_body = UpdateProviderRequest,
     params(
         ("id" = Uuid, Path, description = "Provider ID")
@@ -120,7 +121,7 @@ async fn update_provider_handler(
 
 #[utoipa::path(
     delete,
-    path = "/api/v1/ee/providers/{id}",
+    path = "/api/v1/management/providers/{id}",
     params(
         ("id" = Uuid, Path, description = "Provider ID")
     ),

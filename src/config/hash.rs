@@ -1,4 +1,4 @@
-use hub_gateway_core_types::GatewayConfig;
+use crate::types::GatewayConfig;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 

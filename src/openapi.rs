@@ -8,8 +8,8 @@ use crate::models::{
     streaming::ChatCompletionChunk,
 };
 
-#[cfg(feature = "db_based_config")]
-use ee::{
+// Always import management API components
+use crate::management::{
     api::routes::{model_definition_routes::*, pipeline_routes::*, provider_routes::*},
     dto::{
         AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig,
@@ -22,68 +22,18 @@ use ee::{
     errors::ApiError,
 };
 
-/// Base OpenAPI documentation for OSS features
+/// Unified OpenAPI documentation for Traceloop Hub Gateway
+/// Includes both core LLM gateway features and management API
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        // OSS health and metrics endpoints
-        health_handler,
-        metrics_handler,
-        // OSS pipeline endpoints (dynamically generated)
-        chat_completions_handler,
-        completions_handler,
-        embeddings_handler,
-    ),
-    components(
-        schemas(
-            // OSS request/response models
-            ChatCompletionRequest,
-            ChatCompletion,
-            ChatCompletionChunk,
-            CompletionRequest,
-            CompletionResponse,
-            EmbeddingsRequest,
-            EmbeddingsResponse,
-        )
-    ),
-    tags(
-        (name = "Health", description = "Health check and monitoring endpoints"),
-        (name = "Chat", description = "Chat completion endpoints"),
-        (name = "Completions", description = "Text completion endpoints"),
-        (name = "Embeddings", description = "Text embedding endpoints"),
-    ),
-    info(
-        title = "Hub LLM Gateway API",
-        version = "1.0.0",
-        description = "Hub LLM Gateway - Open Source LLM Gateway with optional Enterprise Edition features",
-        contact(
-            name = "Traceloop",
-            url = "https://traceloop.com",
-            email = "support@traceloop.com"
-        ),
-        license(
-            name = "Apache 2.0",
-            url = "https://www.apache.org/licenses/LICENSE-2.0"
-        )
-    ),
-    servers(
-        (url = "/", description = "Local server")
-    )
-)]
-pub struct OssApiDoc;
-
-/// Extended OpenAPI documentation that includes EE features when available
-#[cfg(feature = "db_based_config")]
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        // OSS endpoints
+        // Core LLM Gateway endpoints
         health_handler,
         metrics_handler,
         chat_completions_handler,
         completions_handler,
         embeddings_handler,
-        // EE Management API endpoints
+        // Management API endpoints (available in database mode only)
         create_provider_handler,
         list_providers_handler,
         get_provider_handler,
@@ -104,7 +54,7 @@ pub struct OssApiDoc;
     ),
     components(
         schemas(
-            // OSS models
+            // Core LLM Gateway models
             ChatCompletionRequest,
             ChatCompletion,
             ChatCompletionChunk,
@@ -112,7 +62,7 @@ pub struct OssApiDoc;
             CompletionResponse,
             EmbeddingsRequest,
             EmbeddingsResponse,
-            // EE models
+            // Management API models
             ApiError,
             ProviderType,
             ProviderConfig,
@@ -142,40 +92,33 @@ pub struct OssApiDoc;
         (name = "Chat", description = "Chat completion endpoints"),
         (name = "Completions", description = "Text completion endpoints"),
         (name = "Embeddings", description = "Text embedding endpoints"),
-        (name = "Providers", description = "Provider management endpoints (Enterprise Edition)"),
-        (name = "Model Definitions", description = "Model definition management endpoints (Enterprise Edition)"),
-        (name = "Pipelines", description = "Pipeline management endpoints (Enterprise Edition)"),
+        (name = "Providers", description = "Provider management endpoints (database mode only)"),
+        (name = "Model Definitions", description = "Model definition management endpoints (database mode only)"),
+        (name = "Pipelines", description = "Pipeline management endpoints (database mode only)"),
     ),
     info(
-        title = "Hub LLM Gateway API (Enterprise Edition)",
+        title = "Traceloop Hub LLM Gateway API",
         version = "1.0.0",
-        description = "Hub LLM Gateway with Enterprise Edition Management API - Complete LLM Gateway with configuration management",
+        description = "Traceloop Hub LLM Gateway - Open Source LLM Gateway with YAML and Database configuration modes. Management API endpoints are only available when running in database mode.",
         contact(
             name = "Traceloop",
             url = "https://traceloop.com",
             email = "support@traceloop.com"
         ),
         license(
-            name = "Commercial",
-            url = "https://traceloop.com/license"
+            name = "Apache 2.0",
+            url = "https://www.apache.org/licenses/LICENSE-2.0"
         )
     ),
     servers(
         (url = "/", description = "Local server")
     )
 )]
-pub struct DbBasedApiDoc;
+pub struct HubApiDoc;
 
-/// Get the appropriate OpenAPI documentation based on feature flags
+/// Get the OpenAPI specification
 pub fn get_openapi_spec() -> utoipa::openapi::OpenApi {
-    #[cfg(feature = "db_based_config")]
-    {
-        DbBasedApiDoc::openapi()
-    }
-    #[cfg(not(feature = "db_based_config"))]
-    {
-        OssApiDoc::openapi()
-    }
+    HubApiDoc::openapi()
 }
 
 // Placeholder handler functions for OpenAPI path documentation
@@ -201,8 +144,8 @@ pub async fn health_handler() -> &'static str {
     ),
     tag = "Health"
 )]
-pub async fn metrics_handler() -> String {
-    "# Prometheus metrics".to_string()
+pub async fn metrics_handler() -> &'static str {
+    "metrics"
 }
 
 #[utoipa::path(
@@ -211,8 +154,6 @@ pub async fn metrics_handler() -> String {
     request_body = ChatCompletionRequest,
     responses(
         (status = 200, description = "Chat completion response", body = ChatCompletion),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error"),
     ),
     tag = "Chat"
 )]
@@ -223,9 +164,7 @@ pub async fn chat_completions_handler() {}
     path = "/api/v1/completions",
     request_body = CompletionRequest,
     responses(
-        (status = 200, description = "Text completion response", body = CompletionResponse),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error"),
+        (status = 200, description = "Completion response", body = CompletionResponse),
     ),
     tag = "Completions"
 )]
@@ -237,8 +176,6 @@ pub async fn completions_handler() {}
     request_body = EmbeddingsRequest,
     responses(
         (status = 200, description = "Embeddings response", body = EmbeddingsResponse),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error"),
     ),
     tag = "Embeddings"
 )]

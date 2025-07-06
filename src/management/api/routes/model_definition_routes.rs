@@ -1,13 +1,14 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::Json,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
-use sqlx::types::Uuid;
 use std::sync::Arc;
+use uuid::Uuid;
 
-use crate::{
+use crate::management::{
     dto::{CreateModelDefinitionRequest, ModelDefinitionResponse, UpdateModelDefinitionRequest},
     errors::ApiError,
     services::model_definition_service::ModelDefinitionService,
@@ -31,7 +32,7 @@ pub fn model_definition_routes() -> Router<AppState> {
 
 #[utoipa::path(
     post,
-    path = "/api/v1/ee/model-definitions",
+    path = "/api/v1/management/model-definitions",
     request_body = CreateModelDefinitionRequest,
     responses(
         (status = 200, description = "Model definition created successfully", body = ModelDefinitionResponse),
@@ -52,7 +53,7 @@ async fn create_model_definition_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/model-definitions",
+    path = "/api/v1/management/model-definitions",
     responses(
         (status = 200, description = "List of model definitions", body = Vec<ModelDefinitionResponse>),
         (status = 500, description = "Internal server error", body = ApiError)
@@ -69,7 +70,7 @@ async fn list_model_definitions_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/model-definitions/{id}",
+    path = "/api/v1/management/model-definitions/{id}",
     params(
         ("id" = Uuid, Path, description = "Model Definition ID")
     ),
@@ -93,7 +94,7 @@ async fn get_model_definition_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/model-definitions/key/{key}",
+    path = "/api/v1/management/model-definitions/key/{key}",
     params(
         ("key" = String, Path, description = "Model Definition Key")
     ),
@@ -115,7 +116,7 @@ async fn get_model_definition_by_key_handler(
 
 #[utoipa::path(
     put,
-    path = "/api/v1/ee/model-definitions/{id}",
+    path = "/api/v1/management/model-definitions/{id}",
     request_body = UpdateModelDefinitionRequest,
     params(
         ("id" = Uuid, Path, description = "Model Definition ID")
@@ -143,7 +144,7 @@ async fn update_model_definition_handler(
 
 #[utoipa::path(
     delete,
-    path = "/api/v1/ee/model-definitions/{id}",
+    path = "/api/v1/management/model-definitions/{id}",
     params(
         ("id" = Uuid, Path, description = "Model Definition ID")
     ),

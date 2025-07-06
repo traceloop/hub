@@ -1,6 +1,4 @@
-use hub_gateway_core_types::{
-    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider,
-};
+use crate::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use serde::Deserialize;
 use std::sync::OnceLock;
 // std::collections::HashMap is used by serde_yaml for flatten, but not directly here otherwise.
@@ -67,7 +65,6 @@ pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Erro
     Ok(gateway_config)
 }
 
-#[cfg(feature = "db_based_config")]
 fn parse_env_var_bool(var: &str) -> Option<bool> {
     match var.to_lowercase().as_str() {
         "true" => Some(true),
@@ -77,13 +74,12 @@ fn parse_env_var_bool(var: &str) -> Option<bool> {
 }
 
 pub fn get_trace_content_enabled() -> bool {
-    #[cfg(feature = "db_based_config")]
-    {
-        if let Ok(env_value) = std::env::var("TRACE_CONTENT_ENABLED") {
-            if let Some(val) = parse_env_var_bool(&env_value) {
-                return val;
-            }
+    // Always check environment variable first (useful for database mode)
+    if let Ok(env_value) = std::env::var("TRACE_CONTENT_ENABLED") {
+        if let Some(val) = parse_env_var_bool(&env_value) {
+            return val;
         }
     }
+    // Fall back to config value or default true
     *TRACE_CONTENT_ENABLED.get_or_init(|| true)
 }

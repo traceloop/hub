@@ -1,4 +1,4 @@
-use crate::{
+use crate::management::{
     db::models::ModelDefinition,
     dto::{CreateModelDefinitionRequest, UpdateModelDefinitionRequest},
 };

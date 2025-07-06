@@ -1,8 +1,10 @@
 use serde_json::Value as JsonValue;
-use sqlx::{query, query_as, types::Uuid, PgPool, Result as SqlxResult};
+use sqlx::{query, query_as, types::Uuid, PgPool, Result};
 
-use crate::db::models::Provider;
-use crate::dto::{CreateProviderRequest, UpdateProviderRequest}; // Using DTOs
+use crate::management::{
+    db::models::Provider,
+    dto::{CreateProviderRequest, UpdateProviderRequest},
+};
 
 // We might need CreateProviderRequest or similar DTOs if we pass parts of them directly,
 // or we pass decomposed values (name, provider_type string, config_details JsonValue).
@@ -39,7 +41,7 @@ impl ProviderRepository {
         data: &CreateProviderRequest,
         provider_type_str: &str,
         config_json_value: JsonValue,
-    ) -> SqlxResult<Provider> {
+    ) -> Result<Provider> {
         let new_id = Uuid::new_v4(); // SQLx can often handle default UUIDs if schema is set up
         let enabled = data.enabled.unwrap_or(true);
         query_as!(
@@ -59,7 +61,7 @@ impl ProviderRepository {
         .await
     }
 
-    pub async fn find_by_id(&self, id: Uuid) -> SqlxResult<Option<Provider>> {
+    pub async fn find_by_id(&self, id: Uuid) -> Result<Option<Provider>> {
         query_as!(
             Provider,
             r#"
@@ -73,7 +75,7 @@ impl ProviderRepository {
         .await
     }
 
-    pub async fn find_by_name(&self, name: &str) -> SqlxResult<Option<Provider>> {
+    pub async fn find_by_name(&self, name: &str) -> Result<Option<Provider>> {
         query_as!(
             Provider,
             r#"
@@ -87,7 +89,7 @@ impl ProviderRepository {
         .await
     }
 
-    pub async fn list(&self) -> SqlxResult<Vec<Provider>> {
+    pub async fn list(&self) -> Result<Vec<Provider>> {
         query_as!(
             Provider,
             r#"
@@ -105,7 +107,7 @@ impl ProviderRepository {
         id: Uuid,
         data: &UpdateProviderRequest,
         config_json_value_opt: Option<JsonValue>,
-    ) -> SqlxResult<Option<Provider>> {
+    ) -> Result<Option<Provider>> {
         // Fetch current and merge, or use COALESCE intelligently
         // For simplicity, this query relies on COALESCE for all fields in data.
         // If a field in `data` is None, COALESCE will keep the existing DB value.
@@ -154,7 +156,7 @@ impl ProviderRepository {
         .await
     }
 
-    pub async fn delete(&self, id: Uuid) -> SqlxResult<u64> {
+    pub async fn delete(&self, id: Uuid) -> Result<u64> {
         let result = query!(
             r#"
             DELETE FROM hub_llmgateway_providers

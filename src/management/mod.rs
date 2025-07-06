@@ -12,14 +12,14 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 // Repositories - some services might need direct Arc<Repo> access
-use crate::db::repositories::{
+use self::db::repositories::{
     // ProviderRepository is created internally by ProviderService via pool
     model_definition_repository::ModelDefinitionRepository, // Needed by PipelineService
     pipeline_repository::PipelineRepository,                // Needed by PipelineService
 };
 
 // Services
-use crate::services::{
+use self::services::{
     config_provider_service::ConfigProviderService,
     model_definition_service::ModelDefinitionService, pipeline_service::PipelineService,
     provider_service::ProviderService,

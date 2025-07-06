@@ -13,15 +13,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - variant: "oss"
+          - variant: "hub"
             dockerfile: "Dockerfile"
             suffix: ""
-          - variant: "db-based"
-            dockerfile: "Dockerfile.db-based"
-            suffix: "-db-based"
-          - variant: "db-based-migrations"
+          - variant: "migrations"
             dockerfile: "Dockerfile.db-based-migrations"
-            suffix: "-db-based-migrations"
+            suffix: "-migrations"
     
     permissions:
       id-token: write

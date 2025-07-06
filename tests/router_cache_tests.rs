@@ -1,7 +1,5 @@
-use hub_gateway_core_types::{
-    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider,
-};
 use hub_lib::state::AppState;
+use hub_lib::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use std::sync::Arc;
 
 #[tokio::test]

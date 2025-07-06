@@ -1,8 +1,7 @@
+use sqlx::types::Uuid;
 use std::sync::Arc;
 
-use sqlx::types::Uuid;
-
-use crate::{
+use crate::management::{
     db::models::PipelineWithPlugins, // Internal struct from repository
     // We'll need ModelDefinitionRepository for validating model keys in model-router
     db::repositories::model_definition_repository::ModelDefinitionRepository,

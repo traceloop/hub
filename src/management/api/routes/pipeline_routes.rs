@@ -1,12 +1,13 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::Json,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
-use sqlx::types::Uuid;
+use uuid::Uuid;
 
-use crate::{
+use crate::management::{
     dto::{CreatePipelineRequestDto, PipelineResponseDto, UpdatePipelineRequestDto},
     errors::ApiError,
     AppState,
@@ -16,7 +17,7 @@ use crate::{
 
 #[utoipa::path(
     post,
-    path = "/api/v1/ee/pipelines",
+    path = "/api/v1/management/pipelines",
     request_body = CreatePipelineRequestDto,
     responses(
         (status = 201, description = "Pipeline created successfully", body = PipelineResponseDto),
@@ -37,7 +38,7 @@ async fn create_pipeline_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/pipelines",
+    path = "/api/v1/management/pipelines",
     responses(
         (status = 200, description = "List of pipelines", body = Vec<PipelineResponseDto>),
         (status = 500, description = "Internal server error", body = ApiError)
@@ -54,7 +55,7 @@ async fn list_pipelines_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/pipelines/{id}",
+    path = "/api/v1/management/pipelines/{id}",
     params(
         ("id" = Uuid, Path, description = "Pipeline ID")
     ),
@@ -76,7 +77,7 @@ async fn get_pipeline_handler(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/ee/pipelines/name/{name}",
+    path = "/api/v1/management/pipelines/name/{name}",
     params(
         ("name" = String, Path, description = "Pipeline Name")
     ),
@@ -101,7 +102,7 @@ async fn get_pipeline_by_name_handler(
 
 #[utoipa::path(
     put,
-    path = "/api/v1/ee/pipelines/{id}",
+    path = "/api/v1/management/pipelines/{id}",
     request_body = UpdatePipelineRequestDto,
     params(
         ("id" = Uuid, Path, description = "Pipeline ID")
@@ -130,7 +131,7 @@ async fn update_pipeline_handler(
 
 #[utoipa::path(
     delete,
-    path = "/api/v1/ee/pipelines/{id}",
+    path = "/api/v1/management/pipelines/{id}",
     params(
         ("id" = Uuid, Path, description = "Pipeline ID")
     ),

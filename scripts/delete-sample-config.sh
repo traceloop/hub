@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 GATEWAY_URL="http://localhost:3100"
-API_BASE="${GATEWAY_URL}/api/v1/ee"
+API_BASE="${GATEWAY_URL}/api/v1/management"
 
 echo -e "${BLUE}🔧 Deleting Sample Configuration for EE Gateway${NC}"
 echo "=============================================="
