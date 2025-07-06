@@ -10,6 +10,7 @@ use {hub_lib::management::db_based_config_integration, sqlx::PgPool, std::time::
 #[allow(dead_code)]
 const DEFAULT_CONFIG_PATH: &str = "config.yaml";
 const DEFAULT_PORT: &str = "3000";
+const DEFAULT_MANAGEMENT_PORT: &str = "8080";
 const DEFAULT_DB_POLL_INTERVAL_SECONDS: u64 = 30;
 
 #[derive(Debug, Clone)]
@@ -132,15 +133,8 @@ async fn main() -> anyhow::Result<()> {
             .map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?,
     );
 
-    let mut main_router = routes::create_router(app_state.clone());
-
-    // Add management API routes only in database mode
-    if let Some(management_router) = management_router_opt {
-        main_router = main_router.nest("/api/v1/management", management_router);
-        info!("Management API mounted at /api/v1/management (database mode).");
-    } else {
-        info!("Management API not available (YAML mode).");
-    }
+    // Create LLM Gateway router
+    let gateway_router = routes::create_router(app_state.clone());
 
     // Start configuration polling only in database mode
     if let Some(config_provider) = config_provider_opt {
@@ -197,16 +191,84 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
-    let app = main_router.layer(
+    // Apply tracing layer to gateway router
+    let gateway_app = gateway_router.layer(
         TraceLayer::new_for_http().make_span_with(DefaultMakeSpan::default().include_headers(true)),
     );
 
-    let port = std::env::var("PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
-    let bind_address = format!("0.0.0.0:{}", port);
+    // Get port configurations
+    let gateway_port = std::env::var("PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
+    let gateway_bind_address = format!("0.0.0.0:{}", gateway_port);
 
-    info!("Starting server on {}", bind_address);
-    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
-    axum::serve(listener, app).await?;
+    info!("Starting LLM Gateway server on {}", gateway_bind_address);
+    let gateway_listener = tokio::net::TcpListener::bind(&gateway_bind_address)
+        .await
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to bind LLM Gateway to {}: {}",
+                gateway_bind_address,
+                e
+            )
+        })?;
+
+    // Start servers based on mode
+    match management_router_opt {
+        Some(management_router) => {
+            // Database mode - start both servers
+            let management_port = std::env::var("MANAGEMENT_PORT")
+                .unwrap_or_else(|_| DEFAULT_MANAGEMENT_PORT.to_string());
+            let management_bind_address = format!("0.0.0.0:{}", management_port);
+
+            info!(
+                "Starting Management API server on {}",
+                management_bind_address
+            );
+            let management_listener = tokio::net::TcpListener::bind(&management_bind_address)
+                .await
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to bind Management API to {}: {}",
+                        management_bind_address,
+                        e
+                    )
+                })?;
+
+            // Apply tracing layer to management router
+            let management_app = management_router.layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(DefaultMakeSpan::default().include_headers(true)),
+            );
+
+            info!(
+                "Both servers started successfully - LLM Gateway: {}, Management API: {}",
+                gateway_bind_address, management_bind_address
+            );
+
+            // Run both servers concurrently - fail fast if either fails
+            let gateway_server = axum::serve(gateway_listener, gateway_app);
+            let management_server = axum::serve(management_listener, management_app);
+
+            tokio::select! {
+                result = gateway_server => {
+                    error!("LLM Gateway server failed: {:?}", result);
+                    result?;
+                }
+                result = management_server => {
+                    error!("Management API server failed: {:?}", result);
+                    result?;
+                }
+            }
+        }
+        None => {
+            // YAML mode - start only gateway server
+            info!("Management API not available (YAML mode).");
+            info!(
+                "LLM Gateway server started successfully on {}",
+                gateway_bind_address
+            );
+            axum::serve(gateway_listener, gateway_app).await?;
+        }
+    }
 
     Ok(())
 }

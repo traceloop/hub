@@ -20,7 +20,7 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if not .Values.ee.enabled }}
+      {{- if not .Values.management.enabled }}
       # OSS mode - keep existing init container for config processing
       initContainers:
         - name: config-init
@@ -62,6 +62,8 @@ spec:
             - name: PORT
               value: {{ .Values.service.port | quote }}
             {{- if .Values.ee.enabled }}
+            - name: MANAGEMENT_PORT
+              value: {{ .Values.service.managementPort | quote }}
             # EE-specific environment variables
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.ee.database.user }}:$(DB_PASSWORD)@{{ .Values.ee.database.host }}:{{ .Values.ee.database.port }}/{{ .Values.ee.database.name }}"
@@ -86,6 +88,11 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+            {{- if .Values.management.enabled }}
+            - name: management
+              containerPort: {{ .Values.service.managementPort }}
+              protocol: TCP
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -104,8 +111,20 @@ spec:
             timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds | default 5 }}
             successThreshold: {{ .Values.probes.readiness.successThreshold | default 1 }}
             failureThreshold: {{ .Values.probes.readiness.failureThreshold | default 3 }}
+            {{- if .Values.management.enabled }}
+            # Additional health check for management API
+            startupProbe:
+              httpGet:
+                path: /health
+                port: management
+              initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds | default 10 }}
+              periodSeconds: {{ .Values.probes.readiness.periodSeconds | default 10 }}
+              timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds | default 5 }}
+              successThreshold: {{ .Values.probes.readiness.successThreshold | default 1 }}
+              failureThreshold: {{ .Values.probes.readiness.failureThreshold | default 3 }}
+            {{- end }}
           volumeMounts:
-            {{- if not .Values.ee.enabled }}
+            {{- if not .Values.management.enabled }}
             # OSS mode - mount config file
             - name: config-volume
               mountPath: /app/config.yaml
@@ -115,7 +134,7 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
-        {{- if not .Values.ee.enabled }}
+        {{- if not .Values.management.enabled }}
         # OSS mode volumes
         - name: config-template
           configMap:

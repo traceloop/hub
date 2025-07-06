@@ -14,17 +14,18 @@ NC='\033[0m' # No Color
 
 # Configuration
 GATEWAY_URL="http://localhost:3100"
-API_BASE="${GATEWAY_URL}/api/v1/management"
+MANAGEMENT_URL="http://localhost:8080"
+API_BASE="${MANAGEMENT_URL}/api/v1/management"
 
 echo -e "${BLUE}🔧 Deleting Sample Configuration for EE Gateway${NC}"
 echo "=============================================="
 
 # Check if gateway is running
 echo -e "${BLUE}1. Checking if gateway is running...${NC}"
-if ! curl -s "${API_BASE}/health" > /dev/null; then
-    echo -e "${RED}❌ Gateway is not running at ${GATEWAY_URL}${NC}"
+if ! curl -s "${MANAGEMENT_URL}/health" > /dev/null; then
+    echo -e "${RED}❌ Management API is not running at ${MANAGEMENT_URL}${NC}"
     echo -e "${YELLOW}Please start the gateway first:${NC}"
-    echo -e "   ${BLUE}cargo run --features db_based_config${NC}"
+    echo -e "   ${BLUE}HUB_MODE=database cargo run${NC}"
     exit 1
 fi
 echo -e "${GREEN}   ✅ Gateway is running${NC}"

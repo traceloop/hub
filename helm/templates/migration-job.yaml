@@ -1,4 +1,4 @@
-{{- if and (eq .Values.deploymentMode "database") .Values.migrations.enabled }}
+{{- if  .Values.management.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -20,17 +20,17 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrations
-          image: "{{ .Values.migrations.image.repository }}{{ .Values.migrations.image.suffix }}:{{ .Values.migrations.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.management.migrations.image.repository }}{{ .Values.management.migrations.image.suffix }}:{{ .Values.management.migrations.image.tag | default .Chart.AppVersion }}"
           env:
             - name: DATABASE_URL
-              value: "postgresql://{{ .Values.database.user }}:$(DB_PASSWORD)@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}?sslmode={{ .Values.database.sslMode }}"
+              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.database.existingSecret | default (printf "%s-db-secret" (include "hub.fullname" .)) }}
+                  name: {{ .Values.management.database.existingSecret | default (printf "%s-db-secret" (include "hub.fullname" .)) }}
                   key: password
           resources:
-            {{- toYaml .Values.migrations.resources | nindent 12 }}
+            {{- toYaml .Values.management.migrations.resources | nindent 12 }}
   backoffLimit: 3
   activeDeadlineSeconds: 300
 {{- end }} 

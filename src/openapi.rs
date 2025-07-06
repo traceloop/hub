@@ -111,7 +111,8 @@ use crate::management::{
         )
     ),
     servers(
-        (url = "/", description = "Local server")
+        (url = "http://localhost:3000", description = "LLM Gateway Server"),
+        (url = "http://localhost:8080", description = "Management API Server")
     )
 )]
 pub struct HubApiDoc;

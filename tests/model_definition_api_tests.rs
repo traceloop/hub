@@ -92,7 +92,10 @@ async fn create_test_provider(
         enabled: Some(true),
     };
 
-    let response = client.post("/providers").json(&request).await;
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request)
+        .await;
     assert_eq!(
         response.status_code(),
         StatusCode::CREATED,
@@ -122,7 +125,7 @@ async fn test_create_model_definition_success() {
     };
 
     let response = client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&request_payload)
         .await;
     assert_eq!(response.status_code(), StatusCode::CREATED);
@@ -161,7 +164,10 @@ async fn test_create_model_definition_duplicate_key() {
         config_details: None,
         enabled: Some(true),
     };
-    let response1 = client.post("/model-definitions").json(&payload1).await;
+    let response1 = client
+        .post("/api/v1/management/model-definitions")
+        .json(&payload1)
+        .await;
     assert_eq!(
         response1.status_code(),
         StatusCode::CREATED,
@@ -176,7 +182,10 @@ async fn test_create_model_definition_duplicate_key() {
         config_details: None,
         enabled: Some(true),
     };
-    let response2 = client.post("/model-definitions").json(&payload2).await;
+    let response2 = client
+        .post("/api/v1/management/model-definitions")
+        .json(&payload2)
+        .await;
     assert_eq!(response2.status_code(), StatusCode::CONFLICT);
 
     let error_response: serde_json::Value = response2.json();
@@ -200,7 +209,7 @@ async fn test_create_model_definition_invalid_provider_id() {
     };
 
     let response = client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&request_payload)
         .await;
     assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
@@ -224,7 +233,7 @@ async fn test_get_model_definition_success() {
         enabled: Some(true),
     };
     let create_response = client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&create_payload)
         .await;
     assert_eq!(
@@ -235,7 +244,10 @@ async fn test_get_model_definition_success() {
     let created_md: ModelDefinitionResponse = create_response.json();
 
     let response = client
-        .get(&format!("/model-definitions/{}", created_md.id))
+        .get(&format!(
+            "/api/v1/management/model-definitions/{}",
+            created_md.id
+        ))
         .await;
     assert_eq!(response.status_code(), StatusCode::OK);
 
@@ -254,7 +266,10 @@ async fn test_get_model_definition_not_found() {
     let (client, _pool, _container) = setup_test_environment().await;
     let non_existent_id = Uuid::new_v4();
     let response = client
-        .get(&format!("/model-definitions/{}", non_existent_id))
+        .get(&format!(
+            "/api/v1/management/model-definitions/{}",
+            non_existent_id
+        ))
         .await;
     assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
@@ -272,7 +287,7 @@ async fn test_get_model_definition_by_key_success() {
         enabled: Some(true),
     };
     let create_response = client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&create_payload)
         .await;
     assert_eq!(
@@ -283,7 +298,10 @@ async fn test_get_model_definition_by_key_success() {
     let _created_md: ModelDefinitionResponse = create_response.json();
 
     let response = client
-        .get(&format!("/model-definitions/key/{}", key_to_find))
+        .get(&format!(
+            "/api/v1/management/model-definitions/key/{}",
+            key_to_find
+        ))
         .await;
     assert_eq!(response.status_code(), StatusCode::OK);
 
@@ -297,7 +315,10 @@ async fn test_get_model_definition_by_key_not_found() {
     let (client, _pool, _container) = setup_test_environment().await;
     let non_existent_key = "i-do-not-exist-key";
     let response = client
-        .get(&format!("/model-definitions/key/{}", non_existent_key))
+        .get(&format!(
+            "/api/v1/management/model-definitions/key/{}",
+            non_existent_key
+        ))
         .await;
     assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
@@ -310,7 +331,7 @@ async fn test_list_model_definitions_empty() {
     // For a true empty test, it might need its own OnceCell or a DB cleaning mechanism.
     // However, for now, we accept it lists what's there.
     // If this is the first test to run (or after a DB clear), it should be empty.
-    let response = client.get("/model-definitions").await;
+    let response = client.get("/api/v1/management/model-definitions").await;
     assert_eq!(response.status_code(), StatusCode::OK);
     // let mds: Vec<ModelDefinitionResponse> = response.json();
     // assert!(mds.is_empty()); // This might fail if other tests ran first and created data.
@@ -323,7 +344,7 @@ async fn test_list_model_definitions_multiple() {
     let provider2 = create_test_provider(&client, "Prov-List2-MD", ProviderType::Azure).await; // Unique name
 
     client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&CreateModelDefinitionRequest {
             key: format!("md1-list-{}", Uuid::new_v4()), // Ensure unique key
             model_type: "t1".to_string(),
@@ -334,7 +355,7 @@ async fn test_list_model_definitions_multiple() {
         .await
         .assert_status(StatusCode::CREATED);
     client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&CreateModelDefinitionRequest {
             key: format!("md2-list-{}", Uuid::new_v4()), // Ensure unique key
             model_type: "t2".to_string(),
@@ -345,7 +366,7 @@ async fn test_list_model_definitions_multiple() {
         .await
         .assert_status(StatusCode::CREATED);
     client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&CreateModelDefinitionRequest {
             key: format!("md3-list-{}", Uuid::new_v4()), // Ensure unique key
             model_type: "t3".to_string(),
@@ -356,7 +377,7 @@ async fn test_list_model_definitions_multiple() {
         .await
         .assert_status(StatusCode::CREATED);
 
-    let response = client.get("/model-definitions").await;
+    let response = client.get("/api/v1/management/model-definitions").await;
     assert_eq!(response.status_code(), StatusCode::OK);
     let mds: Vec<ModelDefinitionResponse> = response.json();
     // The exact number can be tricky with OnceCell if tests are not perfectly isolated
@@ -377,7 +398,7 @@ async fn test_update_model_definition_success() {
         enabled: Some(true),
     };
     let create_response = client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&create_payload)
         .await;
     assert_eq!(
@@ -396,7 +417,10 @@ async fn test_update_model_definition_success() {
     };
 
     let update_response = client
-        .put(&format!("/model-definitions/{}", created_md.id))
+        .put(&format!(
+            "/api/v1/management/model-definitions/{}",
+            created_md.id
+        ))
         .json(&update_payload)
         .await;
     assert_eq!(update_response.status_code(), StatusCode::OK);
@@ -425,7 +449,10 @@ async fn test_update_model_definition_not_found() {
         enabled: None,
     };
     let response = client
-        .put(&format!("/model-definitions/{}", non_existent_id))
+        .put(&format!(
+            "/api/v1/management/model-definitions/{}",
+            non_existent_id
+        ))
         .json(&update_payload)
         .await;
     assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
@@ -445,7 +472,10 @@ async fn test_update_model_definition_duplicate_key_conflict() {
         config_details: None,
         enabled: Some(true),
     };
-    let md1_res = client.post("/model-definitions").json(&md1_payload).await;
+    let md1_res = client
+        .post("/api/v1/management/model-definitions")
+        .json(&md1_payload)
+        .await;
     assert_eq!(md1_res.status_code(), StatusCode::CREATED);
 
     let md2_payload = CreateModelDefinitionRequest {
@@ -455,7 +485,10 @@ async fn test_update_model_definition_duplicate_key_conflict() {
         config_details: None,
         enabled: Some(true),
     };
-    let md2_res = client.post("/model-definitions").json(&md2_payload).await;
+    let md2_res = client
+        .post("/api/v1/management/model-definitions")
+        .json(&md2_payload)
+        .await;
     assert_eq!(md2_res.status_code(), StatusCode::CREATED);
     let md2_created: ModelDefinitionResponse = md2_res.json();
 
@@ -468,7 +501,10 @@ async fn test_update_model_definition_duplicate_key_conflict() {
         enabled: None,
     };
     let update_response = client
-        .put(&format!("/model-definitions/{}", md2_created.id))
+        .put(&format!(
+            "/api/v1/management/model-definitions/{}",
+            md2_created.id
+        ))
         .json(&update_payload)
         .await;
     assert_eq!(update_response.status_code(), StatusCode::CONFLICT);
@@ -486,7 +522,10 @@ async fn test_update_model_definition_invalid_provider_id() {
         config_details: None,
         enabled: Some(true),
     };
-    let md_res = client.post("/model-definitions").json(&md_payload).await;
+    let md_res = client
+        .post("/api/v1/management/model-definitions")
+        .json(&md_payload)
+        .await;
     assert_eq!(md_res.status_code(), StatusCode::CREATED);
     let created_md: ModelDefinitionResponse = md_res.json();
 
@@ -499,7 +538,10 @@ async fn test_update_model_definition_invalid_provider_id() {
         enabled: None,
     };
     let update_response = client
-        .put(&format!("/model-definitions/{}", created_md.id))
+        .put(&format!(
+            "/api/v1/management/model-definitions/{}",
+            created_md.id
+        ))
         .json(&update_payload)
         .await;
     assert_eq!(update_response.status_code(), StatusCode::BAD_REQUEST);
@@ -517,7 +559,7 @@ async fn test_delete_model_definition_success() {
         enabled: Some(true),
     };
     let create_response = client
-        .post("/model-definitions")
+        .post("/api/v1/management/model-definitions")
         .json(&create_payload)
         .await;
     assert_eq!(
@@ -528,7 +570,10 @@ async fn test_delete_model_definition_success() {
     let created_md: ModelDefinitionResponse = create_response.json();
 
     let delete_response = client
-        .delete(&format!("/model-definitions/{}", created_md.id))
+        .delete(&format!(
+            "/api/v1/management/model-definitions/{}",
+            created_md.id
+        ))
         .await;
     assert_eq!(delete_response.status_code(), StatusCode::OK);
 
@@ -552,7 +597,10 @@ async fn test_delete_model_definition_not_found() {
     let (client, _pool, _container) = setup_test_environment().await;
     let non_existent_id = Uuid::new_v4();
     let response = client
-        .delete(&format!("/model-definitions/{}", non_existent_id))
+        .delete(&format!(
+            "/api/v1/management/model-definitions/{}",
+            non_existent_id
+        ))
         .await;
     assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }

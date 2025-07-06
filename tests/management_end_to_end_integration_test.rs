@@ -16,6 +16,7 @@ struct TestEnvironment {
     _app_process: Child,
     client: reqwest::Client,
     base_url: String,
+    management_api_base_url: String,
 }
 
 impl TestEnvironment {
@@ -39,13 +40,16 @@ impl TestEnvironment {
         // Run migrations
         sqlx::migrate!("./migrations").run(&pool).await?;
 
-        // Find an available port for the test server
-        let port = find_available_port().await?;
-        let base_url = format!("http://127.0.0.1:{}", port);
+        // Find available ports for both servers
+        let (gateway_port, management_port) = find_two_available_ports().await?;
+        let base_url = format!("http://127.0.0.1:{}", gateway_port);
+        let management_base_url = format!("http://127.0.0.1:{}", management_port);
+        let management_api_base_url = format!("{}/api/v1/management", management_base_url);
 
         // Set environment variables for the application
         std::env::set_var("DATABASE_URL", &connection_string);
-        std::env::set_var("PORT", port.to_string());
+        std::env::set_var("PORT", gateway_port.to_string());
+        std::env::set_var("MANAGEMENT_PORT", management_port.to_string());
         std::env::set_var("DB_POLL_INTERVAL_SECONDS", "1"); // Fast polling for tests
         std::env::set_var("HUB_MODE", "database"); // Force database mode
 
@@ -62,7 +66,8 @@ impl TestEnvironment {
         // Start the application process
         let app_process = tokio::process::Command::new("./target/debug/hub")
             .env("DATABASE_URL", &connection_string)
-            .env("PORT", port.to_string())
+            .env("PORT", gateway_port.to_string())
+            .env("MANAGEMENT_PORT", management_port.to_string())
             .env("DB_POLL_INTERVAL_SECONDS", "1")
             .env("HUB_MODE", "database")
             .stdout(Stdio::piped())
@@ -72,22 +77,42 @@ impl TestEnvironment {
         // Wait for the application to start
         let client = reqwest::Client::new();
         let health_url = format!("{}/health", base_url);
+        let management_health_url = format!("{}/health", management_base_url);
 
-        // Wait up to 10 seconds for the app to start
+        // Wait up to 10 seconds for both servers to start
         for _ in 0..50 {
-            if let Ok(response) = client.get(&health_url).send().await {
-                if response.status().is_success() {
-                    println!("✓ Application started successfully on port {}", port);
-                    break;
-                }
+            let gateway_ok = client
+                .get(&health_url)
+                .send()
+                .await
+                .map(|r| r.status().is_success())
+                .unwrap_or(false);
+            let management_ok = client
+                .get(&management_health_url)
+                .send()
+                .await
+                .map(|r| r.status().is_success())
+                .unwrap_or(false);
+
+            if gateway_ok && management_ok {
+                println!(
+                    "✓ Both servers started successfully - Gateway: {}, Management: {}",
+                    base_url, management_base_url
+                );
+                break;
             }
             sleep(Duration::from_millis(200)).await;
         }
 
-        // Verify the app is responding
-        let response = client.get(&health_url).send().await?;
-        if !response.status().is_success() {
-            anyhow::bail!("Application failed to start properly");
+        // Verify both servers are responding
+        let gateway_response = client.get(&health_url).send().await?;
+        if !gateway_response.status().is_success() {
+            anyhow::bail!("Gateway server failed to start properly");
+        }
+
+        let management_response = client.get(&management_health_url).send().await?;
+        if !management_response.status().is_success() {
+            anyhow::bail!("Management API server failed to start properly");
         }
 
         Ok(TestEnvironment {
@@ -96,6 +121,7 @@ impl TestEnvironment {
             _app_process: app_process,
             client,
             base_url,
+            management_api_base_url,
         })
     }
 
@@ -118,7 +144,7 @@ impl TestEnvironment {
 
         let response = self
             .client
-            .post(format!("{}/api/v1/management/providers", self.base_url))
+            .post(format!("{}/providers", self.management_api_base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()
@@ -148,8 +174,8 @@ impl TestEnvironment {
         let response = self
             .client
             .post(format!(
-                "{}/api/v1/management/model-definitions",
-                self.base_url
+                "{}/model-definitions",
+                self.management_api_base_url
             ))
             .header("content-type", "application/json")
             .json(&request)
@@ -205,7 +231,7 @@ impl TestEnvironment {
 
         let response = self
             .client
-            .post(format!("{}/api/v1/management/pipelines", self.base_url))
+            .post(format!("{}/pipelines", self.management_api_base_url))
             .header("content-type", "application/json")
             .json(&request)
             .send()
@@ -244,13 +270,24 @@ impl Drop for TestEnvironment {
     }
 }
 
-async fn find_available_port() -> anyhow::Result<u16> {
+async fn find_two_available_ports() -> anyhow::Result<(u16, u16)> {
     use tokio::net::TcpListener;
 
-    let listener = TcpListener::bind("127.0.0.1:0").await?;
-    let port = listener.local_addr()?.port();
-    drop(listener); // Release the port
-    Ok(port)
+    let listener1 = TcpListener::bind("127.0.0.1:0").await?;
+    let port1 = listener1.local_addr()?.port();
+
+    let listener2 = TcpListener::bind("127.0.0.1:0").await?;
+    let port2 = listener2.local_addr()?.port();
+
+    // Keep both listeners alive until we return the ports
+    // This prevents race conditions
+    let ports = (port1, port2);
+
+    // Drop listeners to release ports
+    drop(listener1);
+    drop(listener2);
+
+    Ok(ports)
 }
 
 // Cassette recording functionality
@@ -493,10 +530,7 @@ async fn test_configuration_validation_and_rejection() {
 
     let response = env
         .client
-        .post(format!(
-            "{}/api/v1/management/model-definitions",
-            env.base_url
-        ))
+        .post(format!("{}/model-definitions", env.management_api_base_url))
         .header("content-type", "application/json")
         .json(&request)
         .send()
@@ -539,7 +573,7 @@ async fn test_configuration_validation_and_rejection() {
 
     let response = env
         .client
-        .post(format!("{}/api/v1/management/pipelines", env.base_url))
+        .post(format!("{}/pipelines", env.management_api_base_url))
         .header("content-type", "application/json")
         .json(&request)
         .send()
@@ -572,7 +606,7 @@ async fn test_configuration_validation_and_rejection() {
 
     let response = env
         .client
-        .post(format!("{}/api/v1/management/pipelines", env.base_url))
+        .post(format!("{}/pipelines", env.management_api_base_url))
         .header("content-type", "application/json")
         .json(&request)
         .send()

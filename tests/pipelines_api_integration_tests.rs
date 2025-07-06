@@ -134,7 +134,10 @@ async fn create_test_provider(
         "enabled": true
     });
 
-    let response = server.post("/providers").json(&request_payload).await;
+    let response = server
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
     response.assert_status(StatusCode::CREATED);
     response.json()
 }
@@ -152,7 +155,10 @@ async fn create_test_model_definition(
         config_details: Some(json!({"temperature": 0.7})),
         enabled: Some(true),
     };
-    let response = server.post("/model-definitions").json(&request).await;
+    let response = server
+        .post("/api/v1/management/model-definitions")
+        .json(&request)
+        .await;
     response.assert_status(StatusCode::CREATED);
     response.json()
 }
@@ -169,13 +175,19 @@ async fn test_create_pipeline_success_simple() {
         plugins: vec![],
         enabled: true,
     };
-    let response = server.post("/pipelines").json(&pipeline_req).await;
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
     response.assert_status(StatusCode::CREATED);
     let created_pipeline: PipelineResponseDto = response.json();
     assert_eq!(created_pipeline.name, pipeline_req.name);
     assert!(created_pipeline.plugins.is_empty());
     let fetched_response = server
-        .get(&format!("/pipelines/{}", created_pipeline.id))
+        .get(&format!(
+            "/api/v1/management/pipelines/{}",
+            created_pipeline.id
+        ))
         .await;
     fetched_response.assert_status_ok();
     let fetched_pipeline: PipelineResponseDto = fetched_response.json();
@@ -193,10 +205,16 @@ async fn test_create_pipeline_name_conflict() {
         plugins: vec![],
         enabled: true,
     };
-    let creation_response = server.post("/pipelines").json(&pipeline_req).await;
+    let creation_response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
     creation_response.assert_status(StatusCode::CREATED);
 
-    let conflict_response = server.post("/pipelines").json(&pipeline_req).await;
+    let conflict_response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
     conflict_response.assert_status(StatusCode::CONFLICT);
 }
 
@@ -205,7 +223,7 @@ async fn test_get_pipeline_not_found() {
     let (server, _pool, _container) = setup_test_environment().await;
     let non_existent_id = Uuid::new_v4();
     server
-        .get(&format!("/pipelines/{}", non_existent_id))
+        .get(&format!("/api/v1/management/pipelines/{}", non_existent_id))
         .await
         .assert_status_not_found();
 }
@@ -241,7 +259,10 @@ async fn test_create_pipeline_with_valid_model_router() {
         plugins: vec![pipeline_plugin],
         enabled: true,
     };
-    let response = server.post("/pipelines").json(&pipeline_req).await;
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
     response.assert_status(StatusCode::CREATED);
     let created_pipeline: PipelineResponseDto = response.json();
     assert_eq!(created_pipeline.name, pipeline_name);
@@ -279,7 +300,10 @@ async fn test_create_pipeline_with_invalid_model_router_key() {
         plugins: vec![pipeline_plugin],
         enabled: true,
     };
-    let response = server.post("/pipelines").json(&pipeline_req).await;
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
     response.assert_status(StatusCode::BAD_REQUEST);
     let error_response: serde_json::Value = response.json();
     assert!(error_response.get("error").is_some());
@@ -305,7 +329,10 @@ async fn test_list_pipelines() {
         plugins: vec![],
         enabled: true,
     };
-    let response1 = server.post("/pipelines").json(&pipeline1_req).await;
+    let response1 = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline1_req)
+        .await;
     response1.assert_status(StatusCode::CREATED);
     let created_pipeline1: PipelineResponseDto = response1.json();
 
@@ -317,11 +344,14 @@ async fn test_list_pipelines() {
         plugins: vec![],
         enabled: false,
     };
-    let response2 = server.post("/pipelines").json(&pipeline2_req).await;
+    let response2 = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline2_req)
+        .await;
     response2.assert_status(StatusCode::CREATED);
     let created_pipeline2: PipelineResponseDto = response2.json();
 
-    let list_response = server.get("/pipelines").await;
+    let list_response = server.get("/api/v1/management/pipelines").await;
     list_response.assert_status_ok();
     let listed_pipelines: Vec<PipelineResponseDto> = list_response.json();
     assert!(listed_pipelines
@@ -343,12 +373,18 @@ async fn test_get_pipeline_by_name() {
         plugins: vec![],
         enabled: true,
     };
-    let creation_response = server.post("/pipelines").json(&pipeline_req).await;
+    let creation_response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
     creation_response.assert_status(StatusCode::CREATED);
     let created_pipeline: PipelineResponseDto = creation_response.json();
 
     let fetch_response = server
-        .get(&format!("/pipelines/name/{}", pipeline_name))
+        .get(&format!(
+            "/api/v1/management/pipelines/name/{}",
+            pipeline_name
+        ))
         .await;
     fetch_response.assert_status_ok();
     let fetched_pipeline: PipelineResponseDto = fetch_response.json();
@@ -356,7 +392,10 @@ async fn test_get_pipeline_by_name() {
     assert_eq!(fetched_pipeline.name, pipeline_name);
     let non_existent_name = format!("non-existent-name-{}", Uuid::new_v4());
     server
-        .get(&format!("/pipelines/name/{}", non_existent_name))
+        .get(&format!(
+            "/api/v1/management/pipelines/name/{}",
+            non_existent_name
+        ))
         .await
         .assert_status_not_found();
 }
@@ -388,7 +427,10 @@ async fn test_update_pipeline_name_and_plugins() {
         plugins: vec![initial_pipeline_plugin],
         enabled: true,
     };
-    let creation_response = server.post("/pipelines").json(&create_req).await;
+    let creation_response = server
+        .post("/api/v1/management/pipelines")
+        .json(&create_req)
+        .await;
     creation_response.assert_status(StatusCode::CREATED);
     let created_pipeline: PipelineResponseDto = creation_response.json();
 
@@ -420,7 +462,10 @@ async fn test_update_pipeline_name_and_plugins() {
         enabled: Some(false),
     };
     let update_response = server
-        .put(&format!("/pipelines/{}", created_pipeline.id))
+        .put(&format!(
+            "/api/v1/management/pipelines/{}",
+            created_pipeline.id
+        ))
         .json(&update_req)
         .await;
     update_response.assert_status_ok();
@@ -468,21 +513,30 @@ async fn test_delete_pipeline() {
         plugins: vec![],
         enabled: true,
     };
-    let creation_response = server.post("/pipelines").json(&pipeline_req).await;
+    let creation_response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
     creation_response.assert_status(StatusCode::CREATED);
     let created_pipeline: PipelineResponseDto = creation_response.json();
 
     let delete_response = server
-        .delete(&format!("/pipelines/{}", created_pipeline.id))
+        .delete(&format!(
+            "/api/v1/management/pipelines/{}",
+            created_pipeline.id
+        ))
         .await;
     delete_response.assert_status_ok();
     server
-        .get(&format!("/pipelines/{}", created_pipeline.id))
+        .get(&format!(
+            "/api/v1/management/pipelines/{}",
+            created_pipeline.id
+        ))
         .await
         .assert_status_not_found();
     let non_existent_id = Uuid::new_v4();
     server
-        .delete(&format!("/pipelines/{}", non_existent_id))
+        .delete(&format!("/api/v1/management/pipelines/{}", non_existent_id))
         .await
         .assert_status_not_found();
 }

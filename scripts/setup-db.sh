@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Traceloop Hub Gateway - Enterprise Edition Setup Script
-# This script automates the setup of EE mode with PostgreSQL
+# Traceloop Hub Gateway - Management API Setup Script
+# This script automates the setup of Management API mode with PostgreSQL
 
 set -e
 
@@ -18,7 +18,11 @@ DB_USER="hub_user"
 DB_PASSWORD="hub_password"
 DB_PORT="5432"
 CONTAINER_NAME="hub-postgres"
-GATEWAY_PORT="3000"
+GATEWAY_PORT="3100"
+MANAGEMENT_PORT="8080"
+GATEWAY_URL="http://localhost:${GATEWAY_PORT}"
+MANAGEMENT_URL="http://localhost:${MANAGEMENT_PORT}"
+API_BASE="${MANAGEMENT_URL}/api/v1/management"
 
 echo -e "${BLUE}🚀 Traceloop Hub Gateway - Enterprise Edition Setup${NC}"
 echo "=================================================="
@@ -100,6 +104,7 @@ cat > .env << EOF
 DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}
 DB_POLL_INTERVAL_SECONDS=30
 PORT=${GATEWAY_PORT}
+MANAGEMENT_PORT=${MANAGEMENT_PORT}
 RUST_LOG=info
 EOF
 
@@ -113,11 +118,12 @@ echo "1. Start the gateway:"
 echo -e "   ${BLUE}cargo run --features db_based_config${NC}"
 echo ""
 echo "2. Verify it's running:"
-echo -e "   ${BLUE}curl http://localhost:${GATEWAY_PORT}/api/v1/ee/health${NC}"
+echo -e "   ${BLUE}curl http://localhost:${GATEWAY_PORT}/health${NC}"
+echo -e "   ${BLUE}curl http://localhost:${MANAGEMENT_PORT}/health${NC}"
 echo ""
 echo "3. Create initial configuration using the Management API:"
 echo -e "   ${BLUE}# Create a provider${NC}"
-echo -e "   ${BLUE}curl -X POST http://localhost:${GATEWAY_PORT}/api/v1/ee/providers \\${NC}"
+echo -e "   ${BLUE}curl -X POST http://localhost:${MANAGEMENT_PORT}/api/v1/management/providers \\${NC}"
 echo -e "   ${BLUE}     -H \"Content-Type: application/json\" \\${NC}"
 echo -e "   ${BLUE}     -d '{${NC}"
 echo -e "   ${BLUE}       \"name\": \"OpenAI Main\",${NC}"

@@ -70,15 +70,15 @@ pub fn management_api_bundle(pool: PgPool) -> (Router, Arc<ConfigProviderService
 
     let router = Router::new()
         .nest(
-            "/providers",
+            "/api/v1/management/providers",
             api::routes::provider_routes::provider_routes(),
         )
         .nest(
-            "/model-definitions",
+            "/api/v1/management/model-definitions",
             api::routes::model_definition_routes::model_definition_routes(),
         )
         .nest(
-            "/pipelines",
+            "/api/v1/management/pipelines",
             api::routes::pipeline_routes::pipeline_routes(),
         )
         .route(
@@ -87,5 +87,5 @@ pub fn management_api_bundle(pool: PgPool) -> (Router, Arc<ConfigProviderService
         )
         .with_state(app_state);
 
-    (router, config_provider_service) // Return both
+    (router, config_provider_service)
 }

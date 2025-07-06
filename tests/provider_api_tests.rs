@@ -171,7 +171,10 @@ async fn test_create_provider_success() {
     };
 
     let before_request = Utc::now();
-    let response = client.post("/providers").json(&request_payload).await;
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
     let after_request = Utc::now();
 
     assert_eq!(response.status_code(), axum::http::StatusCode::CREATED);
@@ -212,7 +215,10 @@ async fn test_create_vertexai_provider_success() {
     };
 
     let before_request = Utc::now();
-    let response = client.post("/providers").json(&request_payload).await;
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
     let after_request = Utc::now();
 
     assert_eq!(response.status_code(), axum::http::StatusCode::CREATED);
@@ -252,7 +258,10 @@ async fn test_create_vertexai_provider_with_api_key() {
         enabled: Some(false),
     };
 
-    let response = client.post("/providers").json(&request_payload).await;
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
 
     assert_eq!(response.status_code(), axum::http::StatusCode::CREATED);
 
@@ -281,7 +290,10 @@ async fn test_create_provider_duplicate_name() {
         enabled: Some(true),
     };
 
-    let response1 = client.post("/providers").json(&initial_payload).await;
+    let response1 = client
+        .post("/api/v1/management/providers")
+        .json(&initial_payload)
+        .await;
     assert_eq!(
         response1.status_code(),
         axum::http::StatusCode::CREATED,
@@ -300,7 +312,10 @@ async fn test_create_provider_duplicate_name() {
         enabled: Some(false),
     };
 
-    let response2 = client.post("/providers").json(&duplicate_payload).await;
+    let response2 = client
+        .post("/api/v1/management/providers")
+        .json(&duplicate_payload)
+        .await;
 
     assert_eq!(response2.status_code(), axum::http::StatusCode::CONFLICT);
 
@@ -329,7 +344,10 @@ async fn test_get_provider_success() {
         enabled: Some(true),
     };
 
-    let create_response = client.post("/providers").json(&request_payload).await;
+    let create_response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
     assert_eq!(
         create_response.status_code(),
         axum::http::StatusCode::CREATED,
@@ -338,7 +356,10 @@ async fn test_get_provider_success() {
     let created_provider: ProviderResponse = create_response.json::<ProviderResponse>();
 
     let get_response = client
-        .get(&format!("/providers/{}", created_provider.id))
+        .get(&format!(
+            "/api/v1/management/providers/{}",
+            created_provider.id
+        ))
         .await;
 
     assert_eq!(get_response.status_code(), axum::http::StatusCode::OK);
@@ -364,7 +385,10 @@ async fn test_get_provider_not_found() {
     let non_existent_uuid = Uuid::new_v4();
 
     let response = client
-        .get(&format!("/providers/{}", non_existent_uuid))
+        .get(&format!(
+            "/api/v1/management/providers/{}",
+            non_existent_uuid
+        ))
         .await;
 
     assert_eq!(response.status_code(), axum::http::StatusCode::NOT_FOUND);
@@ -380,7 +404,7 @@ async fn test_get_provider_not_found() {
 async fn test_list_providers_empty() {
     let (client, _pool, _container) = setup_test_environment().await;
 
-    let response = client.get("/providers").await;
+    let response = client.get("/api/v1/management/providers").await;
 
     assert_eq!(response.status_code(), axum::http::StatusCode::OK);
 
@@ -401,7 +425,10 @@ async fn test_list_providers_multiple() {
         }),
         enabled: Some(true),
     };
-    let res1 = client.post("/providers").json(&provider1_payload).await;
+    let res1 = client
+        .post("/api/v1/management/providers")
+        .json(&provider1_payload)
+        .await;
     assert_eq!(
         res1.status_code(),
         axum::http::StatusCode::CREATED,
@@ -420,7 +447,10 @@ async fn test_list_providers_multiple() {
         }),
         enabled: Some(false),
     };
-    let res2 = client.post("/providers").json(&provider2_payload).await;
+    let res2 = client
+        .post("/api/v1/management/providers")
+        .json(&provider2_payload)
+        .await;
     assert_eq!(
         res2.status_code(),
         axum::http::StatusCode::CREATED,
@@ -428,7 +458,7 @@ async fn test_list_providers_multiple() {
     );
     let provider2_resp: ProviderResponse = res2.json::<ProviderResponse>();
 
-    let list_response = client.get("/providers").await;
+    let list_response = client.get("/api/v1/management/providers").await;
     assert_eq!(list_response.status_code(), axum::http::StatusCode::OK);
 
     let listed_providers: Vec<ProviderResponse> = list_response.json::<Vec<ProviderResponse>>();
@@ -463,7 +493,10 @@ async fn test_update_provider_success() {
         }),
         enabled: Some(true),
     };
-    let create_response = client.post("/providers").json(&initial_payload).await;
+    let create_response = client
+        .post("/api/v1/management/providers")
+        .json(&initial_payload)
+        .await;
     assert_eq!(
         create_response.status_code(),
         axum::http::StatusCode::CREATED,
@@ -485,7 +518,10 @@ async fn test_update_provider_success() {
     };
 
     let update_response = client
-        .put(&format!("/providers/{}", created_provider.id))
+        .put(&format!(
+            "/api/v1/management/providers/{}",
+            created_provider.id
+        ))
         .json(&update_payload)
         .await;
     assert_eq!(
@@ -578,7 +614,10 @@ async fn test_update_provider_not_found() {
     };
 
     let response = client
-        .put(&format!("/providers/{}", non_existent_uuid))
+        .put(&format!(
+            "/api/v1/management/providers/{}",
+            non_existent_uuid
+        ))
         .json(&update_payload)
         .await;
 
@@ -604,7 +643,10 @@ async fn test_update_provider_duplicate_name_conflict() {
         }),
         enabled: Some(true),
     };
-    let res1 = client.post("/providers").json(&provider1_payload).await;
+    let res1 = client
+        .post("/api/v1/management/providers")
+        .json(&provider1_payload)
+        .await;
     assert_eq!(
         res1.status_code(),
         axum::http::StatusCode::CREATED,
@@ -622,7 +664,10 @@ async fn test_update_provider_duplicate_name_conflict() {
         }),
         enabled: Some(true),
     };
-    let res2 = client.post("/providers").json(&provider2_payload).await;
+    let res2 = client
+        .post("/api/v1/management/providers")
+        .json(&provider2_payload)
+        .await;
     assert_eq!(
         res2.status_code(),
         axum::http::StatusCode::CREATED,
@@ -637,7 +682,10 @@ async fn test_update_provider_duplicate_name_conflict() {
     };
 
     let update_conflict_response = client
-        .put(&format!("/providers/{}", provider2_created.id))
+        .put(&format!(
+            "/api/v1/management/providers/{}",
+            provider2_created.id
+        ))
         .json(&update_payload_conflict)
         .await;
 
@@ -667,7 +715,10 @@ async fn test_delete_provider_success() {
         }),
         enabled: Some(true),
     };
-    let create_res = client.post("/providers").json(&provider_payload).await;
+    let create_res = client
+        .post("/api/v1/management/providers")
+        .json(&provider_payload)
+        .await;
     assert_eq!(
         create_res.status_code(),
         axum::http::StatusCode::CREATED,
@@ -676,12 +727,18 @@ async fn test_delete_provider_success() {
     let created_provider: ProviderResponse = create_res.json::<ProviderResponse>();
 
     let delete_response = client
-        .delete(&format!("/providers/{}", created_provider.id))
+        .delete(&format!(
+            "/api/v1/management/providers/{}",
+            created_provider.id
+        ))
         .await;
     assert_eq!(delete_response.status_code(), axum::http::StatusCode::OK);
 
     let get_response_after_delete = client
-        .get(&format!("/providers/{}", created_provider.id))
+        .get(&format!(
+            "/api/v1/management/providers/{}",
+            created_provider.id
+        ))
         .await;
     assert_eq!(
         get_response_after_delete.status_code(),
@@ -713,7 +770,10 @@ async fn test_delete_provider_not_found() {
     let non_existent_uuid = Uuid::new_v4();
 
     let response = client
-        .delete(&format!("/providers/{}", non_existent_uuid))
+        .delete(&format!(
+            "/api/v1/management/providers/{}",
+            non_existent_uuid
+        ))
         .await;
 
     assert_eq!(response.status_code(), axum::http::StatusCode::NOT_FOUND);
@@ -741,7 +801,10 @@ async fn test_vertexai_provider_config_transformation() {
         enabled: Some(true),
     };
 
-    let response = client.post("/providers").json(&request_payload).await;
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
     assert_eq!(response.status_code(), axum::http::StatusCode::CREATED);
 
     let provider_response: ProviderResponse = response.json::<ProviderResponse>();
@@ -776,7 +839,10 @@ async fn test_create_anthropic_provider_success() {
         enabled: Some(true),
     };
 
-    let response = client.post("/providers").json(&request_payload).await;
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
 
     assert_eq!(response.status_code(), axum::http::StatusCode::CREATED);
 

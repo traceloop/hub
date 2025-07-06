@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 
 # Copy migration files
-COPY ee/migrations /migrations
+COPY migrations /migrations
 
 # Set working directory to migrations
 WORKDIR /migrations
