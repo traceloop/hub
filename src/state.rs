@@ -5,7 +5,7 @@ use crate::providers::registry::ProviderRegistry;
 use anyhow::{Context, Result};
 use axum::Router;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 /// A snapshot of configuration state at a point in time
 /// This reduces lock contention by capturing all needed data in one operation
