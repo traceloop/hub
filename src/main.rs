@@ -2,7 +2,7 @@ use hub_lib::types::GatewayConfig;
 use hub_lib::{config, routes, state::AppState};
 use std::sync::Arc;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
-use tracing::{error, info, Level};
+use tracing::{debug, error, info, Level};
 
 // Always import database components - mode detection happens at runtime
 use {hub_lib::management::db_based_config_integration, sqlx::PgPool, std::time::Duration};
@@ -118,7 +118,12 @@ async fn get_initial_config_and_services(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    let log_level = std::env::var("RUST_LOG")
+        .ok()
+        .and_then(|level| level.parse::<Level>().ok())
+        .unwrap_or(Level::WARN);
+
+    tracing_subscriber::fmt().with_max_level(log_level).init();
 
     info!("Starting Traceloop Hub Gateway...");
 
@@ -156,11 +161,11 @@ async fn main() -> anyhow::Result<()> {
             let mut interval = tokio::time::interval(poll_duration);
             loop {
                 interval.tick().await;
-                info!("Polling database for configuration updates...");
+                debug!("Polling database for configuration updates...");
                 match poller_config_provider.fetch_live_config().await {
                     Ok(new_config) => {
-                        info!("Successfully fetched updated configuration from database.");
-                        info!(
+                        debug!("Successfully fetched updated configuration from database.");
+                        debug!(
                             "New config has {} providers, {} models, {} pipelines",
                             new_config.providers.len(),
                             new_config.models.len(),
