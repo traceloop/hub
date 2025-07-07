@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hub_llmgateway_model_definitions (key, model_type, provider_id, config_details, enabled)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, key, model_type, provider_id, config_details, enabled, created_at, updated_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "model_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "provider_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "config_details",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Uuid",
+        "Jsonb",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2de4150235ef790ae836e3dfff767475d3b20005d8d2fbd6529bc7f1715ac49c"
+}

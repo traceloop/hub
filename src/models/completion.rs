@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 use super::usage::Usage;
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct CompletionRequest {
     pub model: String,
     pub prompt: String,
@@ -37,7 +38,7 @@ pub struct CompletionRequest {
     pub user: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct CompletionResponse {
     pub id: String,
     pub object: String,
@@ -47,7 +48,7 @@ pub struct CompletionResponse {
     pub usage: Usage,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct CompletionChoice {
     pub text: String,
     pub index: u32,
@@ -57,7 +58,7 @@ pub struct CompletionChoice {
     pub finish_reason: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct LogProbs {
     pub tokens: Vec<String>,
     pub token_logprobs: Vec<f32>,

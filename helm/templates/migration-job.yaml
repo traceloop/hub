@@ -1,0 +1,36 @@
+{{- if  .Values.management.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "hub.fullname" . }}-migrations-{{ .Values.migrations.image.tag | default .Chart.AppVersion | replace "." "-" }}
+  labels:
+    {{- include "hub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrations
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "hub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrations
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrations
+          image: "{{ .Values.management.migrations.image.repository }}{{ .Values.management.migrations.image.suffix }}:{{ .Values.management.migrations.image.tag | default .Chart.AppVersion }}"
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.management.database.existingSecret | default (printf "%s-db-secret" (include "hub.fullname" .)) }}
+                  key: password
+          resources:
+            {{- toYaml .Values.management.migrations.resources | nindent 12 }}
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+{{- end }} 

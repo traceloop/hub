@@ -10,6 +10,16 @@ jobs:
   publish:
     name: Publish Docker Images
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - variant: "hub"
+            dockerfile: "Dockerfile"
+            suffix: ""
+          - variant: "migrations"
+            dockerfile: "Dockerfile.db-based-migrations"
+            suffix: "-migrations"
+    
     permissions:
       id-token: write
       contents: read
@@ -42,16 +52,18 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ghcr.io/traceloop/hub # GitHub
-            traceloop/hub # Docker Hub
+            ghcr.io/traceloop/hub${{ matrix.suffix }}
+            traceloop/hub${{ matrix.suffix }}
           tags: |
             type=sha
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-      - name: Build and push Docker image
+            
+      - name: Build and push Docker image (${{ matrix.variant }})
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.docker-metadata.outputs.tags }}
           labels: ${{ steps.docker-metadata.outputs.labels }}

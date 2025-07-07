@@ -72,7 +72,7 @@ impl Provider for AzureProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("Azure OpenAI API request error: {}", e);
+                eprintln!("Azure OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
@@ -88,7 +88,7 @@ impl Provider for AzureProvider {
                     .await
                     .map(ChatCompletionResponse::NonStream)
                     .map_err(|e| {
-                        eprintln!("Azure OpenAI API response error: {}", e);
+                        eprintln!("Azure OpenAI API response error: {e}");
                         StatusCode::INTERNAL_SERVER_ERROR
                     })
             }
@@ -123,14 +123,14 @@ impl Provider for AzureProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("Azure OpenAI API request error: {}", e);
+                eprintln!("Azure OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
         if status.is_success() {
             response.json().await.map_err(|e| {
-                eprintln!("Azure OpenAI API response error: {}", e);
+                eprintln!("Azure OpenAI API response error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })
         } else {
@@ -165,14 +165,14 @@ impl Provider for AzureProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("Azure OpenAI API request error: {}", e);
+                eprintln!("Azure OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
         if status.is_success() {
             response.json().await.map_err(|e| {
-                eprintln!("Azure OpenAI Embeddings API response error: {}", e);
+                eprintln!("Azure OpenAI Embeddings API response error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })
         } else {

@@ -1,0 +1,190 @@
+# Default values for hub.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: docker.io/traceloop/hub
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  # tag: "latest"
+  # Optionally specify an array of imagePullSecrets.
+  # imagePullSecrets:
+  #   - name: myRegistryKeySecretName
+
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 3100
+
+# Kubernetes probe configuration
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 400Mi
+  requests:
+    cpu: 100m
+    memory: 200Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Environment variables to pass to the hub container
+env: []
+  # - name: DEBUG
+  #   value: "true"
+
+# Configuration for the hub
+config:
+  # Define providers that will be available in the hub
+  providers:
+    - key: openai
+      # Configuration for the OpenAI provider
+
+# Secret management configuration
+secrets:
+  # Name of the existing Kubernetes secret containing API keys
+  existingSecretName: "llm-api-keys"
+  # Mapping of API keys in the secret
+  keyMapping:
+    # The key in the secret for OpenAI API key
+    openaiApiKey: "OPENAI_API_KEY"
+    # Uncomment to use Azure OpenAI API key
+    # azureApiKey: "AZURE_API_KEY"
+    # Uncomment to use Anthropic API key
+    # anthropicApiKey: "ANTHROPIC_API_KEY"
+    # Uncomment to use Traceloop API key for tracing
+    # traceloopApiKey: "TRACELOOP_API_KEY"
+    # Add mappings for any other provider API keys as needed
+
+# Enterprise Edition configuration
+ee:
+  # Enable Enterprise Edition features
+  enabled: false  # Default to OSS mode
+  
+  # PostgreSQL configuration for EE mode
+  database:
+    host: "postgres"
+    port: 5432
+    name: "hub_gateway"
+    user: "hub_user"
+    # Password will come from existing secret
+    existingSecret: "hub-postgres-secret"
+    passwordKey: "password"
+    
+  # EE-specific settings
+  config:
+    pollIntervalSeconds: 30
+    
+  # Image override for EE
+  image:
+    repository: "docker.io/traceloop/hub-ee"
+    # tag will default to chart version
+    
+  # Arbitrary environment variables from secrets
+  # Map environment variable names to secret references
+  secrets: {}
+    # Example:
+    # OPENAI_API_KEY:
+    #   secretName: "llm-providers"
+    #   key: "openai_key"
+    # ANTHROPIC_API_KEY:
+    #   secretName: "llm-providers"
+    #   key: "anthropic_key"
+    # AWS_ACCESS_KEY_ID:
+    #   secretName: "cloud-credentials"
+    #   key: "aws_access_key"
+    # CUSTOM_CONFIG_VAR:
+    #   secretName: "app-config"
+    #   key: "custom_setting"
+    
+  # Migration job configuration
+  migrations:
+    image:
+      repository: "docker.io/traceloop/hub-ee-migrations"
+      # tag will default to chart version
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    backoffLimit: 3
+    activeDeadlineSeconds: 300  # 5 minutes timeout
+
+# Example EE configuration (commented out)
+# ee:
+#   enabled: true
+#   database:
+#     host: "my-postgres.example.com"
+#     port: 5432
+#     name: "hub_gateway"
+#     user: "hub_user"
+#     existingSecret: "hub-postgres-secret"
+#     passwordKey: "password"
+#   config:
+#     pollIntervalSeconds: 60  # Production setting
+#   # Arbitrary environment variables from secrets
+#   secrets:
+#     OPENAI_API_KEY:
+#       secretName: "llm-providers"
+#       key: "openai_key"
+#     ANTHROPIC_API_KEY:
+#       secretName: "llm-providers"  
+#       key: "anthropic_key"
+#     AWS_ACCESS_KEY_ID:
+#       secretName: "cloud-credentials"
+#       key: "aws_access_key"
+#     AWS_SECRET_ACCESS_KEY:
+#       secretName: "cloud-credentials"
+#       key: "aws_secret_key"
+#     AZURE_OPENAI_API_KEY:
+#       secretName: "azure-config"
+#       key: "api_key"
+#   migrations:
+#     image:
+#       repository: "docker.io/traceloop/hub-ee-migrations"
+#       # tag: "1.0.0"  # Defaults to chart version
+#     resources:
+#       limits:
+#         cpu: 500m
+#         memory: 512Mi
+#       requests:
+#         cpu: 200m
+#         memory: 256Mi
+#     backoffLimit: 5
+#     activeDeadlineSeconds: 600  # 10 minutes for large migrations
