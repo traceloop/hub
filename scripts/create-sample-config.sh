@@ -31,7 +31,6 @@ fi
 echo -e "${GREEN}   ✅ Gateway is running${NC}"
 
 # Create OpenAI Provider
-OPENAI_PROVIDER_ID="a0105d38-b40a-42d6-b2eb-9ea4030bc6ea"
 echo -e "${BLUE}2. Creating OpenAI provider...${NC}"
 OPENAI_PROVIDER_RESPONSE=$(curl -s -X POST "${API_BASE}/providers" \
   -H "Content-Type: application/json" \
@@ -57,7 +56,6 @@ fi
 echo -e "${GREEN}   ✅ OpenAI provider created (ID: $OPENAI_PROVIDER_ID)${NC}"
 
 # Create Azure Provider
-AZURE_PROVIDER_ID="509e40da-9643-4b22-ad8f-cc6c0063a17c"
 echo -e "${BLUE}3. Creating Azure provider...${NC}"
 AZURE_PROVIDER_RESPONSE=$(curl -s -X POST "${API_BASE}/providers" \
   -H "Content-Type: application/json" \
@@ -69,8 +67,8 @@ AZURE_PROVIDER_RESPONSE=$(curl -s -X POST "${API_BASE}/providers" \
           "type": "environment",
           "variable_name": "AZURE_OPENAI_API_KEY"
         },
-        "resource_name": "traceloop-stg",
-        "api_version": "2024-10-21"
+        "resource_name": "<your azure resource>",
+        "api_version": "<your azure api version>"
     },
     "enabled": true
   }')
