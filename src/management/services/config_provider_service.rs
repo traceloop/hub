@@ -1,9 +1,10 @@
 use crate::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use anyhow::{anyhow, Result};
-use log::{error, info, warn};
+use log::{error, warn};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing::debug;
 use uuid::Uuid;
 
 use super::{
@@ -69,7 +70,7 @@ impl ConfigProviderService {
     }
 
     pub async fn fetch_live_config(&self) -> Result<GatewayConfig> {
-        info!("Fetching live configuration from database...");
+        debug!("Fetching live configuration from database...");
         let mut gateway_config = GatewayConfig::default();
 
         let db_providers = self
@@ -121,7 +122,7 @@ impl ConfigProviderService {
             }
         }
 
-        info!("Successfully fetched and transformed live configuration.");
+        debug!("Successfully fetched and transformed live configuration.");
         Ok(gateway_config)
     }
 

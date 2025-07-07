@@ -123,7 +123,7 @@ impl AppState {
             return Ok(());
         }
 
-        info!(
+        debug!(
             "Configuration changed (old hash: {}, new hash: {}), rebuilding router",
             current_hash, new_hash
         );
@@ -156,7 +156,7 @@ impl AppState {
         // Update router
         self.set_current_router(new_router);
 
-        info!("Configuration and router updated successfully");
+        debug!("Configuration and router updated successfully");
         Ok(())
     }
 
@@ -244,12 +244,12 @@ impl AppState {
 
     // Legacy method for backward compatibility - delegates to new update_config method
     pub fn try_update_config_and_registries(&self, new_config: GatewayConfig) -> Result<()> {
-        info!("Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).", 
+        debug!("Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).", 
               new_config.providers.len(), new_config.models.len(), new_config.pipelines.len());
 
         self.update_config(new_config)?;
 
-        info!("Successfully updated live configuration and rebuilt registries.");
+        debug!("Successfully updated live configuration and rebuilt registries.");
         Ok(())
     }
 }

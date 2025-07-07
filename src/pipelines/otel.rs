@@ -58,7 +58,7 @@ impl OtelTracer {
                         .build();
 
                     global::set_tracer_provider(provider);
-                    tracing::info!("OpenTelemetry tracer initialized successfully for endpoint: {}", endpoint);
+                    tracing::debug!("OpenTelemetry tracer initialized successfully for endpoint: {}", endpoint);
                     Ok(())
                 }).await;
 
@@ -76,7 +76,7 @@ impl OtelTracer {
             });
 
             // Log that initialization was started asynchronously
-            tracing::info!(
+            tracing::debug!(
                 "OpenTelemetry initialization started asynchronously for endpoint: {}",
                 endpoint_for_error
             );

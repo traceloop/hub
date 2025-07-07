@@ -26,18 +26,18 @@ async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
     // Check HUB_MODE environment variable first
     match std::env::var("HUB_MODE").as_deref() {
         Ok("database") => {
-            info!("HUB_MODE=database detected. Initializing database mode.");
+            debug!("HUB_MODE=database detected. Initializing database mode.");
             let database_url = std::env::var("DATABASE_URL")
                 .map_err(|e| anyhow::anyhow!("DATABASE_URL not set for database mode: {}", e))?;
 
             let pool = PgPool::connect(&database_url).await.map_err(|e| {
                 anyhow::anyhow!("Failed to connect to database at {}: {}", database_url, e)
             })?;
-            info!("Connected to database successfully.");
+            debug!("Connected to database successfully.");
             Ok(ConfigMode::Database { pool })
         }
         Ok("yaml") => {
-            info!("HUB_MODE=yaml detected. Using YAML configuration mode.");
+            debug!("HUB_MODE=yaml detected. Using YAML configuration mode.");
             let config_path = std::env::var("CONFIG_FILE_PATH")
                 .unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string());
             Ok(ConfigMode::Yaml { path: config_path })
@@ -51,7 +51,7 @@ async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
         }
         Err(_) => {
             // HUB_MODE not set, fallback to yaml mode
-            info!("HUB_MODE not set. Defaulting to YAML configuration mode.");
+            debug!("HUB_MODE not set. Defaulting to YAML configuration mode.");
             let config_path = std::env::var("CONFIG_FILE_PATH")
                 .unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string());
             Ok(ConfigMode::Yaml { path: config_path })
@@ -64,14 +64,14 @@ async fn get_initial_config_and_services(
 ) -> anyhow::Result<(GatewayConfig, Option<axum::Router>, Option<ConfigProvider>)> {
     match mode {
         ConfigMode::Database { pool } => {
-            info!("Initializing database-based configuration.");
+            debug!("Initializing database-based configuration.");
 
             let db_integration = db_based_config_integration(pool).await?;
-            info!("Database integration initialized successfully.");
+            debug!("Database integration initialized successfully.");
 
             match db_integration.config_provider.fetch_live_config().await {
                 Ok(initial_db_config) => {
-                    info!("Successfully fetched initial configuration from database.");
+                    debug!("Successfully fetched initial configuration from database.");
                     if let Err(val_errors) =
                         config::validation::validate_gateway_config(&initial_db_config)
                     {
@@ -84,7 +84,7 @@ async fn get_initial_config_and_services(
                             val_errors
                         ));
                     }
-                    info!("Initial database configuration validated successfully.");
+                    debug!("Initial database configuration validated successfully.");
                     Ok((
                         initial_db_config,
                         Some(db_integration.router.clone()),
@@ -98,7 +98,7 @@ async fn get_initial_config_and_services(
             }
         }
         ConfigMode::Yaml { path } => {
-            info!("Loading configuration from YAML file: {}", path);
+            debug!("Loading configuration from YAML file: {}", path);
             let yaml_config = config::load_config(&path).map_err(|e| {
                 anyhow::anyhow!("Failed to load YAML configuration from {}: {}", path, e)
             })?;
@@ -110,7 +110,7 @@ async fn get_initial_config_and_services(
                 );
                 return Err(anyhow::anyhow!("Invalid YAML config: {:?}", val_errors));
             }
-            info!("YAML configuration validated successfully.");
+            debug!("YAML configuration validated successfully.");
             Ok((yaml_config, None, None))
         }
     }
