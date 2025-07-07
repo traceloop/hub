@@ -26,22 +26,63 @@ pub struct OtelTracer {
 
 impl OtelTracer {
     pub fn init(endpoint: String, api_key: String) {
-        global::set_text_map_propagator(TraceContextPropagator::new());
-        let mut headers = HashMap::new();
-        headers.insert("Authorization".to_string(), format!("Bearer {api_key}"));
+        // Clone endpoint for use in error messages
+        let endpoint_for_error = endpoint.clone();
 
-        let exporter: SpanExporter = SpanExporter::builder()
-            .with_http()
-            .with_endpoint(endpoint)
-            .with_headers(headers)
-            .build()
-            .expect("Failed to initialize OpenTelemetry");
+        // Try to get the current runtime handle
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            // Spawn the initialization task on the runtime
+            handle.spawn(async move {
+                // Use spawn_blocking for the potentially blocking OpenTelemetry initialization
+                let result = tokio::task::spawn_blocking(move || {
+                    global::set_text_map_propagator(TraceContextPropagator::new());
+                    let mut headers = HashMap::new();
+                    headers.insert("Authorization".to_string(), format!("Bearer {api_key}"));
 
-        let provider = TracerProvider::builder()
-            .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
-            .build();
+                    let exporter_result = SpanExporter::builder()
+                        .with_http()
+                        .with_endpoint(endpoint.clone())
+                        .with_headers(headers)
+                        .build();
 
-        global::set_tracer_provider(provider);
+                    let exporter = match exporter_result {
+                        Ok(exporter) => exporter,
+                        Err(e) => {
+                            tracing::error!("Failed to initialize OpenTelemetry exporter for endpoint {}: {}. Tracing will be disabled.", endpoint, e);
+                            return Err(e);
+                        }
+                    };
+
+                    let provider = TracerProvider::builder()
+                        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+                        .build();
+
+                    global::set_tracer_provider(provider);
+                    tracing::info!("OpenTelemetry tracer initialized successfully for endpoint: {}", endpoint);
+                    Ok(())
+                }).await;
+
+                match result {
+                    Ok(Ok(())) => {
+                        // Successfully initialized
+                    }
+                    Ok(Err(e)) => {
+                        tracing::error!("OpenTelemetry initialization failed: {}. Tracing will be disabled.", e);
+                    }
+                    Err(e) => {
+                        tracing::error!("OpenTelemetry initialization task failed: {}. Tracing will be disabled.", e);
+                    }
+                }
+            });
+
+            // Log that initialization was started asynchronously
+            tracing::info!(
+                "OpenTelemetry initialization started asynchronously for endpoint: {}",
+                endpoint_for_error
+            );
+        } else {
+            tracing::error!("No Tokio runtime available for OpenTelemetry initialization. Tracing will be disabled.");
+        }
     }
 
     pub fn start<T: RecordSpan>(operation: &str, request: &T) -> Self {

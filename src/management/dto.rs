@@ -445,6 +445,20 @@ pub struct ModelRouterConfigDto {
     pub models: Vec<ModelRouterModelEntryDto>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, PartialEq)]
+pub struct LoggingConfigDto {
+    #[schema(value_type = String, example = "debug")]
+    pub level: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, PartialEq)]
+pub struct TracingConfigDto {
+    #[schema(value_type = String, example = "http://api.traceloop.com/v1/tracing")]
+    pub endpoint: String,
+    #[schema(value_type = SecretObject, example = "tl_1234567890abcdef")]
+    pub api_key: SecretObject,
+}
+
 /// Supported plugin types for pipelines.
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
@@ -551,4 +565,193 @@ pub struct PipelineResponseDto {
     pub enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_logging_config_dto_serialization() {
+        let config = LoggingConfigDto {
+            level: "debug".to_string(),
+        };
+
+        let serialized = serde_json::to_value(&config).unwrap();
+        assert_eq!(serialized, json!({"level": "debug"}));
+    }
+
+    #[test]
+    fn test_logging_config_dto_deserialization() {
+        let json_data = json!({"level": "info"});
+        let config: LoggingConfigDto = serde_json::from_value(json_data).unwrap();
+        assert_eq!(config.level, "info");
+    }
+
+    #[test]
+    fn test_tracing_config_dto_serialization() {
+        let config = TracingConfigDto {
+            endpoint: "http://api.traceloop.com/v1/tracing".to_string(),
+            api_key: SecretObject::literal("test-api-key".to_string()),
+        };
+
+        let serialized = serde_json::to_value(&config).unwrap();
+        assert_eq!(
+            serialized,
+            json!({
+                "endpoint": "http://api.traceloop.com/v1/tracing",
+                "api_key": {
+                    "type": "literal",
+                    "value": "test-api-key"
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn test_tracing_config_dto_deserialization() {
+        let json_data = json!({
+            "endpoint": "http://localhost:8080/v1/tracing",
+            "api_key": {
+                "type": "environment",
+                "variable_name": "TRACING_API_KEY"
+            }
+        });
+        let config: TracingConfigDto = serde_json::from_value(json_data).unwrap();
+
+        assert_eq!(config.endpoint, "http://localhost:8080/v1/tracing");
+        assert_eq!(
+            config.api_key,
+            SecretObject::environment("TRACING_API_KEY".to_string())
+        );
+    }
+
+    #[test]
+    fn test_tracing_config_dto_with_kubernetes_secret() {
+        let config = TracingConfigDto {
+            endpoint: "https://trace.example.com/v1/traces".to_string(),
+            api_key: SecretObject::kubernetes(
+                "tracing-secrets".to_string(),
+                "api-key".to_string(),
+                Some("monitoring".to_string()),
+            ),
+        };
+
+        let serialized = serde_json::to_value(&config).unwrap();
+        let deserialized: TracingConfigDto = serde_json::from_value(serialized).unwrap();
+
+        assert_eq!(deserialized.endpoint, config.endpoint);
+        assert_eq!(deserialized.api_key, config.api_key);
+    }
+
+    #[test]
+    fn test_pipeline_plugin_config_dto_with_logging() {
+        let plugin_config = PipelinePluginConfigDto {
+            plugin_type: PluginType::Logging,
+            config_data: json!({"level": "error"}),
+            enabled: true,
+            order_in_pipeline: 1,
+        };
+
+        let serialized = serde_json::to_value(&plugin_config).unwrap();
+        let deserialized: PipelinePluginConfigDto = serde_json::from_value(serialized).unwrap();
+
+        assert_eq!(deserialized.plugin_type, PluginType::Logging);
+        assert_eq!(deserialized.config_data, json!({"level": "error"}));
+        assert!(deserialized.enabled);
+        assert_eq!(deserialized.order_in_pipeline, 1);
+    }
+
+    #[test]
+    fn test_pipeline_plugin_config_dto_with_tracing() {
+        let plugin_config = PipelinePluginConfigDto {
+            plugin_type: PluginType::Tracing,
+            config_data: json!({
+                "endpoint": "http://trace.example.com/v1/traces",
+                "api_key": {
+                    "type": "literal",
+                    "value": "secret-key"
+                }
+            }),
+            enabled: true,
+            order_in_pipeline: 2,
+        };
+
+        let serialized = serde_json::to_value(&plugin_config).unwrap();
+        let deserialized: PipelinePluginConfigDto = serde_json::from_value(serialized).unwrap();
+
+        assert_eq!(deserialized.plugin_type, PluginType::Tracing);
+        assert!(deserialized.enabled);
+        assert_eq!(deserialized.order_in_pipeline, 2);
+
+        // Verify the config_data can be deserialized to TracingConfigDto
+        let tracing_config: TracingConfigDto =
+            serde_json::from_value(deserialized.config_data).unwrap();
+        assert_eq!(
+            tracing_config.endpoint,
+            "http://trace.example.com/v1/traces"
+        );
+        assert_eq!(
+            tracing_config.api_key,
+            SecretObject::literal("secret-key".to_string())
+        );
+    }
+
+    #[test]
+    fn test_create_pipeline_request_with_logging_and_tracing() {
+        let request = CreatePipelineRequestDto {
+            name: "test-pipeline".to_string(),
+            pipeline_type: "chat".to_string(),
+            description: Some("Test pipeline with logging and tracing".to_string()),
+            plugins: vec![
+                PipelinePluginConfigDto {
+                    plugin_type: PluginType::Logging,
+                    config_data: json!({"level": "debug"}),
+                    enabled: true,
+                    order_in_pipeline: 1,
+                },
+                PipelinePluginConfigDto {
+                    plugin_type: PluginType::Tracing,
+                    config_data: json!({
+                        "endpoint": "http://trace.example.com/v1/traces",
+                        "api_key": {
+                            "type": "environment",
+                            "variable_name": "TRACE_API_KEY"
+                        }
+                    }),
+                    enabled: true,
+                    order_in_pipeline: 2,
+                },
+            ],
+            enabled: true,
+        };
+
+        let serialized = serde_json::to_value(&request).unwrap();
+        let deserialized: CreatePipelineRequestDto = serde_json::from_value(serialized).unwrap();
+
+        assert_eq!(deserialized.name, "test-pipeline");
+        assert_eq!(deserialized.plugins.len(), 2);
+
+        // Verify first plugin (logging)
+        let logging_plugin = &deserialized.plugins[0];
+        assert_eq!(logging_plugin.plugin_type, PluginType::Logging);
+        let logging_config: LoggingConfigDto =
+            serde_json::from_value(logging_plugin.config_data.clone()).unwrap();
+        assert_eq!(logging_config.level, "debug");
+
+        // Verify second plugin (tracing)
+        let tracing_plugin = &deserialized.plugins[1];
+        assert_eq!(tracing_plugin.plugin_type, PluginType::Tracing);
+        let tracing_config: TracingConfigDto =
+            serde_json::from_value(tracing_plugin.config_data.clone()).unwrap();
+        assert_eq!(
+            tracing_config.endpoint,
+            "http://trace.example.com/v1/traces"
+        );
+        assert_eq!(
+            tracing_config.api_key,
+            SecretObject::environment("TRACE_API_KEY".to_string())
+        );
+    }
 }

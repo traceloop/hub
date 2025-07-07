@@ -157,6 +157,16 @@ CHAT_PIPELINE_RESPONSE=$(curl -s -X POST "${API_BASE}/pipelines" \
         }
       },
       {
+        "plugin_type": "tracing",
+        "config_data": {
+          "endpoint": "https://api.traceloop.com/v1/traces",
+          "api_key": {
+            "type": "environment",
+            "variable_name": "TRACELOOP_API_KEY"
+          }
+        }
+      },
+      {
         "plugin_type": "model-router",
         "config_data": {
           "models": [
@@ -194,6 +204,22 @@ SIMPLE_PIPELINE_RESPONSE=$(curl -s -X POST "${API_BASE}/pipelines" \
     "pipeline_type": "Chat",
     "plugins": [
       {
+        "plugin_type": "logging",
+        "config_data": {
+          "level": "info"
+        }
+      },
+      {
+        "plugin_type": "tracing",
+        "config_data": {
+          "endpoint": "https://api.traceloop.com/v1/traces",
+          "api_key": {
+            "type": "environment",
+            "variable_name": "TRACELOOP_API_KEY"
+          }
+        }
+      },
+      {
         "plugin_type": "model-router",
         "config_data": {
           "models": [
@@ -229,11 +255,14 @@ echo "  • gpt-3.5-turbo (OpenAI)"
 echo "  • gpt-4o-azure (Azure)"
 echo ""
 echo -e "${BLUE}Pipelines:${NC}"
-echo "  • default (multi-model routing)"
-echo "  • simple-pipeline (single model)"
+echo "  • default (multi-model routing with logging and tracing)"
+echo "  • simple-pipeline (single model with logging and without tracing)"
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo "1. Update API keys in the providers using SecretObject format:"
+echo "1. Set up environment variables for tracing:"
+echo -e "   ${BLUE}export TRACELOOP_API_KEY=\"your-traceloop-api-key\"${NC}"
+echo ""
+echo "2. Update API keys in the providers using SecretObject format:"
 echo ""
 echo -e "${BLUE}   # Option A: Literal secret (for testing)${NC}"
 echo -e "   ${BLUE}curl -X PUT ${API_BASE}/providers/$OPENAI_PROVIDER_ID \\${NC}"
@@ -250,11 +279,11 @@ echo -e "   ${BLUE}curl -X PUT ${API_BASE}/providers/$OPENAI_PROVIDER_ID \\${NC}
 echo -e "   ${BLUE}     -H \"Content-Type: application/json\" \\${NC}"
 echo -e "   ${BLUE}     -d '{\"config\": {\"api_key\": {\"type\": \"kubernetes\", \"secret_name\": \"openai-creds\", \"key\": \"api-key\"}}}'${NC}"
 echo ""
-echo "2. Test the configuration:"
+echo "3. Test the configuration:"
 echo -e "   ${BLUE}curl ${API_BASE}/providers${NC}"
 echo -e "   ${BLUE}curl ${API_BASE}/model-definitions${NC}"
 echo -e "   ${BLUE}curl ${API_BASE}/pipelines${NC}"
 echo ""
-echo "3. The gateway will automatically pick up the configuration within 30 seconds!"
+echo "4. The gateway will automatically pick up the configuration within 30 seconds!"
 echo ""
 echo -e "${GREEN}Happy testing! 🚀${NC}" 

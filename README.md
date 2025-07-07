@@ -16,6 +16,7 @@ Traceloop Hub is a high-performance LLM gateway written in Rust that centralizes
 - **High Performance**: Written in Rust with async/await support
 - **Hot Reload**: Dynamic configuration updates (Database mode)
 - **Pipeline System**: Extensible request/response processing
+- **Unified Architecture**: Single crate structure with integrated Management API
 
 ## Quick Start
 
@@ -26,7 +27,7 @@ Traceloop Hub is a high-performance LLM gateway written in Rust that centralizes
 docker run -p 3000:3000 -v $(pwd)/config.yaml:/app/config.yaml traceloop/hub
 
 # Database Mode (with management API)
-docker run -p 3000:3000 \
+docker run -p 3000:3000 -p 8080:8080 \
   -e HUB_MODE=database \
   -e DATABASE_URL=postgresql://user:pass@host:5432/db \
   traceloop/hub
@@ -47,6 +48,33 @@ cargo build --release
 HUB_MODE=database DATABASE_URL=postgresql://user:pass@host:5432/db ./target/release/hub
 ```
 
+## Architecture
+
+The project uses a unified single-crate architecture:
+
+```
+hub/
+├── src/                        # Main application code
+│   ├── main.rs                 # Application entry point
+│   ├── lib.rs                  # Library exports
+│   ├── config/                 # Configuration management
+│   ├── providers/              # LLM provider implementations
+│   ├── models/                 # Data models
+│   ├── pipelines/              # Request processing pipelines
+│   ├── routes.rs               # HTTP routing
+│   ├── state.rs                # Application state management
+│   ├── management/             # Management API (Database mode)
+│   │   ├── api/                # REST API endpoints
+│   │   ├── db/                 # Database models and repositories
+│   │   ├── services/           # Business logic
+│   │   └── dto.rs              # Data transfer objects
+│   └── types/                  # Shared type definitions
+├── migrations/                 # Database migrations
+├── helm/                       # Kubernetes deployment
+├── tests/                      # Integration tests
+└── docs/                       # Documentation
+```
+
 ## Configuration Modes
 
 ### YAML Mode
@@ -58,6 +86,7 @@ Perfect for simple deployments and development environments.
 - No external dependencies
 - Simple provider and model setup
 - No management API
+- Single port (3000)
 
 **Example config.yaml:**
 ```yaml
@@ -89,10 +118,11 @@ Ideal for production environments requiring dynamic configuration.
 - Hot reload without restarts
 - Configuration polling and synchronization
 - SecretObject system for credential management
+- Dual ports (3000 for Gateway, 8080 for Management)
 
 **Setup:**
 1. Set up PostgreSQL database
-2. Run migrations: `sqlx migrate run` (in `ee/` directory)
+2. Run migrations: `sqlx migrate run`
 3. Set environment variables:
    ```bash
    HUB_MODE=database
@@ -103,14 +133,18 @@ Ideal for production environments requiring dynamic configuration.
 
 ### Core LLM Gateway (Both Modes)
 
+**Port 3000:**
 - `POST /api/v1/chat/completions` - Chat completions
 - `POST /api/v1/completions` - Text completions  
 - `POST /api/v1/embeddings` - Text embeddings
 - `GET /health` - Health check
 - `GET /metrics` - Prometheus metrics
+- `GET /swagger-ui` - OpenAPI documentation
 
 ### Management API (Database Mode Only)
 
+**Port 8080:**
+- `GET /health` - Management API health check
 - `GET|POST|PUT|DELETE /api/v1/management/providers` - Provider management
 - `GET|POST|PUT|DELETE /api/v1/management/model-definitions` - Model management
 - `GET|POST|PUT|DELETE /api/v1/management/pipelines` - Pipeline management
@@ -175,9 +209,9 @@ helm install hub ./helm
 
 # Database Mode
 helm install hub ./helm \
-  --set deploymentMode=database \
-  --set database.host=postgres \
-  --set database.existingSecret=postgres-secret
+  --set management.enabled=true \
+  --set management.database.host=postgres \
+  --set management.database.existingSecret=postgres-secret
 ```
 
 ### Docker Compose
@@ -197,7 +231,8 @@ services:
   hub-database:
     image: traceloop/hub
     ports:
-      - "3001:3000"
+      - "3000:3000"
+      - "8080:8080"
     environment:
       - HUB_MODE=database
       - DATABASE_URL=postgresql://hub:password@postgres:5432/hub
@@ -220,7 +255,8 @@ services:
 | `CONFIG_FILE_PATH` | Path to YAML config file | `config.yaml` | YAML mode |
 | `DATABASE_URL` | PostgreSQL connection string | - | Database mode |
 | `DB_POLL_INTERVAL_SECONDS` | Config polling interval | `30` | No |
-| `PORT` | Server port | `3000` | No |
+| `PORT` | Gateway server port | `3000` | No |
+| `MANAGEMENT_PORT` | Management API port | `8080` | Database mode |
 | `TRACE_CONTENT_ENABLED` | Enable request/response tracing | `true` | No |
 
 ## Development
@@ -232,7 +268,7 @@ services:
 
 ### Commands
 ```bash
-# Build
+# Build OSS version
 cargo build
 
 # Test
@@ -257,8 +293,34 @@ HUB_MODE=database DATABASE_URL=postgresql://... cargo run
 cargo install sqlx-cli --no-default-features --features postgres
 
 # Run migrations
-cd ee && sqlx migrate run
+sqlx migrate run
+
+# Use setup script for complete setup
+./scripts/setup-db.sh
 ```
+
+### Project Structure
+
+The project follows a unified single-crate architecture:
+
+- **`src/main.rs`**: Application entry point with mode detection
+- **`src/lib.rs`**: Library exports for all modules
+- **`src/config/`**: Configuration management and validation
+- **`src/providers/`**: LLM provider implementations
+- **`src/models/`**: Request/response data models
+- **`src/pipelines/`**: Request processing pipelines
+- **`src/management/`**: Management API (Database mode)
+- **`src/types/`**: Shared type definitions
+- **`src/state.rs`**: Thread-safe application state
+- **`src/routes.rs`**: Dynamic HTTP routing
+
+### Key Features
+
+- **Hot Reload**: Configuration changes without restarts (Database mode)
+- **Atomic Updates**: Thread-safe configuration updates
+- **Dynamic Routing**: Pipeline-based request steering
+- **Comprehensive Testing**: Integration tests with testcontainers
+- **OpenAPI Documentation**: Auto-generated API specs
 
 ## Observability
 

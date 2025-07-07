@@ -8,10 +8,10 @@ use uuid::Uuid;
 
 use super::{
     super::dto::{
-        ModelDefinitionResponse, ModelRouterConfigDto, PipelinePluginConfigDto,
+        LoggingConfigDto, ModelDefinitionResponse, ModelRouterConfigDto, PipelinePluginConfigDto,
         PipelineResponseDto,
         ProviderConfig, /*, OpenAIProviderConfig, AzureProviderConfig, BedrockProviderConfig*/
-        ProviderResponse,
+        ProviderResponse, TracingConfigDto,
     },
     model_definition_service::ModelDefinitionService,
     pipeline_service::PipelineService,
@@ -115,7 +115,7 @@ impl ConfigProviderService {
             .await
             .map_err(|e| anyhow!("Failed to fetch pipelines from DB: {:?}", e))?;
         for pl_dto in db_pipelines.into_iter().filter(|pl| pl.enabled) {
-            match Self::transform_pipeline_dto(pl_dto) {
+            match self.transform_pipeline_dto(pl_dto).await {
                 Ok(core_pipeline) => gateway_config.pipelines.push(core_pipeline),
                 Err(e) => error!("Failed to transform pipeline DTO: {e:?}. Skipping."),
             }
@@ -229,7 +229,7 @@ impl ConfigProviderService {
         })
     }
 
-    fn transform_pipeline_dto(dto: PipelineResponseDto) -> Result<Pipeline> {
+    async fn transform_pipeline_dto(&self, dto: PipelineResponseDto) -> Result<Pipeline> {
         let core_pipeline_type = match dto.pipeline_type.to_lowercase().as_str() {
             "chat" => PipelineType::Chat,
             "completion" => PipelineType::Completion,
@@ -239,7 +239,7 @@ impl ConfigProviderService {
 
         let mut core_plugins = Vec::new();
         for plugin_dto in dto.plugins.into_iter().filter(|p| p.enabled) {
-            match Self::transform_plugin_dto(plugin_dto) {
+            match self.transform_plugin_dto(plugin_dto).await {
                 Ok(p) => core_plugins.push(p),
                 Err(e) => error!(
                     "Failed to transform plugin DTO for pipeline '{}': {:?}. Skipping.",
@@ -255,15 +255,14 @@ impl ConfigProviderService {
         })
     }
 
-    fn transform_plugin_dto(dto: PipelinePluginConfigDto) -> Result<PluginConfig> {
+    async fn transform_plugin_dto(&self, dto: PipelinePluginConfigDto) -> Result<PluginConfig> {
         match dto.plugin_type {
             super::super::dto::PluginType::ModelRouter => {
                 let mr_config: ModelRouterConfigDto = serde_json::from_value(dto.config_data)
                     .map_err(|e| {
                         anyhow!(
-                            "Failed to deserialize ModelRouterConfigDto for plugin type '{:?}': {}",
-                            dto.plugin_type,
-                            e
+                            "Failed to deserialize ModelRouterConfigDto for plugin type '{:?}': {e}",
+                            dto.plugin_type
                         )
                     })?;
 
@@ -271,29 +270,124 @@ impl ConfigProviderService {
                 Ok(PluginConfig::ModelRouter { models: model_keys })
             }
             super::super::dto::PluginType::Logging => {
-                let level = dto
-                    .config_data
-                    .get("level")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("warning")
-                    .to_string();
-                Ok(PluginConfig::Logging { level })
+                let logging_config: LoggingConfigDto = serde_json::from_value(dto.config_data)
+                    .map_err(|e| {
+                        anyhow!(
+                            "Failed to deserialize LoggingConfigDto for plugin type '{:?}': {e}",
+                            dto.plugin_type
+                        )
+                    })?;
+
+                Ok(PluginConfig::Logging {
+                    level: logging_config.level,
+                })
             }
             super::super::dto::PluginType::Tracing => {
-                let endpoint = dto
-                    .config_data
-                    .get("endpoint")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow!("Missing endpoint for tracing plugin"))?
-                    .to_string();
-                let api_key = dto
-                    .config_data
-                    .get("api_key")
-                    .and_then(|v| v.as_str())
-                    .map(String::from)
-                    .unwrap_or_default();
-                Ok(PluginConfig::Tracing { endpoint, api_key })
+                let tracing_config: TracingConfigDto = serde_json::from_value(dto.config_data)
+                    .map_err(|e| {
+                        anyhow!(
+                            "Failed to deserialize TracingConfigDto for plugin type '{:?}': {e}",
+                            dto.plugin_type
+                        )
+                    })?;
+
+                let resolved_api_key = self
+                    .secret_resolver
+                    .resolve_secret(&tracing_config.api_key)
+                    .await?;
+
+                Ok(PluginConfig::Tracing {
+                    endpoint: tracing_config.endpoint,
+                    api_key: resolved_api_key,
+                })
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::management::dto::{
+        LoggingConfigDto, PipelinePluginConfigDto, PluginType, SecretObject, TracingConfigDto,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn test_logging_config_dto_deserialization() {
+        let json_data = json!({"level": "info"});
+        let config: LoggingConfigDto = serde_json::from_value(json_data).unwrap();
+        assert_eq!(config.level, "info");
+    }
+
+    #[test]
+    fn test_tracing_config_dto_deserialization() {
+        let json_data = json!({
+            "endpoint": "http://trace.example.com/v1/traces",
+            "api_key": {
+                "type": "literal",
+                "value": "test-key"
+            }
+        });
+        let config: TracingConfigDto = serde_json::from_value(json_data).unwrap();
+        assert_eq!(config.endpoint, "http://trace.example.com/v1/traces");
+        assert_eq!(
+            config.api_key,
+            SecretObject::literal("test-key".to_string())
+        );
+    }
+
+    #[test]
+    fn test_invalid_logging_config_deserialization() {
+        let json_data = json!({"invalid_field": "value"});
+        let result: Result<LoggingConfigDto, _> = serde_json::from_value(json_data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_tracing_config_deserialization() {
+        let json_data = json!({"endpoint": "http://trace.example.com"});
+        let result: Result<TracingConfigDto, _> = serde_json::from_value(json_data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_plugin_config_dto_validation() {
+        // Test valid logging plugin config
+        let logging_plugin = PipelinePluginConfigDto {
+            plugin_type: PluginType::Logging,
+            config_data: json!({"level": "debug"}),
+            enabled: true,
+            order_in_pipeline: 1,
+        };
+
+        let logging_config: LoggingConfigDto =
+            serde_json::from_value(logging_plugin.config_data).unwrap();
+        assert_eq!(logging_config.level, "debug");
+
+        // Test valid tracing plugin config
+        let tracing_plugin = PipelinePluginConfigDto {
+            plugin_type: PluginType::Tracing,
+            config_data: json!({
+                "endpoint": "http://trace.example.com/v1/traces",
+                "api_key": {
+                    "type": "environment",
+                    "variable_name": "TRACE_KEY"
+                }
+            }),
+            enabled: true,
+            order_in_pipeline: 2,
+        };
+
+        let tracing_config: TracingConfigDto =
+            serde_json::from_value(tracing_plugin.config_data).unwrap();
+        assert_eq!(
+            tracing_config.endpoint,
+            "http://trace.example.com/v1/traces"
+        );
+        assert_eq!(
+            tracing_config.api_key,
+            SecretObject::environment("TRACE_KEY".to_string())
+        );
     }
 }

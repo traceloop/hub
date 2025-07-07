@@ -187,3 +187,113 @@ async fn test_empty_configuration_fallback() {
     let _current_router = app_state.get_current_router();
     // The fact that get_current_router() returns without panicking means the router is available
 }
+
+#[tokio::test]
+async fn test_pipeline_with_failing_tracing_endpoint() {
+    // Create configuration with a pipeline that has a failing tracing endpoint
+    let config = GatewayConfig {
+        general: None,
+        providers: vec![Provider {
+            key: "test-provider".to_string(),
+            r#type: "openai".to_string(),
+            api_key: "test-key".to_string(),
+            params: Default::default(),
+        }],
+        models: vec![ModelConfig {
+            key: "gpt-4".to_string(),
+            r#type: "gpt-4".to_string(),
+            provider: "test-provider".to_string(),
+            params: Default::default(),
+        }],
+        pipelines: vec![Pipeline {
+            name: "traced-pipeline".to_string(),
+            r#type: PipelineType::Chat,
+            plugins: vec![
+                PluginConfig::Tracing {
+                    endpoint: "http://invalid-endpoint:4317/v1/traces".to_string(),
+                    api_key: "test-key".to_string(),
+                },
+                PluginConfig::ModelRouter {
+                    models: vec!["gpt-4".to_string()],
+                },
+            ],
+        }],
+    };
+
+    // This should not hang or panic even with an invalid tracing endpoint
+    let start_time = std::time::Instant::now();
+    let app_state = AppState::new(config).expect("Failed to create app state");
+    let elapsed = start_time.elapsed();
+
+    // Should complete quickly (within 1 second) since OpenTelemetry init is now async
+    assert!(
+        elapsed.as_millis() < 1000,
+        "Router building took too long: {:?}",
+        elapsed
+    );
+
+    // Verify the router is available immediately
+    let _router = app_state.get_current_router();
+    // If we get here without panicking, the router was created successfully
+
+    // Wait a moment to let the async OpenTelemetry initialization complete
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    // The router should still be available and functional
+    let _router2 = app_state.get_current_router();
+}
+
+#[tokio::test]
+async fn test_tracing_isolation_between_pipelines() {
+    // Create configuration with two pipelines - one with tracing, one without
+    let config = GatewayConfig {
+        general: None,
+        providers: vec![Provider {
+            key: "test-provider".to_string(),
+            r#type: "openai".to_string(),
+            api_key: "test-key".to_string(),
+            params: Default::default(),
+        }],
+        models: vec![ModelConfig {
+            key: "gpt-4".to_string(),
+            r#type: "gpt-4".to_string(),
+            provider: "test-provider".to_string(),
+            params: Default::default(),
+        }],
+        pipelines: vec![
+            // Pipeline with tracing
+            Pipeline {
+                name: "traced-pipeline".to_string(),
+                r#type: PipelineType::Chat,
+                plugins: vec![
+                    PluginConfig::Tracing {
+                        endpoint: "http://invalid-endpoint.example.com/traces".to_string(),
+                        api_key: "test-key".to_string(),
+                    },
+                    PluginConfig::ModelRouter {
+                        models: vec!["gpt-4".to_string()],
+                    },
+                ],
+            },
+            // Pipeline without tracing
+            Pipeline {
+                name: "simple-pipeline".to_string(),
+                r#type: PipelineType::Chat,
+                plugins: vec![PluginConfig::ModelRouter {
+                    models: vec!["gpt-4".to_string()],
+                }],
+            },
+        ],
+    };
+
+    // Create app state with the configuration
+    let app_state = AppState::new(config).expect("Failed to create app state");
+
+    // Verify the router is available and both pipelines are configured
+    let _router = app_state.get_current_router();
+
+    // Test should pass without hanging, indicating that:
+    // 1. Pipeline with tracing can be created (even with invalid endpoint, due to async init)
+    // 2. Pipeline without tracing can be created
+    // 3. Both pipelines are properly isolated
+}

@@ -13,9 +13,9 @@ use hub_lib::management::{
     dto::{
         AnthropicProviderConfig, AzureProviderConfig, BedrockProviderConfig,
         CreateModelDefinitionRequest, CreatePipelineRequestDto, CreateProviderRequest,
-        ModelDefinitionResponse, ModelRouterConfigDto, ModelRouterModelEntryDto,
+        LoggingConfigDto, ModelDefinitionResponse, ModelRouterConfigDto, ModelRouterModelEntryDto,
         ModelRouterStrategyDto, OpenAIProviderConfig, PipelinePluginConfigDto, PipelineResponseDto,
-        PluginType, ProviderConfig, ProviderResponse, ProviderType, SecretObject,
+        PluginType, ProviderConfig, ProviderResponse, ProviderType, SecretObject, TracingConfigDto,
         UpdatePipelineRequestDto, VertexAIProviderConfig,
     },
     errors::ApiError,
@@ -450,7 +450,7 @@ async fn test_update_pipeline_name_and_plugins() {
     };
     let new_simple_plugin = PipelinePluginConfigDto {
         plugin_type: PluginType::Logging,
-        config_data: json!({ "filter_level": "strict"}),
+        config_data: json!({ "level": "strict"}),
         enabled: true,
         order_in_pipeline: 2,
     };
@@ -492,12 +492,7 @@ async fn test_update_pipeline_name_and_plugins() {
     assert!(plugin2.enabled);
     assert_eq!(plugin2.order_in_pipeline, 2);
     assert_eq!(
-        plugin2
-            .config_data
-            .get("filter_level")
-            .unwrap()
-            .as_str()
-            .unwrap(),
+        plugin2.config_data.get("level").unwrap().as_str().unwrap(),
         "strict"
     );
 }
@@ -539,6 +534,392 @@ async fn test_delete_pipeline() {
         .delete(&format!("/api/v1/management/pipelines/{}", non_existent_id))
         .await
         .assert_status_not_found();
+}
+
+#[tokio::test]
+async fn test_create_pipeline_with_logging_plugin() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    let logging_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Logging,
+        config_data: json!({"level": "debug"}),
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Logging Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Pipeline with logging plugin".to_string()),
+        plugins: vec![logging_plugin],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::CREATED);
+
+    let created_pipeline: PipelineResponseDto = response.json();
+    assert_eq!(created_pipeline.name, pipeline_req.name);
+    assert_eq!(created_pipeline.plugins.len(), 1);
+
+    let logging_plugin = &created_pipeline.plugins[0];
+    assert_eq!(logging_plugin.plugin_type, PluginType::Logging);
+    assert!(logging_plugin.enabled);
+    assert_eq!(logging_plugin.order_in_pipeline, 1);
+
+    // Verify the config_data can be deserialized to LoggingConfigDto
+    let logging_config: LoggingConfigDto =
+        serde_json::from_value(logging_plugin.config_data.clone()).unwrap();
+    assert_eq!(logging_config.level, "debug");
+}
+
+#[tokio::test]
+async fn test_create_pipeline_with_tracing_plugin() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    let tracing_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Tracing,
+        config_data: json!({
+            "endpoint": "http://trace.example.com/v1/traces",
+            "api_key": {
+                "type": "literal",
+                "value": "test-api-key"
+            }
+        }),
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Tracing Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Pipeline with tracing plugin".to_string()),
+        plugins: vec![tracing_plugin],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::CREATED);
+
+    let created_pipeline: PipelineResponseDto = response.json();
+    assert_eq!(created_pipeline.name, pipeline_req.name);
+    assert_eq!(created_pipeline.plugins.len(), 1);
+
+    let tracing_plugin = &created_pipeline.plugins[0];
+    assert_eq!(tracing_plugin.plugin_type, PluginType::Tracing);
+    assert!(tracing_plugin.enabled);
+    assert_eq!(tracing_plugin.order_in_pipeline, 1);
+
+    // Verify the config_data can be deserialized to TracingConfigDto
+    let tracing_config: TracingConfigDto =
+        serde_json::from_value(tracing_plugin.config_data.clone()).unwrap();
+    assert_eq!(
+        tracing_config.endpoint,
+        "http://trace.example.com/v1/traces"
+    );
+    assert_eq!(
+        tracing_config.api_key,
+        SecretObject::literal("test-api-key".to_string())
+    );
+}
+
+#[tokio::test]
+async fn test_create_pipeline_with_tracing_environment_secret() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    let tracing_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Tracing,
+        config_data: json!({
+            "endpoint": "http://trace.example.com/v1/traces",
+            "api_key": {
+                "type": "environment",
+                "variable_name": "TRACING_API_KEY"
+            }
+        }),
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Tracing Env Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Pipeline with tracing plugin using environment variable".to_string()),
+        plugins: vec![tracing_plugin],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::CREATED);
+
+    let created_pipeline: PipelineResponseDto = response.json();
+    let tracing_plugin = &created_pipeline.plugins[0];
+    let tracing_config: TracingConfigDto =
+        serde_json::from_value(tracing_plugin.config_data.clone()).unwrap();
+    assert_eq!(
+        tracing_config.api_key,
+        SecretObject::environment("TRACING_API_KEY".to_string())
+    );
+}
+
+#[tokio::test]
+async fn test_create_pipeline_with_tracing_kubernetes_secret() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    let tracing_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Tracing,
+        config_data: json!({
+            "endpoint": "http://trace.example.com/v1/traces",
+            "api_key": {
+                "type": "kubernetes",
+                "secret_name": "tracing-secrets",
+                "key": "api-key",
+                "namespace": "monitoring"
+            }
+        }),
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Tracing K8s Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Pipeline with tracing plugin using Kubernetes secret".to_string()),
+        plugins: vec![tracing_plugin],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::CREATED);
+
+    let created_pipeline: PipelineResponseDto = response.json();
+    let tracing_plugin = &created_pipeline.plugins[0];
+    let tracing_config: TracingConfigDto =
+        serde_json::from_value(tracing_plugin.config_data.clone()).unwrap();
+    assert_eq!(
+        tracing_config.api_key,
+        SecretObject::kubernetes(
+            "tracing-secrets".to_string(),
+            "api-key".to_string(),
+            Some("monitoring".to_string())
+        )
+    );
+}
+
+#[tokio::test]
+async fn test_create_pipeline_with_multiple_plugins() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    let provider = create_test_provider(&server, "openai-multi-plugin", ProviderType::OpenAI).await;
+    let model_def = create_test_model_definition(&server, provider.id, "gpt-4o-multi-plugin").await;
+
+    let logging_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Logging,
+        config_data: json!({"level": "info"}),
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let tracing_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Tracing,
+        config_data: json!({
+            "endpoint": "http://trace.example.com/v1/traces",
+            "api_key": {
+                "type": "literal",
+                "value": "multi-plugin-key"
+            }
+        }),
+        enabled: true,
+        order_in_pipeline: 2,
+    };
+
+    let model_router_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::ModelRouter,
+        config_data: json!({
+            "strategy": "simple",
+            "models": [{"key": model_def.key, "priority": 1}]
+        }),
+        enabled: true,
+        order_in_pipeline: 3,
+    };
+
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Multi Plugin Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Pipeline with multiple plugin types".to_string()),
+        plugins: vec![logging_plugin, tracing_plugin, model_router_plugin],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::CREATED);
+
+    let created_pipeline: PipelineResponseDto = response.json();
+    assert_eq!(created_pipeline.plugins.len(), 3);
+
+    // Verify all plugins are present and correctly ordered
+    let plugins = &created_pipeline.plugins;
+    assert_eq!(plugins[0].plugin_type, PluginType::Logging);
+    assert_eq!(plugins[0].order_in_pipeline, 1);
+    assert_eq!(plugins[1].plugin_type, PluginType::Tracing);
+    assert_eq!(plugins[1].order_in_pipeline, 2);
+    assert_eq!(plugins[2].plugin_type, PluginType::ModelRouter);
+    assert_eq!(plugins[2].order_in_pipeline, 3);
+}
+
+#[tokio::test]
+async fn test_create_pipeline_with_invalid_logging_config() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    let invalid_logging_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Logging,
+        config_data: json!({"invalid_field": "value"}), // Missing required 'level' field
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Invalid Logging Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Pipeline with invalid logging config".to_string()),
+        plugins: vec![invalid_logging_plugin],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_create_pipeline_with_invalid_tracing_config() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    let invalid_tracing_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Tracing,
+        config_data: json!({"endpoint": "http://trace.example.com"}), // Missing required 'api_key' field
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Invalid Tracing Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Pipeline with invalid tracing config".to_string()),
+        plugins: vec![invalid_tracing_plugin],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_update_pipeline_with_logging_and_tracing() {
+    let (server, _pool, _container) = setup_test_environment().await;
+
+    // Create a simple pipeline first
+    let pipeline_req = CreatePipelineRequestDto {
+        name: format!("Update Target Pipeline {}", Uuid::new_v4()),
+        pipeline_type: "chat".to_string(),
+        description: Some("Initial pipeline".to_string()),
+        plugins: vec![],
+        enabled: true,
+    };
+
+    let response = server
+        .post("/api/v1/management/pipelines")
+        .json(&pipeline_req)
+        .await;
+    response.assert_status(StatusCode::CREATED);
+    let created_pipeline: PipelineResponseDto = response.json();
+
+    // Update with logging and tracing plugins
+    let logging_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Logging,
+        config_data: json!({"level": "warn"}),
+        enabled: true,
+        order_in_pipeline: 1,
+    };
+
+    let tracing_plugin = PipelinePluginConfigDto {
+        plugin_type: PluginType::Tracing,
+        config_data: json!({
+            "endpoint": "http://updated-trace.example.com/v1/traces",
+            "api_key": {
+                "type": "literal",
+                "value": "updated-key"
+            }
+        }),
+        enabled: true,
+        order_in_pipeline: 2,
+    };
+
+    let update_req = UpdatePipelineRequestDto {
+        name: None,
+        pipeline_type: None,
+        description: Some("Updated with logging and tracing".to_string()),
+        plugins: Some(vec![logging_plugin, tracing_plugin]),
+        enabled: None,
+    };
+
+    let update_response = server
+        .put(&format!(
+            "/api/v1/management/pipelines/{}",
+            created_pipeline.id
+        ))
+        .json(&update_req)
+        .await;
+    update_response.assert_status_ok();
+
+    let updated_pipeline: PipelineResponseDto = update_response.json();
+    assert_eq!(updated_pipeline.plugins.len(), 2);
+
+    // Verify logging plugin
+    let logging_plugin = updated_pipeline
+        .plugins
+        .iter()
+        .find(|p| p.plugin_type == PluginType::Logging)
+        .unwrap();
+    let logging_config: LoggingConfigDto =
+        serde_json::from_value(logging_plugin.config_data.clone()).unwrap();
+    assert_eq!(logging_config.level, "warn");
+
+    // Verify tracing plugin
+    let tracing_plugin = updated_pipeline
+        .plugins
+        .iter()
+        .find(|p| p.plugin_type == PluginType::Tracing)
+        .unwrap();
+    let tracing_config: TracingConfigDto =
+        serde_json::from_value(tracing_plugin.config_data.clone()).unwrap();
+    assert_eq!(
+        tracing_config.endpoint,
+        "http://updated-trace.example.com/v1/traces"
+    );
+    assert_eq!(
+        tracing_config.api_key,
+        SecretObject::literal("updated-key".to_string())
+    );
 }
 
 /*

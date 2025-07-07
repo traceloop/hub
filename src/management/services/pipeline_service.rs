@@ -7,8 +7,8 @@ use crate::management::{
     db::repositories::model_definition_repository::ModelDefinitionRepository,
     db::repositories::pipeline_repository::PipelineRepository,
     dto::{
-        CreatePipelineRequestDto, ModelRouterConfigDto, PipelinePluginConfigDto,
-        PipelineResponseDto, PluginType, UpdatePipelineRequestDto,
+        CreatePipelineRequestDto, LoggingConfigDto, ModelRouterConfigDto, PipelinePluginConfigDto,
+        PipelineResponseDto, PluginType, TracingConfigDto, UpdatePipelineRequestDto,
     },
     errors::ApiError,
 };
@@ -89,36 +89,43 @@ impl PipelineService {
         plugins: &[PipelinePluginConfigDto],
     ) -> Result<(), ApiError> {
         for plugin_dto in plugins {
-            if plugin_dto.plugin_type == PluginType::ModelRouter {
-                let model_router_config: ModelRouterConfigDto =
-                    serde_json::from_value(plugin_dto.config_data.clone()).map_err(|e| {
-                        ApiError::ValidationError(format!("Invalid model-router config_data: {e}"))
-                    })?;
-                for model_entry in model_router_config.models {
-                    // Assuming model_definition_repo.find_by_key now doesn't need PgPool
-                    // If it does, it needs to be passed or self.model_definition_repo needs to hold the pool
-                    // For now, let's assume it's available or adapted.
-                    // This highlights a potential dependency issue if ModelDefinitionRepository needs a pool per call
-                    // For now, we'll keep the existing call structure, assuming find_by_key is adaptable
-                    // or the repo instance has access to a pool.
-                    // To make this compile, we need to ensure find_by_key can be called.
-                    // Let's assume it does not need the pool directly for this example
-                    // and that its internal state or a shared pool is used.
-                    // THIS IS A PLACEHOLDER - ModelDefinitionRepository interaction needs verification
-                    if self
-                        .model_definition_repo
-                        .find_by_key(&model_entry.key)
-                        .await?
-                        .is_none()
-                    {
-                        return Err(ApiError::ValidationError(format!(
-                            "ModelDefinition key '{}' not found for model-router",
-                            model_entry.key
-                        )));
+            match plugin_dto.plugin_type {
+                PluginType::ModelRouter => {
+                    let model_router_config: ModelRouterConfigDto =
+                        serde_json::from_value(plugin_dto.config_data.clone()).map_err(|e| {
+                            ApiError::ValidationError(format!(
+                                "Invalid model-router config_data: {e}"
+                            ))
+                        })?;
+                    for model_entry in model_router_config.models {
+                        if self
+                            .model_definition_repo
+                            .find_by_key(&model_entry.key)
+                            .await?
+                            .is_none()
+                        {
+                            return Err(ApiError::ValidationError(format!(
+                                "ModelDefinition key '{}' not found for model-router",
+                                model_entry.key
+                            )));
+                        }
                     }
                 }
+                PluginType::Logging => {
+                    let _logging_config: LoggingConfigDto =
+                        serde_json::from_value(plugin_dto.config_data.clone()).map_err(|e| {
+                            ApiError::ValidationError(format!("Invalid logging config_data: {e}"))
+                        })?;
+                    // Additional validation for logging config can be added here
+                }
+                PluginType::Tracing => {
+                    let _tracing_config: TracingConfigDto =
+                        serde_json::from_value(plugin_dto.config_data.clone()).map_err(|e| {
+                            ApiError::ValidationError(format!("Invalid tracing config_data: {e}"))
+                        })?;
+                    // Additional validation for tracing config can be added here
+                }
             }
-            // Add other plugin type validations here if necessary
         }
         Ok(())
     }
