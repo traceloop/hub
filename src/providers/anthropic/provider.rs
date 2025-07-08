@@ -48,7 +48,7 @@ impl Provider for AnthropicProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("Anthropic API request error: {}", e);
+                eprintln!("Anthropic API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 

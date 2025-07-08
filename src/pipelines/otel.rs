@@ -26,28 +26,69 @@ pub struct OtelTracer {
 
 impl OtelTracer {
     pub fn init(endpoint: String, api_key: String) {
-        global::set_text_map_propagator(TraceContextPropagator::new());
-        let mut headers = HashMap::new();
-        headers.insert("Authorization".to_string(), format!("Bearer {}", api_key));
+        // Clone endpoint for use in error messages
+        let endpoint_for_error = endpoint.clone();
 
-        let exporter: SpanExporter = SpanExporter::builder()
-            .with_http()
-            .with_endpoint(endpoint)
-            .with_headers(headers)
-            .build()
-            .expect("Failed to initialize OpenTelemetry");
+        // Try to get the current runtime handle
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            // Spawn the initialization task on the runtime
+            handle.spawn(async move {
+                // Use spawn_blocking for the potentially blocking OpenTelemetry initialization
+                let result = tokio::task::spawn_blocking(move || {
+                    global::set_text_map_propagator(TraceContextPropagator::new());
+                    let mut headers = HashMap::new();
+                    headers.insert("Authorization".to_string(), format!("Bearer {api_key}"));
 
-        let provider = TracerProvider::builder()
-            .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
-            .build();
+                    let exporter_result = SpanExporter::builder()
+                        .with_http()
+                        .with_endpoint(endpoint.clone())
+                        .with_headers(headers)
+                        .build();
 
-        global::set_tracer_provider(provider);
+                    let exporter = match exporter_result {
+                        Ok(exporter) => exporter,
+                        Err(e) => {
+                            tracing::error!("Failed to initialize OpenTelemetry exporter for endpoint {}: {}. Tracing will be disabled.", endpoint, e);
+                            return Err(e);
+                        }
+                    };
+
+                    let provider = TracerProvider::builder()
+                        .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
+                        .build();
+
+                    global::set_tracer_provider(provider);
+                    tracing::debug!("OpenTelemetry tracer initialized successfully for endpoint: {}", endpoint);
+                    Ok(())
+                }).await;
+
+                match result {
+                    Ok(Ok(())) => {
+                        // Successfully initialized
+                    }
+                    Ok(Err(e)) => {
+                        tracing::error!("OpenTelemetry initialization failed: {}. Tracing will be disabled.", e);
+                    }
+                    Err(e) => {
+                        tracing::error!("OpenTelemetry initialization task failed: {}. Tracing will be disabled.", e);
+                    }
+                }
+            });
+
+            // Log that initialization was started asynchronously
+            tracing::debug!(
+                "OpenTelemetry initialization started asynchronously for endpoint: {}",
+                endpoint_for_error
+            );
+        } else {
+            tracing::error!("No Tokio runtime available for OpenTelemetry initialization. Tracing will be disabled.");
+        }
     }
 
     pub fn start<T: RecordSpan>(operation: &str, request: &T) -> Self {
         let tracer = global::tracer("traceloop_hub");
         let mut span = tracer
-            .span_builder(format!("traceloop_hub.{}", operation))
+            .span_builder(format!("traceloop_hub.{operation}"))
             .with_kind(SpanKind::Client)
             .start(&tracer);
 
@@ -159,11 +200,11 @@ impl RecordSpan for ChatCompletionRequest {
             for (i, message) in self.messages.iter().enumerate() {
                 if let Some(content) = &message.content {
                     span.set_attribute(KeyValue::new(
-                        format!("gen_ai.prompt.{}.role", i),
+                        format!("gen_ai.prompt.{i}.role"),
                         message.role.clone(),
                     ));
                     span.set_attribute(KeyValue::new(
-                        format!("gen_ai.prompt.{}.content", i),
+                        format!("gen_ai.prompt.{i}.content"),
                         match &content {
                             ChatMessageContent::String(content) => content.clone(),
                             ChatMessageContent::Array(content) => {
@@ -274,11 +315,11 @@ impl RecordSpan for EmbeddingsRequest {
                 EmbeddingsInput::Multiple(texts) => {
                     for (i, text) in texts.iter().enumerate() {
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.role", i),
+                            format!("llm.prompt.{i}.role"),
                             "user".to_string(),
                         ));
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.content", i),
+                            format!("llm.prompt.{i}.content"),
                             text.clone(),
                         ));
                     }
@@ -286,18 +327,18 @@ impl RecordSpan for EmbeddingsRequest {
                 EmbeddingsInput::SingleTokenIds(token_ids) => {
                     span.set_attribute(KeyValue::new(
                         "llm.prompt.0.content",
-                        format!("{:?}", token_ids),
+                        format!("{token_ids:?}"),
                     ));
                 }
                 EmbeddingsInput::MultipleTokenIds(token_ids) => {
                     for (i, token_ids) in token_ids.iter().enumerate() {
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.role", i),
+                            format!("llm.prompt.{i}.role"),
                             "user".to_string(),
                         ));
                         span.set_attribute(KeyValue::new(
-                            format!("llm.prompt.{}.content", i),
-                            format!("{:?}", token_ids),
+                            format!("llm.prompt.{i}.content"),
+                            format!("{token_ids:?}"),
                         ));
                     }
                 }

@@ -56,7 +56,7 @@ impl Provider for OpenAIProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("OpenAI API request error: {}", e);
+                eprintln!("OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
@@ -72,7 +72,7 @@ impl Provider for OpenAIProvider {
                     .await
                     .map(ChatCompletionResponse::NonStream)
                     .map_err(|e| {
-                        eprintln!("OpenAI API response error: {}", e);
+                        eprintln!("OpenAI API response error: {e}");
                         StatusCode::INTERNAL_SERVER_ERROR
                     })
             }
@@ -98,14 +98,14 @@ impl Provider for OpenAIProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("OpenAI API request error: {}", e);
+                eprintln!("OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
         if status.is_success() {
             response.json().await.map_err(|e| {
-                eprintln!("OpenAI API response error: {}", e);
+                eprintln!("OpenAI API response error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })
         } else {
@@ -130,14 +130,14 @@ impl Provider for OpenAIProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("OpenAI API request error: {}", e);
+                eprintln!("OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
         if status.is_success() {
             response.json().await.map_err(|e| {
-                eprintln!("OpenAI API response error: {}", e);
+                eprintln!("OpenAI API response error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })
         } else {

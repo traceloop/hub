@@ -32,6 +32,8 @@ securityContext: {}
 service:
   type: ClusterIP
   port: 3100
+  # Management API port (only used when ee.enabled is true)
+  managementPort: 8080
 
 # Kubernetes probe configuration
 probes:
@@ -73,6 +75,7 @@ config:
   providers:
     - key: openai
       # Configuration for the OpenAI provider
+
 # Secret management configuration
 secrets:
   # Name of the existing Kubernetes secret containing API keys
@@ -88,3 +91,54 @@ secrets:
     # Uncomment to use Traceloop API key for tracing
     # traceloopApiKey: "TRACELOOP_API_KEY"
     # Add mappings for any other provider API keys as needed
+
+# Management API configuration
+management:
+  # Enable Management API features
+  enabled: false  # Default to OSS mode
+  
+  # PostgreSQL configuration for Management API mode
+  database:
+    host: "postgres"
+    port: 5432
+    name: "hub_gateway"
+    user: "hub_user"
+    # Password will come from existing secret
+    existingSecret: "hub-postgres-secret"
+    passwordKey: "password"
+    
+  # Management API-specific settings
+  config:
+    pollIntervalSeconds: 30
+  
+  # Arbitrary environment variables from secrets
+  # Map environment variable names to secret references
+  secrets: {}
+    # Example:
+    # OPENAI_API_KEY:
+    #   secretName: "llm-providers"
+    #   key: "openai_key"
+    # ANTHROPIC_API_KEY:
+    #   secretName: "llm-providers"
+    #   key: "anthropic_key"
+    # AWS_ACCESS_KEY_ID:
+    #   secretName: "cloud-credentials"
+    #   key: "aws_access_key"
+    # CUSTOM_CONFIG_VAR:
+    #   secretName: "app-config"
+    #   key: "custom_setting"
+    
+  # Migration job configuration
+  migrations:
+    image:
+      repository: "docker.io/traceloop/hub-migrations"
+      # tag will default to chart version
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    backoffLimit: 3
+    activeDeadlineSeconds: 300  # 5 minutes timeout

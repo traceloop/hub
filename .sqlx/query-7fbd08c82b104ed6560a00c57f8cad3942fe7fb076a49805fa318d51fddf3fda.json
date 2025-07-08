@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE hub_llmgateway_providers\n            SET\n                name = $1,\n                config_details = $2,\n                enabled = $3,\n                updated_at = now()\n            WHERE id = $4\n            RETURNING id, name, provider_type, config_details, enabled, created_at, updated_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "provider_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "config_details",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Jsonb",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7fbd08c82b104ed6560a00c57f8cad3942fe7fb076a49805fa318d51fddf3fda"
+}
