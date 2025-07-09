@@ -181,3 +181,144 @@ pub async fn embeddings(
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        ai_models::registry::ModelRegistry,
+        config::models::{
+            ModelConfig, Pipeline, PipelineType, PluginConfig, Provider as ProviderConfig,
+        },
+        providers::provider::Provider,
+        providers::registry::ProviderRegistry,
+    };
+    use axum::{
+        async_trait,
+        body::{to_bytes, Body},
+        http::{Request, StatusCode},
+    };
+    use serde_json;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    #[derive(Clone)]
+    struct MockProvider {
+        key: String,
+    }
+
+    #[async_trait]
+    impl Provider for MockProvider {
+        fn new(config: &ProviderConfig) -> Self {
+            Self {
+                key: config.key.clone(),
+            }
+        }
+
+        fn key(&self) -> String {
+            self.key.clone()
+        }
+
+        fn r#type(&self) -> String {
+            "mock".to_string()
+        }
+
+        async fn chat_completions(
+            &self,
+            _payload: crate::models::chat::ChatCompletionRequest,
+            _model_config: &ModelConfig,
+        ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
+            Err(StatusCode::NOT_IMPLEMENTED)
+        }
+
+        async fn completions(
+            &self,
+            _payload: crate::models::completion::CompletionRequest,
+            _model_config: &ModelConfig,
+        ) -> Result<crate::models::completion::CompletionResponse, StatusCode> {
+            Err(StatusCode::NOT_IMPLEMENTED)
+        }
+
+        async fn embeddings(
+            &self,
+            _payload: crate::models::embeddings::EmbeddingsRequest,
+            _model_config: &ModelConfig,
+        ) -> Result<crate::models::embeddings::EmbeddingsResponse, StatusCode> {
+            Err(StatusCode::NOT_IMPLEMENTED)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_models_endpoint() {
+        // Setup mock provider config and registry
+        let provider_config = ProviderConfig {
+            key: "test-provider".to_string(),
+            r#type: "openai".to_string(),
+            api_key: String::new(),
+            params: HashMap::new(),
+        };
+        let mock_provider = Arc::new(MockProvider::new(&provider_config));
+        let mut providers = HashMap::new();
+        providers.insert(
+            provider_config.key.clone(),
+            mock_provider as Arc<dyn Provider>,
+        );
+        let provider_registry = ProviderRegistry::new(&[provider_config]).unwrap();
+
+        // Register a model using the mock provider
+        let model_configs = vec![ModelConfig {
+            key: "test-model".to_string(),
+            r#type: "test".to_string(),
+            provider: "test-provider".to_string(),
+            params: HashMap::new(),
+        }];
+
+        let model_registry =
+            ModelRegistry::new(&model_configs, Arc::new(provider_registry)).unwrap();
+
+        // Create a pipeline with the model
+        let pipeline = Pipeline {
+            name: "test".to_string(),
+            r#type: PipelineType::Chat,
+            plugins: vec![PluginConfig::ModelRouter {
+                models: vec!["test-model".to_string()],
+            }],
+        };
+
+        // Build the router
+        let app = create_pipeline(&pipeline, &model_registry);
+
+        // Issue GET request to /models
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/models")
+                    .method("GET")
+                    .header("x-traceloop-pipeline", "test")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Assert status
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Parse and check response body
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(response["object"], "list");
+        assert!(response["data"].is_array());
+        println!("Response: {:#?}", response);
+        assert!(
+            !response["data"].as_array().unwrap().is_empty(),
+            "data array is empty"
+        );
+        let model = &response["data"][0];
+        assert_eq!(model["id"], "test-model");
+        assert_eq!(model["object"], "model");
+        assert_eq!(model["owned_by"], "test-provider");
+    }
+}
