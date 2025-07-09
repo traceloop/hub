@@ -203,7 +203,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Get port configurations
     let gateway_port = std::env::var("PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
-    let gateway_bind_address = format!("0.0.0.0:{}", gateway_port);
+    let gateway_bind_address = format!("0.0.0.0:{gateway_port}");
 
     info!("Starting LLM Gateway server on {}", gateway_bind_address);
     let gateway_listener = tokio::net::TcpListener::bind(&gateway_bind_address)
@@ -222,7 +222,7 @@ async fn main() -> anyhow::Result<()> {
             // Database mode - start both servers
             let management_port = std::env::var("MANAGEMENT_PORT")
                 .unwrap_or_else(|_| DEFAULT_MANAGEMENT_PORT.to_string());
-            let management_bind_address = format!("0.0.0.0:{}", management_port);
+            let management_bind_address = format!("0.0.0.0:{management_port}");
 
             info!(
                 "Starting Management API server on {}",
