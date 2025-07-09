@@ -2,6 +2,7 @@ use futures::stream::BoxStream;
 use reqwest_streams::error::StreamBodyError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 use super::content::ChatCompletionMessage;
 use super::logprob::LogProbs;
@@ -11,7 +12,7 @@ use super::tool_choice::ToolChoice;
 use super::tool_definition::ToolDefinition;
 use super::usage::Usage;
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct ChatCompletionRequest {
     pub model: String,
     pub messages: Vec<ChatCompletionMessage>,
@@ -51,12 +52,14 @@ pub struct ChatCompletionRequest {
     pub response_format: Option<ResponseFormat>,
 }
 
+// Note: ChatCompletionResponse cannot derive ToSchema due to BoxStream
+// For OpenAPI documentation, we'll document ChatCompletion directly
 pub enum ChatCompletionResponse {
     Stream(BoxStream<'static, Result<ChatCompletionChunk, StreamBodyError>>),
     NonStream(ChatCompletion),
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct ChatCompletion {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,7 +72,7 @@ pub struct ChatCompletion {
     pub system_fingerprint: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct ChatCompletionChoice {
     pub index: u32,
     pub message: ChatCompletionMessage,

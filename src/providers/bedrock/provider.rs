@@ -108,12 +108,9 @@ impl BedrockProvider {
                 .map_or("v1:0", |s| &**s);
 
             if let Some(profile_id) = inference_profile_id {
-                format!(
-                    "{}.{}.{}-{}",
-                    profile_id, model_provider, model, model_version
-                )
+                format!("{profile_id}.{model_provider}.{model}-{model_version}")
             } else {
-                format!("{}.{}-{}", model_provider, model, model_version)
+                format!("{model_provider}.{model}-{model_version}")
             }
         }
     }
@@ -141,7 +138,7 @@ impl Provider for BedrockProvider {
         model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
         let client = self.create_client().await.map_err(|e| {
-            eprintln!("Failed to create Bedrock client: {}", e);
+            eprintln!("Failed to create Bedrock client: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -161,7 +158,7 @@ impl Provider for BedrockProvider {
         model_config: &ModelConfig,
     ) -> Result<CompletionResponse, StatusCode> {
         let client = self.create_client().await.map_err(|e| {
-            eprintln!("Failed to create Bedrock client: {}", e);
+            eprintln!("Failed to create Bedrock client: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -181,7 +178,7 @@ impl Provider for BedrockProvider {
         model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
         let client = self.create_client().await.map_err(|e| {
-            eprintln!("Failed to create Bedrock client: {}", e);
+            eprintln!("Failed to create Bedrock client: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -239,7 +236,7 @@ trait BedrockRequestHandler {
     {
         // Serialize request
         let request_json = serde_json::to_vec(&request).map_err(|e| {
-            eprintln!("Failed to serialize {}: {}", error_context, e);
+            eprintln!("Failed to serialize {error_context}: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -251,7 +248,7 @@ trait BedrockRequestHandler {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("Bedrock API error for {}: {:?}", error_context, e);
+                eprintln!("Bedrock API error for {error_context}: {e:?}");
                 eprintln!(
                     "Error details - Source: {}, Raw error: {:?}",
                     e.source().unwrap_or(&e),
@@ -262,7 +259,7 @@ trait BedrockRequestHandler {
 
         // Deserialize response
         serde_json::from_slice(&response.body.into_inner()).map_err(|e| {
-            eprintln!("Failed to deserialize {} response: {}", error_context, e);
+            eprintln!("Failed to deserialize {error_context} response: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })
     }
@@ -359,7 +356,7 @@ impl BedrockModelImplementation for AnthropicImplementation {
 
         // Convert to Value for Bedrock-specific modifications
         let mut request_value = serde_json::to_value(&anthropic_request).map_err(|e| {
-            eprintln!("Failed to serialize Anthropic request: {}", e);
+            eprintln!("Failed to serialize Anthropic request: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 

@@ -91,8 +91,7 @@ impl VertexAIProvider {
 
         if sanitized.is_empty() || sanitized != location {
             Err(format!(
-                "Invalid location provided: '{}'. Location must contain only alphanumeric characters and hyphens.",
-                location
+                "Invalid location provided: '{location}'. Location must contain only alphanumeric characters and hyphens."
             ))
         } else {
             Ok(sanitized)
@@ -165,10 +164,7 @@ impl Provider for VertexAIProvider {
                 "projects/{}/locations/{}/publishers/google/models/{}",
                 self.project_id, self.location, payload.model
             );
-            format!(
-                "https://{}/v1/{}:{}",
-                service_endpoint, full_model_path, endpoint_suffix
-            )
+            format!("https://{service_endpoint}/v1/{full_model_path}:{endpoint_suffix}")
         };
 
         let request_body = GeminiChatRequest::from(payload.clone());
@@ -176,7 +172,7 @@ impl Provider for VertexAIProvider {
         debug!(
             "Request Body: {}",
             serde_json::to_string(&request_body)
-                .unwrap_or_else(|e| format!("Failed to serialize request: {}", e))
+                .unwrap_or_else(|e| format!("Failed to serialize request: {e}"))
         );
 
         let response_result = self

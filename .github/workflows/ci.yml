@@ -1,4 +1,4 @@
-name: Build and test
+name: build
 
 on:
   push:
@@ -8,11 +8,12 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    name: "build"
     steps:
       - uses: actions/checkout@v4
       - name: Check formatting
