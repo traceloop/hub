@@ -250,47 +250,43 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_models_endpoint() {
-        // Setup mock provider config and registry
+    // Helper function to create mock provider and registry
+    fn create_test_provider_registry() -> Arc<ProviderRegistry> {
         let provider_config = ProviderConfig {
             key: "test-provider".to_string(),
             r#type: "openai".to_string(),
             api_key: String::new(),
             params: HashMap::new(),
         };
-        let mock_provider = Arc::new(MockProvider::new(&provider_config));
-        let mut providers = HashMap::new();
-        providers.insert(
-            provider_config.key.clone(),
-            mock_provider as Arc<dyn Provider>,
-        );
-        let provider_registry = ProviderRegistry::new(&[provider_config]).unwrap();
+        Arc::new(ProviderRegistry::new(&[provider_config]).unwrap())
+    }
 
-        // Register a model using the mock provider
-        let model_configs = vec![ModelConfig {
-            key: "test-model".to_string(),
-            r#type: "test".to_string(),
-            provider: "test-provider".to_string(),
-            params: HashMap::new(),
-        }];
+    // Helper function to create model configs
+    fn create_model_configs(model_keys: Vec<&str>) -> Vec<ModelConfig> {
+        model_keys
+            .into_iter()
+            .map(|key| ModelConfig {
+                key: key.to_string(),
+                r#type: "test".to_string(),
+                provider: "test-provider".to_string(),
+                params: HashMap::new(),
+            })
+            .collect()
+    }
 
-        let model_registry =
-            ModelRegistry::new(&model_configs, Arc::new(provider_registry)).unwrap();
-
-        // Create a pipeline with the model
-        let pipeline = Pipeline {
+    // Helper function to create test pipeline
+    fn create_test_pipeline(model_keys: Vec<&str>) -> Pipeline {
+        Pipeline {
             name: "test".to_string(),
             r#type: PipelineType::Chat,
             plugins: vec![PluginConfig::ModelRouter {
-                models: vec!["test-model".to_string()],
+                models: model_keys.into_iter().map(|s| s.to_string()).collect(),
             }],
-        };
+        }
+    }
 
-        // Build the router
-        let app = create_pipeline(&pipeline, &model_registry);
-
-        // Issue GET request to /models
+    // Helper function to make GET request to /models
+    async fn get_models_response(app: Router) -> serde_json::Value {
         let response = app
             .oneshot(
                 Request::builder()
@@ -303,23 +299,120 @@ mod tests {
             .await
             .unwrap();
 
-        // Assert status
         assert_eq!(response.status(), StatusCode::OK);
 
-        // Parse and check response body
         let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
-        let response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_models_endpoint() {
+        let provider_registry = create_test_provider_registry();
+        let model_configs = create_model_configs(vec!["test-model"]);
+        let model_registry = ModelRegistry::new(&model_configs, provider_registry).unwrap();
+        let pipeline = create_test_pipeline(vec!["test-model"]);
+        let app = create_pipeline(&pipeline, &model_registry);
+
+        let response = get_models_response(app).await;
 
         assert_eq!(response["object"], "list");
         assert!(response["data"].is_array());
-        println!("Response: {:#?}", response);
-        assert!(
-            !response["data"].as_array().unwrap().is_empty(),
-            "data array is empty"
-        );
-        let model = &response["data"][0];
+        let data = response["data"].as_array().unwrap();
+        assert_eq!(data.len(), 1);
+
+        let model = &data[0];
         assert_eq!(model["id"], "test-model");
         assert_eq!(model["object"], "model");
         assert_eq!(model["owned_by"], "test-provider");
+    }
+    #[tokio::test]
+    async fn test_models_endpoint_multiple_providers() {
+        let provider_config_1 = ProviderConfig {
+            key: "test-provider-1".to_string(),
+            r#type: "openai".to_string(),
+            api_key: String::new(),
+            params: HashMap::new(),
+        };
+        let provider_config_2 = ProviderConfig {
+            key: "test-provider-2".to_string(),
+            r#type: "openai".to_string(),
+            api_key: String::new(),
+            params: HashMap::new(),
+        };
+        let provider_registry =
+            Arc::new(ProviderRegistry::new(&[provider_config_1, provider_config_2]).unwrap());
+
+        let model_configs = vec![
+            ModelConfig {
+                key: "test-model-1".to_string(),
+                r#type: "test".to_string(),
+                provider: "test-provider-1".to_string(),
+                params: HashMap::new(),
+            },
+            ModelConfig {
+                key: "test-model-2".to_string(),
+                r#type: "test".to_string(),
+                provider: "test-provider-2".to_string(),
+                params: HashMap::new(),
+            },
+        ];
+
+        let model_registry =
+            Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
+        let pipeline = create_test_pipeline(vec!["test-model-1", "test-model-2"]);
+        let app = create_pipeline(&pipeline, &model_registry);
+
+        let response = get_models_response(app).await;
+
+        assert_eq!(response["object"], "list");
+        assert!(response["data"].is_array());
+        let data = response["data"].as_array().unwrap();
+        assert_eq!(data.len(), 2);
+
+        let model_1 = data.iter().find(|m| m["id"] == "test-model-1").unwrap();
+        let model_2 = data.iter().find(|m| m["id"] == "test-model-2").unwrap();
+
+        assert_eq!(model_1["owned_by"], "test-provider-1");
+        assert_eq!(model_2["owned_by"], "test-provider-2");
+    }
+
+    #[tokio::test]
+    async fn test_models_endpoint_empty_models() {
+        let provider_registry = create_test_provider_registry();
+        let model_configs = create_model_configs(vec![]);
+        let model_registry =
+            Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
+        let pipeline = create_test_pipeline(vec![]);
+        let app = create_pipeline(&pipeline, &model_registry);
+
+        let response = get_models_response(app).await;
+
+        assert_eq!(response["object"], "list");
+        assert!(response["data"].is_array());
+        let data = response["data"].as_array().unwrap();
+        assert_eq!(data.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_models_endpoint_filtered_models() {
+        let provider_registry = create_test_provider_registry();
+        let model_configs =
+            create_model_configs(vec!["test-model-1", "test-model-2", "test-model-3"]);
+        let model_registry =
+            Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
+        let pipeline = create_test_pipeline(vec!["test-model-1", "test-model-3"]); // Only include 2 of 3 models
+        let app = create_pipeline(&pipeline, &model_registry);
+
+        let response = get_models_response(app).await;
+
+        assert_eq!(response["object"], "list");
+        assert!(response["data"].is_array());
+        let data = response["data"].as_array().unwrap();
+        assert_eq!(data.len(), 2);
+
+        let ids: Vec<_> = data.iter().map(|m| m["id"].as_str().unwrap()).collect();
+        assert!(ids.contains(&"test-model-1"));
+        assert!(ids.contains(&"test-model-3"));
+        assert!(!ids.contains(&"test-model-2"));
     }
 }
