@@ -1,18 +1,17 @@
-FROM rust:1.83-bookworm AS builder
-
-# Install sqlx-cli with version that's compatible with edition2021
-RUN cargo install sqlx-cli --version 0.8.0 --no-default-features --features postgres
-
 FROM debian:bookworm-slim AS runtime
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     openssl \
     ca-certificates \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy sqlx-cli from builder
-COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
+# Download pre-built sqlx-cli binary (avoids edition2024 compilation issues)
+RUN wget -O /tmp/sqlx.tar.gz https://github.com/launchbadge/sqlx/releases/download/v0.8.0/sqlx-cli-x86_64-unknown-linux-musl.tar.gz \
+    && tar -xzf /tmp/sqlx.tar.gz -C /usr/local/bin \
+    && rm /tmp/sqlx.tar.gz \
+    && chmod +x /usr/local/bin/sqlx
 
 # Copy migration files
 COPY migrations /migrations
