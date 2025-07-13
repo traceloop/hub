@@ -10,7 +10,7 @@ use crate::management::{
     },
     errors::ApiError,
 };
-use sqlx::{types::Uuid, PgPool};
+use sqlx::{PgPool, types::Uuid};
 use std::sync::Arc;
 
 #[derive(Clone)]

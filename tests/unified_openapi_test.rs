@@ -22,18 +22,21 @@ fn test_openapi_spec_is_valid() {
     assert!(spec.paths.paths.contains_key("/api/v1/embeddings"));
 
     // Check for management endpoints (always included in unified spec)
-    assert!(spec
-        .paths
-        .paths
-        .contains_key("/api/v1/management/providers"));
-    assert!(spec
-        .paths
-        .paths
-        .contains_key("/api/v1/management/model-definitions"));
-    assert!(spec
-        .paths
-        .paths
-        .contains_key("/api/v1/management/pipelines"));
+    assert!(
+        spec.paths
+            .paths
+            .contains_key("/api/v1/management/providers")
+    );
+    assert!(
+        spec.paths
+            .paths
+            .contains_key("/api/v1/management/model-definitions")
+    );
+    assert!(
+        spec.paths
+            .paths
+            .contains_key("/api/v1/management/pipelines")
+    );
 }
 
 #[test]
@@ -105,9 +108,11 @@ fn test_openapi_components_present() {
     assert!(components.schemas.contains_key("ProviderType"));
     assert!(components.schemas.contains_key("CreateProviderRequest"));
     assert!(components.schemas.contains_key("ProviderResponse"));
-    assert!(components
-        .schemas
-        .contains_key("CreateModelDefinitionRequest"));
+    assert!(
+        components
+            .schemas
+            .contains_key("CreateModelDefinitionRequest")
+    );
     assert!(components.schemas.contains_key("ModelDefinitionResponse"));
     assert!(components.schemas.contains_key("CreatePipelineRequestDto"));
     assert!(components.schemas.contains_key("PipelineResponseDto"));

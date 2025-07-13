@@ -1,5 +1,5 @@
 use serde_json::Value as JsonValue;
-use sqlx::{query, query_as, types::Uuid, PgPool, Result};
+use sqlx::{PgPool, Result, query, query_as, types::Uuid};
 
 use crate::management::{
     db::models::Provider,

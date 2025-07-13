@@ -5,7 +5,7 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
-use axum::async_trait;
+use async_trait::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
 use reqwest_streams::*;

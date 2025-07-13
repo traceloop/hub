@@ -1,8 +1,9 @@
 use hub_lib::types::GatewayConfig;
 use hub_lib::{config, routes, state::AppState};
 use std::sync::Arc;
+use tower::make::Shared;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
-use tracing::{debug, error, info, Level};
+use tracing::{Level, debug, error, info};
 
 // Always import database components - mode detection happens at runtime
 use {hub_lib::management::db_based_config_integration, sqlx::PgPool, std::time::Duration};
@@ -174,7 +175,10 @@ async fn main() -> anyhow::Result<()> {
                         if let Err(val_errors) =
                             config::validation::validate_gateway_config(&new_config)
                         {
-                            error!("Updated database configuration is invalid: {:?}. Retaining previous config.", val_errors);
+                            error!(
+                                "Updated database configuration is invalid: {:?}. Retaining previous config.",
+                                val_errors
+                            );
                         } else {
                             info!(
                                 "Updated database configuration validated. Attempting to apply..."
@@ -184,7 +188,9 @@ async fn main() -> anyhow::Result<()> {
                             {
                                 error!("Failed to apply updated configuration: {:?}", update_err);
                             } else {
-                                info!("Successfully applied updated configuration and rebuilt registries.");
+                                info!(
+                                    "Successfully applied updated configuration and rebuilt registries."
+                                );
                             }
                         }
                     }
@@ -250,8 +256,8 @@ async fn main() -> anyhow::Result<()> {
             );
 
             // Run both servers concurrently - fail fast if either fails
-            let gateway_server = axum::serve(gateway_listener, gateway_app);
-            let management_server = axum::serve(management_listener, management_app);
+            let gateway_server = axum::serve(gateway_listener, Shared::new(gateway_app));
+            let management_server = axum::serve(management_listener, Shared::new(management_app));
 
             tokio::select! {
                 result = gateway_server => {
@@ -271,7 +277,7 @@ async fn main() -> anyhow::Result<()> {
                 "LLM Gateway server started successfully on {}",
                 gateway_bind_address
             );
-            axum::serve(gateway_listener, gateway_app).await?;
+            axum::serve(gateway_listener, Shared::new(gateway_app)).await?;
         }
     }
 

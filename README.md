@@ -262,7 +262,7 @@ services:
 ## Development
 
 ### Prerequisites
-- Rust 1.83+
+- Rust 1.87+
 - PostgreSQL 12+ (for database mode)
 - `sqlx-cli` (for migrations)
 

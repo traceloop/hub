@@ -1,16 +1,16 @@
 use axum::{
+    Router,
     extract::{Path, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
-    Router,
 };
 use uuid::Uuid;
 
 use crate::management::{
+    AppState,
     dto::{CreateProviderRequest, ProviderResponse, UpdateProviderRequest},
     errors::ApiError,
-    AppState,
 };
 
 /// Creates the Axum router for provider CRUD operations.
@@ -22,7 +22,7 @@ pub fn provider_routes() -> Router<AppState> {
             post(create_provider_handler).get(list_providers_handler),
         )
         .route(
-            "/:id",
+            "/{id}",
             get(get_provider_handler)
                 .put(update_provider_handler)
                 .delete(delete_provider_handler),

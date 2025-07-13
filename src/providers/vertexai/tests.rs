@@ -1,5 +1,5 @@
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -81,7 +81,9 @@ async fn setup_test_client(test_name: &str) -> reqwest::Client {
 
             debug!("Creating client with mock server at: {}", mock_server.uri());
             // Store the mock server URI in an environment variable
-            std::env::set_var("VERTEXAI_TEST_ENDPOINT", mock_server.uri());
+            unsafe {
+                std::env::set_var("VERTEXAI_TEST_ENDPOINT", mock_server.uri());
+            }
 
             reqwest::Client::builder()
                 .build()
@@ -91,7 +93,9 @@ async fn setup_test_client(test_name: &str) -> reqwest::Client {
                 "No cassette found at {:?} and not in record mode",
                 cassette_path
             );
-            panic!("Cannot run test without a cassette file in test mode. Run with RECORD_MODE=1 to create one.");
+            panic!(
+                "Cannot run test without a cassette file in test mode. Run with RECORD_MODE=1 to create one."
+            );
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log::{error, warn};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;

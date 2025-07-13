@@ -1,16 +1,16 @@
 use axum::{
+    Router,
     extract::{Path, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
-    Router,
 };
 use uuid::Uuid;
 
 use crate::management::{
+    AppState,
     dto::{CreatePipelineRequestDto, PipelineResponseDto, UpdatePipelineRequestDto},
     errors::ApiError,
-    AppState,
 };
 
 // --- Pipeline Handlers ---
@@ -161,10 +161,10 @@ pub fn pipeline_routes() -> Router<AppState> {
             post(create_pipeline_handler).get(list_pipelines_handler),
         )
         .route(
-            "/:id",
+            "/{id}",
             get(get_pipeline_handler)
                 .put(update_pipeline_handler)
                 .delete(delete_pipeline_handler),
         )
-        .route("/name/:name", get(get_pipeline_by_name_handler))
+        .route("/name/{name}", get(get_pipeline_by_name_handler))
 }

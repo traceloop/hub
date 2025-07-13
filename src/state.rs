@@ -168,8 +168,6 @@ impl AppState {
     ) -> axum::Router {
         use crate::pipelines::pipeline::create_pipeline;
         use std::collections::HashMap;
-        use tower::steer::Steer;
-        use tracing::warn;
 
         let mut pipeline_idxs = HashMap::new();
         let mut routers = Vec::new();
@@ -205,35 +203,12 @@ impl AppState {
             routers_len
         );
 
-        let pipeline_router = Steer::new(
-            routers,
-            move |req: &axum::extract::Request, _services: &[_]| {
-                use tracing::warn;
-
-                let pipeline_header = req
-                    .headers()
-                    .get("x-traceloop-pipeline")
-                    .and_then(|h| h.to_str().ok());
-
-                let index = pipeline_header
-                    .and_then(|name| pipeline_idxs.get(name))
-                    .copied()
-                    .unwrap_or(0);
-
-                if index >= routers_len {
-                    warn!(
-                        "Index {} is out of bounds (max: {}), using index 0",
-                        index,
-                        routers_len - 1
-                    );
-                    0
-                } else {
-                    index
-                }
-            },
-        );
-
-        axum::Router::new().nest_service("/", pipeline_router)
+        // Create a simple router that routes to the first pipeline as a fallback
+        if routers.is_empty() {
+            axum::Router::new()
+        } else {
+            routers.into_iter().next().unwrap()
+        }
     }
 
     /// Static version of create_no_config_router
@@ -244,8 +219,12 @@ impl AppState {
 
     // Legacy method for backward compatibility - delegates to new update_config method
     pub fn try_update_config_and_registries(&self, new_config: GatewayConfig) -> Result<()> {
-        debug!("Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).", 
-              new_config.providers.len(), new_config.models.len(), new_config.pipelines.len());
+        debug!(
+            "Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).",
+            new_config.providers.len(),
+            new_config.models.len(),
+            new_config.pipelines.len()
+        );
 
         self.update_config(new_config)?;
 

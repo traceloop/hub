@@ -1,10 +1,10 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::PgPool;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use testcontainers::{runners::AsyncRunner, ContainerAsync};
+use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 use tokio::process::Child;
 use tokio::time::sleep;
@@ -47,11 +47,13 @@ impl TestEnvironment {
         let management_api_base_url = format!("{}/api/v1/management", management_base_url);
 
         // Set environment variables for the application
-        std::env::set_var("DATABASE_URL", &connection_string);
-        std::env::set_var("PORT", gateway_port.to_string());
-        std::env::set_var("MANAGEMENT_PORT", management_port.to_string());
-        std::env::set_var("DB_POLL_INTERVAL_SECONDS", "1"); // Fast polling for tests
-        std::env::set_var("HUB_MODE", "database"); // Force database mode
+        unsafe {
+            std::env::set_var("DATABASE_URL", &connection_string);
+            std::env::set_var("PORT", gateway_port.to_string());
+            std::env::set_var("MANAGEMENT_PORT", management_port.to_string());
+            std::env::set_var("DB_POLL_INTERVAL_SECONDS", "1"); // Fast polling for tests
+            std::env::set_var("HUB_MODE", "database"); // Force database mode
+        }
 
         // Build the application binary
         let build_output = Command::new("cargo").args(["build"]).output()?;
@@ -483,7 +485,9 @@ async fn test_end_to_end_integration() {
             "Expected 401 or 500 when routing to provider with test key, got {}",
             response.status()
         );
-        println!("✓ Request correctly routed to provider and failed with auth error (as expected with test key)");
+        println!(
+            "✓ Request correctly routed to provider and failed with auth error (as expected with test key)"
+        );
     }
 
     // Step 7: Verify the configuration is in the database

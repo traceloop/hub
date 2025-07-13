@@ -1,18 +1,18 @@
 use axum::{
+    Router,
     extract::{Path, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
-    Router,
 };
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::management::{
+    AppState,
     dto::{CreateModelDefinitionRequest, ModelDefinitionResponse, UpdateModelDefinitionRequest},
     errors::ApiError,
     services::model_definition_service::ModelDefinitionService,
-    AppState,
 };
 
 pub fn model_definition_routes() -> Router<AppState> {
@@ -21,9 +21,9 @@ pub fn model_definition_routes() -> Router<AppState> {
             "/",
             post(create_model_definition_handler).get(list_model_definitions_handler),
         )
-        .route("/key/:key", get(get_model_definition_by_key_handler))
+        .route("/key/{key}", get(get_model_definition_by_key_handler))
         .route(
-            "/:id",
+            "/{id}",
             get(get_model_definition_handler)
                 .put(update_model_definition_handler)
                 .delete(delete_model_definition_handler),

@@ -1,5 +1,5 @@
 use crate::management::dto::SecretObject;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::env;
 use tracing::{debug, warn};
 
@@ -87,7 +87,9 @@ mod tests {
         let test_value = "test-secret-value";
 
         // Set environment variable for test
-        env::set_var(test_var, test_value);
+        unsafe {
+            env::set_var(test_var, test_value);
+        }
 
         let secret = SecretObject::environment(test_var.to_string());
         let result = resolver.resolve_secret(&secret).await.unwrap();
@@ -95,7 +97,9 @@ mod tests {
         assert_eq!(result, test_value);
 
         // Clean up
-        env::remove_var(test_var);
+        unsafe {
+            env::remove_var(test_var);
+        }
     }
 
     #[tokio::test]
@@ -105,10 +109,12 @@ mod tests {
 
         let result = resolver.resolve_secret(&secret).await;
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Environment variable 'NON_EXISTENT_VAR' not found"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Environment variable 'NON_EXISTENT_VAR' not found")
+        );
     }
 
     #[tokio::test]
@@ -122,10 +128,12 @@ mod tests {
 
         let result = resolver.resolve_secret(&secret).await;
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Kubernetes secret resolution not yet implemented"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Kubernetes secret resolution not yet implemented")
+        );
     }
 
     #[tokio::test]

@@ -5,7 +5,7 @@ pub mod errors;
 pub mod services;
 pub mod state;
 
-pub use state::{db_based_config_integration, DbBasedConfigIntegration};
+pub use state::{DbBasedConfigIntegration, db_based_config_integration};
 
 use axum::Router;
 use sqlx::PgPool;

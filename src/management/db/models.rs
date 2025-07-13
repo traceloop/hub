@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde_json;
 use sqlx::{
-    types::{JsonValue, Uuid},
     FromRow,
+    types::{JsonValue, Uuid},
 };
 
 // Potentially import ProviderType from dto if it's to be used directly here,

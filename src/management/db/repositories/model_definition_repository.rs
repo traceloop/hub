@@ -2,7 +2,7 @@ use crate::management::{
     db::models::ModelDefinition,
     dto::{CreateModelDefinitionRequest, UpdateModelDefinitionRequest},
 };
-use sqlx::{query, query_as, types::Uuid, PgPool, Result};
+use sqlx::{PgPool, Result, query, query_as, types::Uuid};
 
 #[derive(Debug, Clone)]
 pub struct ModelDefinitionRepository {

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct ResponseFormat {
     #[serde(rename = "type")]
     pub r#type: String,
@@ -8,7 +9,7 @@ pub struct ResponseFormat {
     pub json_schema: Option<JsonSchema>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct JsonSchema {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]

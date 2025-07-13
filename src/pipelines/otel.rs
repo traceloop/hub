@@ -7,7 +7,7 @@ use crate::models::streaming::ChatCompletionChunk;
 use crate::models::usage::{EmbeddingUsage, Usage};
 use opentelemetry::global::{BoxedSpan, ObjectSafeSpan};
 use opentelemetry::trace::{SpanKind, Status, Tracer};
-use opentelemetry::{global, KeyValue};
+use opentelemetry::{KeyValue, global};
 use opentelemetry_otlp::{SpanExporter, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::TracerProvider;
@@ -81,7 +81,9 @@ impl OtelTracer {
                 endpoint_for_error
             );
         } else {
-            tracing::error!("No Tokio runtime available for OpenTelemetry initialization. Tracing will be disabled.");
+            tracing::error!(
+                "No Tokio runtime available for OpenTelemetry initialization. Tracing will be disabled."
+            );
         }
     }
 
