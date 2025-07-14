@@ -225,13 +225,12 @@ async fn main() -> anyhow::Result<()> {
                             );
                         }
 
-                        // Implement exponential backoff for failures
                         if consecutive_failures > 3 {
                             let backoff_duration = std::cmp::min(
-                                poll_duration * (consecutive_failures as u32),
+                                poll_duration * consecutive_failures,
                                 Duration::from_secs(MAX_BACKOFF_SECONDS),
                             );
-                            debug!("Applying exponential backoff: {:?}", backoff_duration);
+                            debug!("Applying backoff: {:?}", backoff_duration);
                             tokio::time::sleep(backoff_duration).await;
                         }
                     }
