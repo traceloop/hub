@@ -82,7 +82,8 @@ impl Service<Request<Body>> for DynamicPipelineService {
 pub fn create_dynamic_pipeline_router(state: Arc<AppState>) -> Router {
     // With the simplified approach, we always have a current router available
     debug!("Using current pipeline router");
-    state.get_current_router()
+    // Extract the router from the Arc for compatibility with the expected return type
+    Arc::try_unwrap(state.get_current_router()).unwrap_or_else(|arc_router| (*arc_router).clone())
 }
 
 // Removed build_pipeline_router_from_config - now handled in AppState::build_router_for_config
