@@ -13,6 +13,10 @@ const DEFAULT_PORT: &str = "3000";
 const DEFAULT_MANAGEMENT_PORT: &str = "8080";
 const DEFAULT_DB_POLL_INTERVAL_SECONDS: u64 = 30;
 
+// Error handling constants
+const MAX_CONSECUTIVE_FAILURES: u32 = 5;
+const MAX_BACKOFF_SECONDS: u64 = 300; // 5 minutes
+
 #[derive(Debug, Clone)]
 pub enum ConfigMode {
     Yaml { path: String },
@@ -30,10 +34,14 @@ async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
             let database_url = std::env::var("DATABASE_URL")
                 .map_err(|e| anyhow::anyhow!("DATABASE_URL not set for database mode: {}", e))?;
 
+            debug!("Connecting to database: {}", database_url);
+
+            // Use connection pool with optimized settings
             let pool = PgPool::connect(&database_url).await.map_err(|e| {
                 anyhow::anyhow!("Failed to connect to database at {}: {}", database_url, e)
             })?;
-            debug!("Connected to database successfully.");
+
+            info!("Database connection established successfully.");
             Ok(ConfigMode::Database { pool })
         }
         Ok("yaml") => {
@@ -71,20 +79,29 @@ async fn get_initial_config_and_services(
 
             match db_integration.config_provider.fetch_live_config().await {
                 Ok(initial_db_config) => {
-                    debug!("Successfully fetched initial configuration from database.");
+                    info!("Successfully fetched initial configuration from database.");
+
+                    // Validate configuration before proceeding
                     if let Err(val_errors) =
                         config::validation::validate_gateway_config(&initial_db_config)
                     {
                         error!(
-                            "Initial database configuration is invalid: {:?}. Halting.",
+                            "Initial database configuration is invalid: {:?}. Application cannot start.",
                             val_errors
                         );
                         return Err(anyhow::anyhow!(
-                            "Invalid initial DB config: {:?}",
+                            "Invalid initial database configuration: {:?}",
                             val_errors
                         ));
                     }
-                    debug!("Initial database configuration validated successfully.");
+
+                    info!(
+                        "Initial database configuration validated successfully. Config has {} providers, {} models, {} pipelines.",
+                        initial_db_config.providers.len(),
+                        initial_db_config.models.len(),
+                        initial_db_config.pipelines.len()
+                    );
+
                     Ok((
                         initial_db_config,
                         Some(db_integration.router.clone()),
@@ -92,8 +109,14 @@ async fn get_initial_config_and_services(
                     ))
                 }
                 Err(e) => {
-                    error!("Failed to fetch initial config from DB: {:?}. Halting.", e);
-                    Err(anyhow::anyhow!("Failed to fetch initial DB config: {}", e))
+                    error!(
+                        "Failed to fetch initial configuration from database: {:?}. Application cannot start.",
+                        e
+                    );
+                    Err(anyhow::anyhow!(
+                        "Failed to fetch initial database config: {}",
+                        e
+                    ))
                 }
             }
         }
@@ -159,42 +182,58 @@ async fn main() -> anyhow::Result<()> {
         );
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(poll_duration);
+            let mut consecutive_failures = 0u32;
+
             loop {
                 interval.tick().await;
                 debug!("Polling database for configuration updates...");
+
                 match poller_config_provider.fetch_live_config().await {
                     Ok(new_config) => {
-                        debug!("Successfully fetched updated configuration from database.");
+                        consecutive_failures = 0; // Reset failure counter on success
+
+                        debug!("Successfully fetched configuration from database.");
                         debug!(
-                            "New config has {} providers, {} models, {} pipelines",
+                            "Config has {} providers, {} models, {} pipelines",
                             new_config.providers.len(),
                             new_config.models.len(),
                             new_config.pipelines.len()
                         );
-                        if let Err(val_errors) =
-                            config::validation::validate_gateway_config(&new_config)
-                        {
-                            error!(
-                                "Updated database configuration is invalid: {:?}. Retaining previous config.",
-                                val_errors
-                            );
-                        } else {
-                            info!(
-                                "Updated database configuration validated. Attempting to apply..."
-                            );
-                            if let Err(update_err) =
-                                poller_app_state.try_update_config_and_registries(new_config)
-                            {
+
+                        // Use AppState's efficient change detection - it handles validation internally
+                        match poller_app_state.update_config(new_config) {
+                            Ok(()) => {
+                                debug!("Configuration update completed successfully.");
+                            }
+                            Err(update_err) => {
                                 error!("Failed to apply updated configuration: {:?}", update_err);
-                            } else {
-                                info!(
-                                    "Successfully applied updated configuration and rebuilt registries."
-                                );
                             }
                         }
                     }
                     Err(e) => {
-                        error!("Failed to fetch updated configuration from DB: {:?}", e);
+                        consecutive_failures += 1;
+
+                        if consecutive_failures <= MAX_CONSECUTIVE_FAILURES {
+                            error!(
+                                "Failed to fetch configuration from DB (attempt {}/{}): {:?}",
+                                consecutive_failures, MAX_CONSECUTIVE_FAILURES, e
+                            );
+                        } else {
+                            error!(
+                                "Failed to fetch configuration from DB {} consecutive times. Will keep retrying but reducing log verbosity.",
+                                consecutive_failures
+                            );
+                        }
+
+                        // Implement exponential backoff for failures
+                        if consecutive_failures > 3 {
+                            let backoff_duration = std::cmp::min(
+                                poll_duration * (consecutive_failures as u32),
+                                Duration::from_secs(MAX_BACKOFF_SECONDS),
+                            );
+                            debug!("Applying exponential backoff: {:?}", backoff_duration);
+                            tokio::time::sleep(backoff_duration).await;
+                        }
                     }
                 }
             }

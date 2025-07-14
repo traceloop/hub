@@ -269,7 +269,7 @@ impl AppState {
         // Create a map from pipeline names to Arc<Router> for efficient lookup and sharing
         let pipeline_map: HashMap<String, Arc<Router>> = pipeline_names
             .into_iter()
-            .zip(pipeline_routers.into_iter())
+            .zip(pipeline_routers)
             .map(|(name, router)| (name, Arc::new(router)))
             .collect();
 
@@ -277,21 +277,6 @@ impl AppState {
         let steering_service = PipelineSteeringService::new(pipeline_map, default_pipeline_name);
 
         Router::new().fallback_service(steering_service)
-    }
-
-    // Legacy method for backward compatibility - delegates to new update_config method
-    pub fn try_update_config_and_registries(&self, new_config: GatewayConfig) -> Result<()> {
-        debug!(
-            "Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).",
-            new_config.providers.len(),
-            new_config.models.len(),
-            new_config.pipelines.len()
-        );
-
-        self.update_config(new_config)?;
-
-        debug!("Successfully updated live configuration and rebuilt registries.");
-        Ok(())
     }
 }
 
