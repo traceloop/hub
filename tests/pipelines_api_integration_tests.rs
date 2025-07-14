@@ -528,7 +528,7 @@ async fn test_delete_pipeline() {
             created_pipeline.id
         ))
         .await;
-    delete_response.assert_status_ok();
+    delete_response.assert_status(StatusCode::NO_CONTENT);
     server
         .get(&format!(
             "/api/v1/management/pipelines/{}",

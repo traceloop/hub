@@ -733,7 +733,10 @@ async fn test_delete_provider_success() {
             created_provider.id
         ))
         .await;
-    assert_eq!(delete_response.status_code(), axum::http::StatusCode::OK);
+    assert_eq!(
+        delete_response.status_code(),
+        axum::http::StatusCode::NO_CONTENT
+    );
 
     let get_response_after_delete = client
         .get(&format!(

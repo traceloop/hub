@@ -577,7 +577,7 @@ async fn test_delete_model_definition_success() {
             created_md.id
         ))
         .await;
-    assert_eq!(delete_response.status_code(), StatusCode::OK);
+    assert_eq!(delete_response.status_code(), StatusCode::NO_CONTENT);
 
     // Verify it's gone from DB
     let db_model_after_delete = sqlx::query_as!(

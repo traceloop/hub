@@ -1,7 +1,6 @@
 use hub_lib::types::GatewayConfig;
 use hub_lib::{config, routes, state::AppState};
 use std::sync::Arc;
-use tower::make::Shared;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::{Level, debug, error, info};
 
@@ -250,34 +249,25 @@ async fn main() -> anyhow::Result<()> {
                     .make_span_with(DefaultMakeSpan::default().include_headers(true)),
             );
 
-            info!(
-                "Both servers started successfully - LLM Gateway: {}, Management API: {}",
-                gateway_bind_address, management_bind_address
-            );
-
-            // Run both servers concurrently - fail fast if either fails
-            let gateway_server = axum::serve(gateway_listener, Shared::new(gateway_app));
-            let management_server = axum::serve(management_listener, Shared::new(management_app));
-
             tokio::select! {
-                result = gateway_server => {
-                    error!("LLM Gateway server failed: {:?}", result);
-                    result?;
-                }
-                result = management_server => {
-                    error!("Management API server failed: {:?}", result);
-                    result?;
-                }
+                res = axum::serve(gateway_listener, gateway_app) => {
+                    if let Err(e) = res {
+                        error!("LLM Gateway server failed: {}", e);
+                    }
+                },
+                res = axum::serve(management_listener, management_app) => {
+                    if let Err(e) = res {
+                        error!("Management API server failed: {}", e);
+                    }
+                },
             }
         }
         None => {
-            // YAML mode - start only gateway server
-            info!("Management API not available (YAML mode).");
-            info!(
-                "LLM Gateway server started successfully on {}",
-                gateway_bind_address
-            );
-            axum::serve(gateway_listener, Shared::new(gateway_app)).await?;
+            // YAML mode - only start the gateway server
+            let app = gateway_app;
+            axum::serve(gateway_listener, app)
+                .await
+                .map_err(|e| anyhow::anyhow!("LLM Gateway server failed: {}", e))?;
         }
     }
 

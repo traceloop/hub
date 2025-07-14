@@ -63,10 +63,10 @@ async fn create_provider_handler(
 #[axum::debug_handler]
 async fn list_providers_handler(
     State(app_state): State<AppState>,
-) -> Result<(StatusCode, Json<Vec<ProviderResponse>>), ApiError> {
+) -> Result<Json<Vec<ProviderResponse>>, ApiError> {
     let service = &app_state.provider_service;
     let provider_responses = service.list_providers().await?;
-    Ok((StatusCode::OK, Json(provider_responses)))
+    Ok(Json(provider_responses))
 }
 
 #[utoipa::path(
@@ -126,7 +126,7 @@ async fn update_provider_handler(
         ("id" = Uuid, Path, description = "Provider ID")
     ),
     responses(
-        (status = 200, description = "Provider deleted successfully"), // Or 204 No Content
+        (status = 204, description = "Provider deleted successfully"),
         (status = 404, description = "Provider not found", body = ApiError),
         (status = 500, description = "Internal server error", body = ApiError)
     ),
@@ -136,7 +136,8 @@ async fn update_provider_handler(
 async fn delete_provider_handler(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<(), ApiError> {
+) -> Result<StatusCode, ApiError> {
     let service = &app_state.provider_service;
-    service.delete_provider(id).await
+    service.delete_provider(id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }

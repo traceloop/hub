@@ -136,7 +136,7 @@ async fn update_pipeline_handler(
         ("id" = Uuid, Path, description = "Pipeline ID")
     ),
     responses(
-        (status = 200, description = "Pipeline deleted successfully"),
+        (status = 204, description = "Pipeline deleted successfully"),
         (status = 404, description = "Pipeline not found", body = ApiError),
         (status = 500, description = "Internal server error", body = ApiError)
     ),
@@ -146,10 +146,9 @@ async fn update_pipeline_handler(
 async fn delete_pipeline_handler(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<()>, ApiError> {
-    // Return Json<()> for successful deletion with no body
+) -> Result<StatusCode, ApiError> {
     app_state.pipeline_service.delete_pipeline(id).await?;
-    Ok(Json(()))
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // --- Router Definition ---
