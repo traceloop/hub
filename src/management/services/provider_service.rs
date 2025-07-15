@@ -1,5 +1,5 @@
 use serde_json;
-use sqlx::{types::Uuid, PgPool};
+use sqlx::{PgPool, types::Uuid};
 use std::sync::Arc;
 
 use crate::management::{

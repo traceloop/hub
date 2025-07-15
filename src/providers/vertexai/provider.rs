@@ -8,12 +8,12 @@ use crate::models::embeddings::{
 use crate::models::streaming::ChatCompletionChunk;
 use crate::models::usage::EmbeddingUsage;
 use crate::providers::provider::Provider;
-use axum::async_trait;
+use async_trait::async_trait;
 use axum::http::StatusCode;
 use futures::StreamExt;
 use reqwest::Client;
-use reqwest_streams::error::{StreamBodyError, StreamBodyKind};
 use reqwest_streams::JsonStreamResponse;
+use reqwest_streams::error::{StreamBodyError, StreamBodyKind};
 use serde_json::json;
 use tracing::{debug, error};
 use yup_oauth2::{ServiceAccountAuthenticator, ServiceAccountKey};

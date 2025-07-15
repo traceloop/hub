@@ -1,10 +1,10 @@
 [package]
 name = "hub_llm_gateway_src" # Placeholder, actual name might be just 'hub-llm-gateway' or similar
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-axum = "0.7" # Assuming a version, adjust if known
+axum = "0.8" # Assuming a version, adjust if known
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"

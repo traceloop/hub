@@ -7,6 +7,7 @@ use axum::{
 use axum_test::TestServer; // Using axum-test
 use chrono::{DateTime, Utc};
 use hub_lib::management::{
+    AppState,                                              // Main AppState
     api::routes::model_definition_routes, // Assuming this is the entry point for model definition routes
     db::models::{ModelDefinition, Provider as DbProvider}, // For direct DB checks if needed
     dto::{
@@ -16,14 +17,13 @@ use hub_lib::management::{
     },
     errors::ApiError,      // Assuming ApiError is serializable for error responses
     management_api_bundle, // Main router function from lib.rs
-    AppState,              // Main AppState
 };
 use serde_json::json;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{migrate::Migrator, types::Uuid, PgPool};
+use sqlx::{PgPool, migrate::Migrator, types::Uuid};
 use std::path::Path;
 use std::sync::Arc;
-use testcontainers::{core::WaitFor, runners::AsyncRunner, ImageExt};
+use testcontainers::{ImageExt, core::WaitFor, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 
 async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
@@ -189,10 +189,12 @@ async fn test_create_model_definition_duplicate_key() {
     assert_eq!(response2.status_code(), StatusCode::CONFLICT);
 
     let error_response: serde_json::Value = response2.json();
-    assert!(error_response["error"]
-        .as_str()
-        .unwrap()
-        .contains("Model Definition key 'unique-key-123' already exists"));
+    assert!(
+        error_response["error"]
+            .as_str()
+            .unwrap()
+            .contains("Model Definition key 'unique-key-123' already exists")
+    );
 }
 
 #[tokio::test]
@@ -575,7 +577,7 @@ async fn test_delete_model_definition_success() {
             created_md.id
         ))
         .await;
-    assert_eq!(delete_response.status_code(), StatusCode::OK);
+    assert_eq!(delete_response.status_code(), StatusCode::NO_CONTENT);
 
     // Verify it's gone from DB
     let db_model_after_delete = sqlx::query_as!(

@@ -1,10 +1,10 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::PgPool;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use testcontainers::{runners::AsyncRunner, ContainerAsync};
+use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 use tokio::process::Child;
 use tokio::time::sleep;
@@ -47,11 +47,13 @@ impl TestEnvironment {
         let management_api_base_url = format!("{}/api/v1/management", management_base_url);
 
         // Set environment variables for the application
-        std::env::set_var("DATABASE_URL", &connection_string);
-        std::env::set_var("PORT", gateway_port.to_string());
-        std::env::set_var("MANAGEMENT_PORT", management_port.to_string());
-        std::env::set_var("DB_POLL_INTERVAL_SECONDS", "1"); // Fast polling for tests
-        std::env::set_var("HUB_MODE", "database"); // Force database mode
+        unsafe {
+            std::env::set_var("DATABASE_URL", &connection_string);
+            std::env::set_var("PORT", gateway_port.to_string());
+            std::env::set_var("MANAGEMENT_PORT", management_port.to_string());
+            std::env::set_var("DB_POLL_INTERVAL_SECONDS", "1"); // Fast polling for tests
+            std::env::set_var("HUB_MODE", "database"); // Force database mode
+        }
 
         // Build the application binary
         let build_output = Command::new("cargo").args(["build"]).output()?;
@@ -261,6 +263,109 @@ impl TestEnvironment {
             .await?;
 
         Ok(response)
+    }
+
+    async fn make_chat_request_with_pipeline(
+        &self,
+        model: &str,
+        pipeline: &str,
+    ) -> anyhow::Result<reqwest::Response> {
+        let request = json!({
+            "model": model,
+            "messages": [{"role": "user", "content": "Hello, world!"}]
+        });
+
+        let response = self
+            .client
+            .post(format!("{}/api/v1/chat/completions", self.base_url))
+            .header("content-type", "application/json")
+            .header("x-traceloop-pipeline", pipeline)
+            .json(&request)
+            .send()
+            .await?;
+
+        Ok(response)
+    }
+
+    async fn make_embeddings_request_with_pipeline(
+        &self,
+        model: &str,
+        pipeline: &str,
+    ) -> anyhow::Result<reqwest::Response> {
+        let request = json!({
+            "model": model,
+            "input": "Hello, world!"
+        });
+
+        let response = self
+            .client
+            .post(format!("{}/api/v1/embeddings", self.base_url))
+            .header("content-type", "application/json")
+            .header("x-traceloop-pipeline", pipeline)
+            .json(&request)
+            .send()
+            .await?;
+
+        Ok(response)
+    }
+
+    async fn create_embeddings_pipeline(
+        &self,
+        name: &str,
+        models: Vec<String>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let model_entries: Vec<serde_json::Value> = models
+            .into_iter()
+            .enumerate()
+            .map(|(i, key)| {
+                json!({
+                    "key": key,
+                    "priority": i
+                })
+            })
+            .collect();
+
+        let plugins = vec![
+            json!({
+                "plugin_type": "logging",
+                "config_data": {
+                    "level": "info"
+                }
+            }),
+            json!({
+                "plugin_type": "model-router",
+                "config_data": {
+                    "strategy": "ordered_fallback",
+                    "models": model_entries
+                }
+            }),
+        ];
+
+        let request = json!({
+            "name": name,
+            "pipeline_type": "embeddings",
+            "plugins": plugins
+        });
+
+        let response = self
+            .client
+            .post(format!("{}/pipelines", self.management_api_base_url))
+            .header("content-type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if response.status() != 201 {
+            let status = response.status();
+            let error_body = response.text().await?;
+            anyhow::bail!(
+                "Failed to create embeddings pipeline: {} - {}",
+                status,
+                error_body
+            );
+        }
+
+        Ok(response.json().await?)
     }
 }
 
@@ -483,7 +588,9 @@ async fn test_end_to_end_integration() {
             "Expected 401 or 500 when routing to provider with test key, got {}",
             response.status()
         );
-        println!("✓ Request correctly routed to provider and failed with auth error (as expected with test key)");
+        println!(
+            "✓ Request correctly routed to provider and failed with auth error (as expected with test key)"
+        );
     }
 
     // Step 7: Verify the configuration is in the database
@@ -617,4 +724,305 @@ async fn test_configuration_validation_and_rejection() {
     println!("✓ Valid pipeline correctly created");
 
     println!("✓ Configuration validation test completed successfully!");
+}
+
+#[tokio::test]
+async fn test_pipeline_header_routing_e2e() {
+    let env = TestEnvironment::setup()
+        .await
+        .expect("Failed to setup test environment");
+
+    println!("🧪 Testing pipeline header routing with chat and embeddings pipelines...");
+
+    // Step 1: Create a provider
+    println!("Step 1: Creating OpenAI provider...");
+    let api_key = if std::env::var("RECORD_MODE").is_ok() {
+        std::env::var("OPENAI_API_KEY")
+            .expect("OPENAI_API_KEY environment variable must be set when RECORD_MODE=1")
+    } else {
+        "test-api-key".to_string()
+    };
+
+    let provider = env
+        .create_provider("openai-provider", &api_key)
+        .await
+        .expect("Failed to create provider");
+    let provider_id = provider["id"].as_str().unwrap();
+    println!("✓ Provider created: {}", provider["name"]);
+
+    // Step 2: Create model definitions for both chat and embeddings
+    println!("Step 2: Creating model definitions...");
+    let chat_model = env
+        .create_model("gpt-3.5-turbo", provider_id, "gpt-3.5-turbo")
+        .await
+        .expect("Failed to create chat model");
+    println!("✓ Chat model created: {}", chat_model["key"]);
+
+    let embeddings_model = env
+        .create_model(
+            "text-embedding-3-small",
+            provider_id,
+            "text-embedding-3-small",
+        )
+        .await
+        .expect("Failed to create embeddings model");
+    println!("✓ Embeddings model created: {}", embeddings_model["key"]);
+
+    // Step 3: Create chat pipeline named "chat-pipeline"
+    println!("Step 3: Creating chat pipeline...");
+    let chat_pipeline = env
+        .create_pipeline("chat-pipeline", vec!["gpt-3.5-turbo".to_string()])
+        .await
+        .expect("Failed to create chat pipeline");
+    println!("✓ Chat pipeline created: {}", chat_pipeline["name"]);
+
+    // Step 4: Create embeddings pipeline named "embeddings-pipeline"
+    println!("Step 4: Creating embeddings pipeline...");
+    let embeddings_pipeline = env
+        .create_embeddings_pipeline(
+            "embeddings-pipeline",
+            vec!["text-embedding-3-small".to_string()],
+        )
+        .await
+        .expect("Failed to create embeddings pipeline");
+    println!(
+        "✓ Embeddings pipeline created: {}",
+        embeddings_pipeline["name"]
+    );
+
+    // Step 5: Create a default pipeline for fallback testing
+    println!("Step 5: Creating default pipeline...");
+    let default_pipeline = env
+        .create_pipeline("default", vec!["gpt-3.5-turbo".to_string()])
+        .await
+        .expect("Failed to create default pipeline");
+    println!("✓ Default pipeline created: {}", default_pipeline["name"]);
+
+    // Step 6: Wait for configuration to be picked up
+    println!("Step 6: Waiting for configuration polling...");
+    sleep(Duration::from_secs(3)).await;
+
+    // Step 7: Test pipeline header routing for chat
+    println!("Step 7: Testing chat pipeline routing...");
+
+    // Test with specific pipeline header
+    let chat_response = env
+        .make_chat_request_with_pipeline("gpt-3.5-turbo", "chat-pipeline")
+        .await
+        .expect("Chat request failed");
+
+    println!(
+        "Chat request with 'chat-pipeline' header: {}",
+        chat_response.status()
+    );
+
+    // Should route to provider and get auth error with test key (or 200 in record mode)
+    if std::env::var("RECORD_MODE").is_ok() {
+        assert_eq!(
+            chat_response.status(),
+            200,
+            "Expected 200 with real API key for chat pipeline"
+        );
+
+        // Record the response
+        let response_body: Value = chat_response
+            .json()
+            .await
+            .expect("Failed to parse chat response JSON");
+        save_to_cassette("chat_pipeline_routing", &response_body).await;
+
+        println!("✓ Chat pipeline routing successful (200) - Response recorded");
+    } else {
+        // In test mode, validate recorded response structure
+        let recorded_response = load_or_record_response("chat_pipeline_routing").await;
+        assert!(
+            recorded_response.get("choices").is_some(),
+            "Chat pipeline recorded response should have 'choices' field"
+        );
+
+        assert!(
+            chat_response.status() == 401 || chat_response.status() == 500,
+            "Expected 401 or 500 for chat pipeline with test key, got {}",
+            chat_response.status()
+        );
+        println!("✓ Chat pipeline routing successful (auth error as expected)");
+    }
+
+    // Step 8: Test pipeline header routing for embeddings
+    println!("Step 8: Testing embeddings pipeline routing...");
+
+    let embeddings_response = env
+        .make_embeddings_request_with_pipeline("text-embedding-3-small", "embeddings-pipeline")
+        .await
+        .expect("Embeddings request failed");
+
+    println!(
+        "Embeddings request with 'embeddings-pipeline' header: {}",
+        embeddings_response.status()
+    );
+
+    // Should route to provider and get auth error with test key (or 200 in record mode)
+    if std::env::var("RECORD_MODE").is_ok() {
+        assert_eq!(
+            embeddings_response.status(),
+            200,
+            "Expected 200 with real API key for embeddings pipeline"
+        );
+
+        // Record the response
+        let response_body: Value = embeddings_response
+            .json()
+            .await
+            .expect("Failed to parse embeddings response JSON");
+        save_to_cassette("embeddings_pipeline_routing", &response_body).await;
+
+        println!("✓ Embeddings pipeline routing successful (200) - Response recorded");
+    } else {
+        // In test mode, validate recorded response structure
+        let recorded_response = load_or_record_response("embeddings_pipeline_routing").await;
+        assert!(
+            recorded_response.get("data").is_some(),
+            "Embeddings pipeline recorded response should have 'data' field"
+        );
+
+        assert!(
+            embeddings_response.status() == 401 || embeddings_response.status() == 500,
+            "Expected 401 or 500 for embeddings pipeline with test key, got {}",
+            embeddings_response.status()
+        );
+        println!("✓ Embeddings pipeline routing successful (auth error as expected)");
+    }
+
+    // Step 9: Test default pipeline fallback
+    println!("Step 9: Testing default pipeline fallback...");
+
+    // Request without pipeline header should go to default
+    let default_response = env
+        .make_chat_request("gpt-3.5-turbo")
+        .await
+        .expect("Default request failed");
+
+    println!(
+        "Chat request without pipeline header: {}",
+        default_response.status()
+    );
+
+    // Should route to default pipeline
+    if std::env::var("RECORD_MODE").is_ok() {
+        assert_eq!(
+            default_response.status(),
+            200,
+            "Expected 200 with real API key for default pipeline"
+        );
+
+        // Record the response
+        let response_body: Value = default_response
+            .json()
+            .await
+            .expect("Failed to parse default response JSON");
+        save_to_cassette("default_pipeline_fallback", &response_body).await;
+
+        println!("✓ Default pipeline fallback successful (200) - Response recorded");
+    } else {
+        // In test mode, validate recorded response structure
+        let recorded_response = load_or_record_response("default_pipeline_fallback").await;
+        assert!(
+            recorded_response.get("choices").is_some(),
+            "Default pipeline recorded response should have 'choices' field"
+        );
+
+        assert!(
+            default_response.status() == 401 || default_response.status() == 500,
+            "Expected 401 or 500 for default pipeline with test key, got {}",
+            default_response.status()
+        );
+        println!("✓ Default pipeline fallback successful (auth error as expected)");
+    }
+
+    // Step 10: Test non-existent pipeline fallback
+    println!("Step 10: Testing non-existent pipeline fallback...");
+
+    let nonexistent_response = env
+        .make_chat_request_with_pipeline("gpt-3.5-turbo", "nonexistent-pipeline")
+        .await
+        .expect("Non-existent pipeline request failed");
+
+    println!(
+        "Chat request with non-existent pipeline header: {}",
+        nonexistent_response.status()
+    );
+
+    // Should fall back to default pipeline
+    if std::env::var("RECORD_MODE").is_ok() {
+        assert_eq!(
+            nonexistent_response.status(),
+            200,
+            "Expected 200 with real API key for non-existent pipeline fallback"
+        );
+
+        // Record the response
+        let response_body: Value = nonexistent_response
+            .json()
+            .await
+            .expect("Failed to parse non-existent pipeline response JSON");
+        save_to_cassette("nonexistent_pipeline_fallback", &response_body).await;
+
+        println!("✓ Non-existent pipeline fallback successful (200) - Response recorded");
+    } else {
+        // In test mode, validate recorded response structure
+        let recorded_response = load_or_record_response("nonexistent_pipeline_fallback").await;
+        assert!(
+            recorded_response.get("choices").is_some(),
+            "Non-existent pipeline recorded response should have 'choices' field"
+        );
+
+        assert!(
+            nonexistent_response.status() == 401 || nonexistent_response.status() == 500,
+            "Expected 401 or 500 for non-existent pipeline fallback with test key, got {}",
+            nonexistent_response.status()
+        );
+        println!("✓ Non-existent pipeline fallback successful (auth error as expected)");
+    }
+
+    // Step 11: Test wrong endpoint for pipeline type
+    println!("Step 11: Testing wrong endpoint for pipeline type...");
+
+    // Try to use chat endpoint with embeddings pipeline
+    let wrong_endpoint_response = env
+        .make_chat_request_with_pipeline("gpt-3.5-turbo", "embeddings-pipeline")
+        .await
+        .expect("Wrong endpoint request failed");
+
+    println!(
+        "Chat request with embeddings pipeline header: {}",
+        wrong_endpoint_response.status()
+    );
+
+    // Should get 404 because embeddings pipeline doesn't have chat endpoint
+    assert_eq!(
+        wrong_endpoint_response.status(),
+        404,
+        "Expected 404 when using chat endpoint with embeddings pipeline, got {}",
+        wrong_endpoint_response.status()
+    );
+    println!("✓ Wrong endpoint correctly rejected (404)");
+
+    // Step 12: Verify database state
+    println!("Step 12: Verifying database state...");
+
+    let pipeline_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_pipelines")
+        .fetch_one(&env.pool)
+        .await
+        .expect("Failed to count pipelines");
+    assert_eq!(pipeline_count, 3, "Expected 3 pipelines in database");
+
+    let model_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM hub_llmgateway_model_definitions")
+            .fetch_one(&env.pool)
+            .await
+            .expect("Failed to count models");
+    assert_eq!(model_count, 2, "Expected 2 models in database");
+
+    println!("✓ Database state verified");
+    println!("🎉 Pipeline header routing E2E test completed successfully!");
 }

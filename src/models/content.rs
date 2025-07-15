@@ -1,22 +1,23 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use super::tool_calls::ChatMessageToolCall;
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 #[serde(untagged)]
 pub enum ChatMessageContent {
     String(String),
     Array(Vec<ChatMessageContentPart>),
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct ChatMessageContentPart {
     #[serde(rename = "type")]
     pub r#type: String,
     pub text: String,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct ChatCompletionMessage {
     pub role: String,
     #[serde(skip_serializing_if = "Option::is_none")]

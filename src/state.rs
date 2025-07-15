@@ -3,20 +3,27 @@ use crate::config::hash::calculate_config_hash;
 use crate::config::models::GatewayConfig;
 use crate::providers::registry::ProviderRegistry;
 use anyhow::{Context, Result};
-use axum::Router;
+use axum::{Router, body::Body, extract::Request};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use tower::ServiceExt;
 use tracing::{debug, warn};
+
+const PIPELINE_HEADER: &str = "x-traceloop-pipeline";
+
+const DEFAULT_PIPELINE_NAME: &str = "default";
+
+const FALLBACK_PIPELINE_NAME: &str = "fallback";
 
 /// A snapshot of configuration state at a point in time
 /// This reduces lock contention by capturing all needed data in one operation
+/// NOTE: This struct is only used in tests and should not be used in production code
 #[derive(Clone)]
 pub struct ConfigSnapshot {
     pub config: GatewayConfig,
     pub provider_registry: Arc<ProviderRegistry>,
     pub model_registry: Arc<ModelRegistry>,
 }
-
-// Removed RouterCache - using simplified approach with current_router
 
 // Inner state that holds the frequently updated parts
 struct InnerAppState {
@@ -46,8 +53,7 @@ impl InnerAppState {
 #[derive(Clone)]
 pub struct AppState {
     inner: Arc<RwLock<InnerAppState>>,
-    // Simplified router cache - built once per configuration update
-    current_router: Arc<RwLock<Router>>,
+    current_router: Arc<RwLock<Arc<Router>>>,
 }
 
 impl AppState {
@@ -64,25 +70,23 @@ impl AppState {
 
         Ok(Self {
             inner: Arc::new(RwLock::new(inner_app_state)),
-            current_router: Arc::new(RwLock::new(initial_router)),
+            current_router: Arc::new(RwLock::new(Arc::new(initial_router))),
         })
     }
 
     // Public getters to access inner state fields safely
+    // Note: These methods use unwrap() for lock acquisition, which is acceptable
+    // since lock poisoning is extremely rare in practice
+
+    /// Get the current configuration
+    /// NOTE: This method is only used in tests and should not be used in production code
     pub fn current_config(&self) -> GatewayConfig {
         self.inner.read().unwrap().config.clone() // Clone to avoid holding lock
     }
 
-    pub fn provider_registry(&self) -> Arc<ProviderRegistry> {
-        self.inner.read().unwrap().provider_registry.clone()
-    }
-
-    pub fn model_registry(&self) -> Arc<ModelRegistry> {
-        self.inner.read().unwrap().model_registry.clone()
-    }
-
     /// Get a snapshot of all configuration data in a single lock operation
     /// This is more efficient than calling individual getters when you need multiple values
+    /// NOTE: This method is only used in tests and should not be used in production code
     pub fn config_snapshot(&self) -> ConfigSnapshot {
         let guard = self.inner.read().unwrap();
         ConfigSnapshot {
@@ -92,22 +96,19 @@ impl AppState {
         }
     }
 
-    /// Get the current router (always available)
-    pub fn get_current_router(&self) -> Router {
+    pub fn get_current_router(&self) -> Arc<Router> {
         let guard = self.current_router.read().unwrap();
-        guard.clone()
+        Arc::clone(&guard)
     }
 
-    /// Update the current router (used internally during config updates)
     fn set_current_router(&self, router: Router) {
-        *self.current_router.write().unwrap() = router;
+        *self.current_router.write().unwrap() = Arc::new(router);
         debug!("Router updated successfully");
     }
 
     /// Update configuration with change detection
     /// Only rebuilds router if configuration actually changed
     pub fn update_config(&self, new_config: GatewayConfig) -> Result<()> {
-        // Check if configuration actually changed
         let current_hash = {
             let guard = self.inner.read().unwrap();
             guard.config_hash
@@ -128,23 +129,19 @@ impl AppState {
             current_hash, new_hash
         );
 
-        // Validate configuration before applying
         if let Err(val_errors) = crate::config::validation::validate_gateway_config(&new_config) {
             return Err(anyhow::anyhow!("Invalid configuration: {:?}", val_errors));
         }
 
-        // Build new registries
         let new_provider_registry = Arc::new(ProviderRegistry::new(&new_config.providers)?);
         let new_model_registry = Arc::new(ModelRegistry::new(
             &new_config.models,
             new_provider_registry.clone(),
         )?);
 
-        // Build new router
         let new_router =
             Self::build_router_for_config(&new_config, &new_provider_registry, &new_model_registry);
 
-        // Update everything atomically
         {
             let mut inner_guard = self.inner.write().unwrap();
             inner_guard.config = new_config;
@@ -153,103 +150,183 @@ impl AppState {
             inner_guard.model_registry = new_model_registry;
         }
 
-        // Update router
         self.set_current_router(new_router);
 
         debug!("Configuration and router updated successfully");
         Ok(())
     }
 
-    /// Static router building method that doesn't require self
     fn build_router_for_config(
         config: &GatewayConfig,
         _provider_registry: &Arc<ProviderRegistry>,
         model_registry: &Arc<ModelRegistry>,
     ) -> axum::Router {
         use crate::pipelines::pipeline::create_pipeline;
-        use std::collections::HashMap;
-        use tower::steer::Steer;
-        use tracing::warn;
-
-        let mut pipeline_idxs = HashMap::new();
-        let mut routers = Vec::new();
 
         debug!("Building router with {} pipelines", config.pipelines.len());
 
-        // Sort pipelines to ensure default is first
-        let mut sorted_pipelines = config.pipelines.clone();
-        sorted_pipelines.sort_by_key(|p| p.name != "default");
+        let (default_pipeline, other_pipelines): (Vec<_>, Vec<_>) = config
+            .pipelines
+            .iter()
+            .partition(|p| p.name == DEFAULT_PIPELINE_NAME);
 
-        for pipeline in sorted_pipelines {
-            let name = pipeline.name.clone();
+        let mut pipeline_routers = Vec::with_capacity(config.pipelines.len());
+        let mut pipeline_names = Vec::with_capacity(config.pipelines.len());
+        let default_pipeline_idx = 0; // Default is always first
+
+        if let Some(default_pipeline) = default_pipeline.first() {
             debug!(
-                "Adding pipeline '{}' to router at index {}",
-                name,
-                routers.len()
+                "Adding default pipeline '{}' to router at index 0",
+                default_pipeline.name
             );
-            pipeline_idxs.insert(name, routers.len());
-            routers.push(create_pipeline(&pipeline, model_registry));
+            let pipeline_router = create_pipeline(default_pipeline, model_registry);
+            pipeline_routers.push(pipeline_router);
+            pipeline_names.push(default_pipeline.name.clone());
         }
 
-        // Always ensure we have at least one router
-        if routers.is_empty() {
+        for (idx, pipeline) in other_pipelines.iter().enumerate() {
+            let name = &pipeline.name;
+            debug!("Adding pipeline '{}' to router at index {}", name, idx + 1);
+
+            let pipeline_router = create_pipeline(pipeline, model_registry);
+            pipeline_routers.push(pipeline_router);
+            pipeline_names.push(name.clone());
+        }
+
+        if pipeline_routers.is_empty() {
             warn!("No pipelines with routes found. Creating fallback router that returns 404.");
             let fallback_router = Self::create_no_config_router_static();
-            routers.push(fallback_router);
-            debug!("Fallback router created and added at index 0");
+            pipeline_routers.push(fallback_router);
+            pipeline_names.push(FALLBACK_PIPELINE_NAME.to_string());
+            debug!("Fallback router created");
         }
 
-        let routers_len = routers.len();
         debug!(
-            "Router steering configured with {} total routers",
-            routers_len
+            "Router steering configured with {} total pipelines, default: '{}'",
+            pipeline_routers.len(),
+            pipeline_names[default_pipeline_idx]
         );
 
-        let pipeline_router = Steer::new(
-            routers,
-            move |req: &axum::extract::Request, _services: &[_]| {
-                use tracing::warn;
-
-                let pipeline_header = req
-                    .headers()
-                    .get("x-traceloop-pipeline")
-                    .and_then(|h| h.to_str().ok());
-
-                let index = pipeline_header
-                    .and_then(|name| pipeline_idxs.get(name))
-                    .copied()
-                    .unwrap_or(0);
-
-                if index >= routers_len {
-                    warn!(
-                        "Index {} is out of bounds (max: {}), using index 0",
-                        index,
-                        routers_len - 1
-                    );
-                    0
-                } else {
-                    index
-                }
-            },
-        );
-
-        axum::Router::new().nest_service("/", pipeline_router)
+        Self::create_pipeline_steering_router(
+            pipeline_routers,
+            pipeline_names,
+            default_pipeline_idx,
+        )
     }
 
-    /// Static version of create_no_config_router
     fn create_no_config_router_static() -> axum::Router {
-        // Use the centralized no-config router from routes module
         crate::routes::create_no_config_router()
     }
 
-    // Legacy method for backward compatibility - delegates to new update_config method
-    pub fn try_update_config_and_registries(&self, new_config: GatewayConfig) -> Result<()> {
-        debug!("Attempting to update live configuration and registries (providers: {}, models: {}, pipelines: {}).", 
-              new_config.providers.len(), new_config.models.len(), new_config.pipelines.len());
+    fn create_pipeline_steering_router(
+        pipeline_routers: Vec<Router>,
+        pipeline_names: Vec<String>,
+        default_pipeline_idx: usize,
+    ) -> Router {
+        if pipeline_routers.len() == 1 {
+            return pipeline_routers
+                .into_iter()
+                .next()
+                .expect("Single pipeline should exist");
+        }
 
-        self.update_config(new_config)?;
+        let default_pipeline_name = pipeline_names
+            .get(default_pipeline_idx)
+            .expect("Default pipeline index should be valid")
+            .clone();
 
-        debug!("Successfully updated live configuration and rebuilt registries.");
-        Ok(())
+        let pipeline_map: HashMap<String, Arc<Router>> = pipeline_names
+            .into_iter()
+            .zip(pipeline_routers)
+            .map(|(name, router)| (name, Arc::new(router)))
+            .collect();
+
+        let steering_service = PipelineSteeringService::new(pipeline_map, default_pipeline_name);
+
+        Router::new().fallback_service(steering_service)
+    }
+}
+
+#[derive(Clone)]
+pub struct PipelineSteeringService {
+    pipeline_routers: HashMap<String, Arc<Router>>,
+    default_pipeline: Arc<Router>,
+}
+
+impl PipelineSteeringService {
+    pub fn new(
+        pipeline_routers: HashMap<String, Arc<Router>>,
+        default_pipeline_name: String,
+    ) -> Self {
+        let default_pipeline = pipeline_routers
+            .get(&default_pipeline_name)
+            .expect("Default pipeline should exist in pipeline_routers")
+            .clone();
+
+        Self {
+            pipeline_routers,
+            default_pipeline,
+        }
+    }
+
+    /// Extract pipeline name from header without unnecessary string allocations
+    fn get_pipeline_name_from_header<'a>(&self, request: &'a Request<Body>) -> Option<&'a str> {
+        request
+            .headers()
+            .get(PIPELINE_HEADER)
+            .and_then(|header| header.to_str().ok())
+    }
+}
+
+impl tower::Service<Request<Body>> for PipelineSteeringService {
+    type Response = axum::response::Response;
+    type Error = std::convert::Infallible;
+    type Future = std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>,
+    >;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, request: Request<Body>) -> Self::Future {
+        let pipeline_name = self.get_pipeline_name_from_header(&request);
+
+        let router = if let Some(name) = pipeline_name {
+            debug!("Routing request to pipeline: '{}'", name);
+
+            self.pipeline_routers
+                .get(name)
+                .unwrap_or_else(|| {
+                    debug!(
+                        "Pipeline '{}' not found, falling back to default pipeline",
+                        name
+                    );
+                    &self.default_pipeline
+                })
+                .clone()
+        } else {
+            debug!("No pipeline header found, using default pipeline");
+            Arc::clone(&self.default_pipeline)
+        };
+
+        Box::pin(async move {
+            let router = Arc::try_unwrap(router).unwrap_or_else(|arc_router| (*arc_router).clone());
+
+            match router.oneshot(request).await {
+                Ok(response) => Ok(response),
+                Err(_) => {
+                    // Create a 500 error response
+                    let response = axum::response::Response::builder()
+                        .status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::empty())
+                        .expect("Failed to build error response");
+                    Ok(response)
+                }
+            }
+        })
     }
 }

@@ -1,7 +1,7 @@
 use crate::state::AppState;
 use axum::{
-    body::Body, extract::Request, http::StatusCode, response::Response, routing::get,
-    routing::post, Json, Router,
+    Json, Router, body::Body, extract::Request, http::StatusCode, response::Response, routing::get,
+    routing::post,
 };
 use axum_prometheus::PrometheusMetricLayerBuilder;
 use std::future::Future;
@@ -10,7 +10,6 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower::{Service, ServiceExt};
 use tracing::{debug, warn};
-use utoipa_swagger_ui::SwaggerUi;
 
 pub fn create_router(state: Arc<AppState>) -> Router {
     let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
@@ -27,9 +26,9 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/health", get(|| async { "Working!" }))
         .route("/metrics", get(|| async move { metric_handle.render() }))
         // Add OpenAPI documentation endpoints
-        .merge(
-            SwaggerUi::new("/swagger-ui")
-                .url("/api-docs/openapi.json", crate::openapi::get_openapi_spec()),
+        .route(
+            "/api-docs/openapi.json",
+            get(|| async { Json(crate::openapi::get_openapi_spec()) }),
         )
         .layer(prometheus_layer)
         .with_state(state)
@@ -83,7 +82,8 @@ impl Service<Request<Body>> for DynamicPipelineService {
 pub fn create_dynamic_pipeline_router(state: Arc<AppState>) -> Router {
     // With the simplified approach, we always have a current router available
     debug!("Using current pipeline router");
-    state.get_current_router()
+    // Extract the router from the Arc for compatibility with the expected return type
+    Arc::try_unwrap(state.get_current_router()).unwrap_or_else(|arc_router| (*arc_router).clone())
 }
 
 // Removed build_pipeline_router_from_config - now handled in AppState::build_router_for_config

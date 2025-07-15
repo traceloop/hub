@@ -8,6 +8,7 @@ use axum::{
 use axum_test::TestServer;
 use chrono::{DateTime, Utc};
 use hub_lib::management::{
+    AppState,
     api::routes::provider_routes,
     db::models::Provider,
     dto::{
@@ -16,14 +17,14 @@ use hub_lib::management::{
         UpdateProviderRequest, VertexAIProviderConfig,
     },
     errors::ApiError,
-    management_api_bundle, AppState,
+    management_api_bundle,
 };
 use serde_json::json;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{migrate::Migrator, types::Uuid, PgPool};
+use sqlx::{PgPool, migrate::Migrator, types::Uuid};
 use std::path::Path;
 use std::sync::Arc;
-use testcontainers::{core::WaitFor, runners::AsyncRunner, ImageExt};
+use testcontainers::{ImageExt, core::WaitFor, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 
 // Test data structure for parametrized tests
@@ -732,7 +733,10 @@ async fn test_delete_provider_success() {
             created_provider.id
         ))
         .await;
-    assert_eq!(delete_response.status_code(), axum::http::StatusCode::OK);
+    assert_eq!(
+        delete_response.status_code(),
+        axum::http::StatusCode::NO_CONTENT
+    );
 
     let get_response_after_delete = client
         .get(&format!(

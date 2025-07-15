@@ -74,8 +74,8 @@ fn get_test_model_config(
 mod antropic_tests {
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::bedrock::BedrockProvider;
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::provider::Provider;
 
     #[test]
@@ -155,8 +155,8 @@ mod titan_tests {
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
     use crate::models::embeddings::EmbeddingsInput::Single;
     use crate::models::embeddings::{Embedding, EmbeddingsRequest};
-    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::bedrock::BedrockProvider;
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::provider::Provider;
 
     #[test]
@@ -267,8 +267,8 @@ mod ai21_tests {
     use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
     use crate::models::completion::CompletionRequest;
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::bedrock::BedrockProvider;
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::provider::Provider;
 
     #[test]
@@ -391,8 +391,8 @@ mod ai21_tests {
 mod arn_tests {
     use crate::models::chat::ChatCompletionRequest;
     use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
-    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::bedrock::BedrockProvider;
+    use crate::providers::bedrock::test::{get_test_model_config, get_test_provider_config};
     use crate::providers::provider::Provider;
 
     #[tokio::test]
@@ -510,8 +510,8 @@ async fn create_test_bedrock_client(
     mock_responses: Vec<aws_smithy_runtime::client::http::test_util::ReplayEvent>,
 ) -> aws_sdk_bedrockruntime::Client {
     use aws_config::BehaviorVersion;
-    use aws_credential_types::provider::SharedCredentialsProvider;
     use aws_credential_types::Credentials;
+    use aws_credential_types::provider::SharedCredentialsProvider;
     use aws_smithy_runtime::client::http::test_util::StaticReplayClient;
     use aws_types::region::Region;
 
@@ -551,8 +551,8 @@ Mock responses for the Bedrock API
 
 */
 #[cfg(test)]
-fn dummy_anthropic_chat_completion_response(
-) -> aws_smithy_runtime::client::http::test_util::ReplayEvent {
+fn dummy_anthropic_chat_completion_response()
+-> aws_smithy_runtime::client::http::test_util::ReplayEvent {
     use aws_smithy_types::body::SdkBody;
 
     aws_smithy_runtime::client::http::test_util::ReplayEvent::new(

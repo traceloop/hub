@@ -8,6 +8,7 @@ use axum::{
 use axum_test::TestServer;
 use chrono::{DateTime, Utc};
 use hub_lib::management::{
+    AppState,
     api::routes::{model_definition_routes, pipeline_routes, provider_routes},
     db::models::{ModelDefinition, Pipeline, Provider},
     dto::{
@@ -19,13 +20,13 @@ use hub_lib::management::{
         UpdatePipelineRequestDto, VertexAIProviderConfig,
     },
     errors::ApiError,
-    management_api_bundle, AppState,
+    management_api_bundle,
 };
 use serde_json::json;
-use sqlx::{migrate::Migrator, postgres::PgPoolOptions, types::Uuid, PgPool};
+use sqlx::{PgPool, migrate::Migrator, postgres::PgPoolOptions, types::Uuid};
 use std::path::Path;
 use std::sync::Arc;
-use testcontainers::{runners::AsyncRunner, ContainerAsync};
+use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
 
 async fn setup_test_environment() -> (TestServer, PgPool, impl Drop) {
@@ -307,15 +308,17 @@ async fn test_create_pipeline_with_invalid_model_router_key() {
     response.assert_status(StatusCode::BAD_REQUEST);
     let error_response: serde_json::Value = response.json();
     assert!(error_response.get("error").is_some());
-    assert!(error_response
-        .get("error")
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .contains(&format!(
-            "ModelDefinition key '{}' not found",
-            non_existent_model_key
-        )));
+    assert!(
+        error_response
+            .get("error")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains(&format!(
+                "ModelDefinition key '{}' not found",
+                non_existent_model_key
+            ))
+    );
 }
 
 #[tokio::test]
@@ -354,12 +357,16 @@ async fn test_list_pipelines() {
     let list_response = server.get("/api/v1/management/pipelines").await;
     list_response.assert_status_ok();
     let listed_pipelines: Vec<PipelineResponseDto> = list_response.json();
-    assert!(listed_pipelines
-        .iter()
-        .any(|p| p.id == created_pipeline1.id && p.name == pipeline_name1));
-    assert!(listed_pipelines
-        .iter()
-        .any(|p| p.id == created_pipeline2.id && p.name == pipeline_name2 && !p.enabled));
+    assert!(
+        listed_pipelines
+            .iter()
+            .any(|p| p.id == created_pipeline1.id && p.name == pipeline_name1)
+    );
+    assert!(
+        listed_pipelines
+            .iter()
+            .any(|p| p.id == created_pipeline2.id && p.name == pipeline_name2 && !p.enabled)
+    );
 }
 
 #[tokio::test]
@@ -521,7 +528,7 @@ async fn test_delete_pipeline() {
             created_pipeline.id
         ))
         .await;
-    delete_response.assert_status_ok();
+    delete_response.assert_status(StatusCode::NO_CONTENT);
     server
         .get(&format!(
             "/api/v1/management/pipelines/{}",

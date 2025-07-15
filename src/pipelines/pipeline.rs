@@ -13,10 +13,10 @@ use async_stream::stream;
 use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Sse};
 use axum::{
+    Json, Router,
     extract::State,
     http::StatusCode,
     routing::{get, post},
-    Json, Router,
 };
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
@@ -194,9 +194,9 @@ mod tests {
         providers::provider::Provider,
         providers::registry::ProviderRegistry,
     };
+    use async_trait::async_trait;
     use axum::{
-        async_trait,
-        body::{to_bytes, Body},
+        body::{Body, to_bytes},
         http::{Request, StatusCode},
     };
     use serde_json;

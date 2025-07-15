@@ -42,7 +42,7 @@ async fn test_router_integration_flow() {
     };
 
     // Test 3: Configuration update
-    let update_result = app_state.try_update_config_and_registries(valid_config);
+    let update_result = app_state.update_config(valid_config);
     assert!(update_result.is_ok(), "Configuration update should succeed");
 
     // Verify configuration was updated
@@ -131,7 +131,7 @@ async fn test_router_integration_flow() {
         ],
     };
 
-    let multi_update_result = app_state.try_update_config_and_registries(multi_pipeline_config);
+    let multi_update_result = app_state.update_config(multi_pipeline_config);
     assert!(
         multi_update_result.is_ok(),
         "Multi-pipeline configuration update should succeed"
@@ -210,7 +210,7 @@ async fn test_concurrent_configuration_updates() {
 
             // Some tasks update configuration, others access router
             if i % 2 == 0 {
-                let _ = app_state_clone.try_update_config_and_registries(config);
+                let _ = app_state_clone.update_config(config);
             } else {
                 let _ = app_state_clone.get_current_router();
             }

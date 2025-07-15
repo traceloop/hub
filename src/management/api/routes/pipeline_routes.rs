@@ -1,16 +1,16 @@
 use axum::{
+    Router,
     extract::{Path, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
-    Router,
 };
 use uuid::Uuid;
 
 use crate::management::{
+    AppState,
     dto::{CreatePipelineRequestDto, PipelineResponseDto, UpdatePipelineRequestDto},
     errors::ApiError,
-    AppState,
 };
 
 // --- Pipeline Handlers ---
@@ -136,7 +136,7 @@ async fn update_pipeline_handler(
         ("id" = Uuid, Path, description = "Pipeline ID")
     ),
     responses(
-        (status = 200, description = "Pipeline deleted successfully"),
+        (status = 204, description = "Pipeline deleted successfully"),
         (status = 404, description = "Pipeline not found", body = ApiError),
         (status = 500, description = "Internal server error", body = ApiError)
     ),
@@ -146,10 +146,9 @@ async fn update_pipeline_handler(
 async fn delete_pipeline_handler(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<()>, ApiError> {
-    // Return Json<()> for successful deletion with no body
+) -> Result<StatusCode, ApiError> {
     app_state.pipeline_service.delete_pipeline(id).await?;
-    Ok(Json(()))
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // --- Router Definition ---
@@ -161,10 +160,10 @@ pub fn pipeline_routes() -> Router<AppState> {
             post(create_pipeline_handler).get(list_pipelines_handler),
         )
         .route(
-            "/:id",
+            "/{id}",
             get(get_pipeline_handler)
                 .put(update_pipeline_handler)
                 .delete(delete_pipeline_handler),
         )
-        .route("/name/:name", get(get_pipeline_by_name_handler))
+        .route("/name/{name}", get(get_pipeline_by_name_handler))
 }

@@ -1,4 +1,4 @@
-use sqlx::{query_as, types::Uuid, PgPool, Result, Row};
+use sqlx::{PgPool, Result, Row, query_as, types::Uuid};
 use std::collections::HashMap;
 
 use crate::management::{
