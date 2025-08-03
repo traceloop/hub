@@ -1,3 +1,16 @@
+## v0.5.0 (2025-08-03)
+
+### Feat
+
+- **models**: add filtered model info retrieval and response structures (#51)
+- management API (#39)
+
+### Fix
+
+- **config**: allow env vars (#58)
+- **Dockerfile**: specify compatible sqlx-cli version for edition2021 (#54)
+- simplify string formatting to remove clippy warnings (#53)
+
 ## v0.4.5 (2025-06-25)
 
 ### Fix
