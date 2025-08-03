@@ -2352,6 +2352,7 @@ dependencies = [
  "sqlx",
  "surf",
  "surf-vcr",
+ "tempfile",
  "testcontainers",
  "testcontainers-modules",
  "tokio",

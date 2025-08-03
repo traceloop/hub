@@ -33,9 +33,43 @@ struct YamlRoot {
     pipelines: Vec<YamlCompatiblePipeline>,
 }
 
+fn substitute_env_vars(content: &str) -> Result<String, Box<dyn std::error::Error>> {
+    use std::env;
+
+    let mut result = content.to_string();
+
+    // Use a regex-like approach to find ${VAR_NAME} patterns
+    let mut start_pos = 0;
+    while let Some(start) = result[start_pos..].find("${") {
+        let actual_start = start_pos + start;
+        if let Some(end) = result[actual_start + 2..].find('}') {
+            let actual_end = actual_start + 2 + end;
+            let var_name = &result[actual_start + 2..actual_end];
+
+            // Get environment variable value
+            match env::var(var_name) {
+                Ok(value) => {
+                    // Replace ${VAR_NAME} with the environment variable value
+                    result.replace_range(actual_start..actual_end + 1, &value);
+                    start_pos = actual_start + value.len();
+                }
+                Err(_) => {
+                    return Err(format!("Environment variable '{}' not found", var_name).into());
+                }
+            }
+        } else {
+            // No closing brace found, move past this occurrence
+            start_pos = actual_start + 2;
+        }
+    }
+
+    Ok(result)
+}
+
 pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Error>> {
     let contents = std::fs::read_to_string(path)?;
-    let yaml_root: YamlRoot = serde_yaml::from_str(&contents)?;
+    let contents_with_env = substitute_env_vars(&contents)?;
+    let yaml_root: YamlRoot = serde_yaml::from_str(&contents_with_env)?;
 
     let gateway_config = GatewayConfig {
         providers: yaml_root.providers,

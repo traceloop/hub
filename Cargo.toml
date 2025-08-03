@@ -67,6 +67,7 @@ path = "src/lib.rs"
 surf = "2.3.2"
 surf-vcr = "0.2.0"
 wiremock = "0.5"
+tempfile = "3.8"
 # Integration test dependencies
 testcontainers = "0.20.0"
 testcontainers-modules = { version = "0.8.0", features = ["postgres"] }

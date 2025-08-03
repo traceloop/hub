@@ -12,6 +12,8 @@ providers:
   - key: openai
     type: openai
     api_key: "<your-openai-api-key>"
+    # or use environment variable
+    api_key: ${OPENAI_API_KEY}
     base_url: "optional base url. If not provided, defaults to https://api.openai.com/v1"
 
   # Anthropic configuration
