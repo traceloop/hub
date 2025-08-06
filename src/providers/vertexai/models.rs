@@ -96,6 +96,8 @@ pub enum GeminiSchema {
     STRING {
         #[serde(skip_serializing_if = "Option::is_none")]
         description: Option<String>,
+        #[serde(rename = "enum", skip_serializing_if = "Option::is_none")]
+        enum_values: Option<Vec<String>>,
     },
     NUMBER {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -186,10 +188,18 @@ impl GeminiSchema {
                     .map(|s| s.to_string())
                     .or(fallback_description);
 
+                let enum_values = obj
+                    .get("enum")
+                    .and_then(|e| e.as_array())
+                    .map(|e| e.iter().map(|v| v.as_str().unwrap().to_string()).collect());
+
                 if let Some(type_val) = obj.get("type") {
                     if let Some(type_str) = type_val.as_str() {
                         match type_str {
-                            "string" => GeminiSchema::STRING { description },
+                            "string" => GeminiSchema::STRING {
+                                description,
+                                enum_values,
+                            },
                             "number" => GeminiSchema::NUMBER { description },
                             "integer" => GeminiSchema::INTEGER { description },
                             "boolean" => GeminiSchema::BOOLEAN { description },
@@ -205,7 +215,10 @@ impl GeminiSchema {
                                     // Fallback to string array if no items specified
                                     GeminiSchema::ARRAY {
                                         description,
-                                        items: Box::new(GeminiSchema::STRING { description: None }),
+                                        items: Box::new(GeminiSchema::STRING {
+                                            description: None,
+                                            enum_values: None,
+                                        }),
                                     }
                                 }
                             }
@@ -277,22 +290,32 @@ impl GeminiSchema {
                             }
                             _ => {
                                 // Fallback for unsupported types
-                                GeminiSchema::STRING { description }
+                                GeminiSchema::STRING {
+                                    description,
+                                    enum_values: None,
+                                }
                             }
                         }
                     } else {
                         // Fallback if type is not a string
-                        GeminiSchema::STRING { description }
+                        GeminiSchema::STRING {
+                            description,
+                            enum_values: None,
+                        }
                     }
                 } else {
                     // Fallback if no type field
-                    GeminiSchema::STRING { description }
+                    GeminiSchema::STRING {
+                        description,
+                        enum_values: None,
+                    }
                 }
             }
             _ => {
                 // Fallback if schema is not an object
                 GeminiSchema::STRING {
                     description: fallback_description,
+                    enum_values: None,
                 }
             }
         }
