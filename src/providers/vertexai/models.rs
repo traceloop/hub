@@ -165,59 +165,57 @@ pub fn convert_openai_schema_to_gemini(schema: &Value) -> Result<Value, String> 
                 gemini_obj.insert("items".to_string(), converted_items);
             }
 
-            if let Some(properties) = obj.get("properties") {
-                if let Value::Object(props_obj) = properties {
-                    let mut converted_props = serde_json::Map::new();
-                    let mut property_ordering = Vec::new();
+            if let Some(Value::Object(props_obj)) = obj.get("properties") {
+                let mut converted_props = serde_json::Map::new();
+                let mut property_ordering = Vec::new();
 
-                    // Handle required fields - prioritize them in ordering
-                    let required_fields: Vec<String> = if let Some(required) = obj.get("required") {
-                        if let Value::Array(req_array) = required {
-                            req_array
-                                .iter()
-                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                                .collect()
-                        } else {
-                            Vec::new()
-                        }
+                // Handle required fields - prioritize them in ordering
+                let required_fields: Vec<String> = if let Some(required) = obj.get("required") {
+                    if let Value::Array(req_array) = required {
+                        req_array
+                            .iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
                     } else {
                         Vec::new()
-                    };
-
-                    // Add required fields first to property ordering
-                    for req_field in &required_fields {
-                        if props_obj.contains_key(req_field) {
-                            property_ordering.push(Value::String(req_field.clone()));
-                        }
                     }
+                } else {
+                    Vec::new()
+                };
 
-                    // Add remaining fields to property ordering
-                    for prop_name in props_obj.keys() {
-                        if !required_fields.contains(prop_name) {
-                            property_ordering.push(Value::String(prop_name.clone()));
-                        }
+                // Add required fields first to property ordering
+                for req_field in &required_fields {
+                    if props_obj.contains_key(req_field) {
+                        property_ordering.push(Value::String(req_field.clone()));
                     }
+                }
 
-                    // Convert all properties (don't add individual required fields)
-                    for (prop_name, prop_schema) in props_obj {
-                        let converted_prop = convert_openai_schema_to_gemini(prop_schema)?;
-                        converted_props.insert(prop_name.clone(), converted_prop);
+                // Add remaining fields to property ordering
+                for prop_name in props_obj.keys() {
+                    if !required_fields.contains(prop_name) {
+                        property_ordering.push(Value::String(prop_name.clone()));
                     }
+                }
 
-                    gemini_obj.insert("properties".to_string(), Value::Object(converted_props));
-                    gemini_obj.insert(
-                        "propertyOrdering".to_string(),
-                        Value::Array(property_ordering),
-                    );
+                // Convert all properties (don't add individual required fields)
+                for (prop_name, prop_schema) in props_obj {
+                    let converted_prop = convert_openai_schema_to_gemini(prop_schema)?;
+                    converted_props.insert(prop_name.clone(), converted_prop);
+                }
 
-                    // Add required fields as an array at the schema level if there are any
-                    if !required_fields.is_empty() {
-                        let required_array: Vec<Value> = required_fields
-                            .iter()
-                            .map(|field| Value::String(field.clone()))
-                            .collect();
-                        gemini_obj.insert("required".to_string(), Value::Array(required_array));
-                    }
+                gemini_obj.insert("properties".to_string(), Value::Object(converted_props));
+                gemini_obj.insert(
+                    "propertyOrdering".to_string(),
+                    Value::Array(property_ordering),
+                );
+
+                // Add required fields as an array at the schema level if there are any
+                if !required_fields.is_empty() {
+                    let required_array: Vec<Value> = required_fields
+                        .iter()
+                        .map(|field| Value::String(field.clone()))
+                        .collect();
+                    gemini_obj.insert("required".to_string(), Value::Array(required_array));
                 }
             }
 
