@@ -1,3 +1,9 @@
+## v0.6.0 (2025-08-06)
+
+### Feat
+
+- add gemini structure output (#60)
+
 ## v0.5.1 (2025-08-06)
 
 ### Fix
