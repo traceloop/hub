@@ -1168,8 +1168,9 @@ fn test_gemini_request_with_system_message() {
 
     let gemini_request = GeminiChatRequest::from(chat_request);
 
-    assert_eq!(gemini_request.contents.len(), 2);
-    assert_eq!(gemini_request.contents[0].role, "system");
+    assert_eq!(gemini_request.contents.len(), 1);
+    assert_eq!(gemini_request.contents[0].role, "user");
+    assert_eq!(gemini_request.system_instruction.unwrap().parts[0].text, "You are a helpful assistant");
 }
 
 #[test]
