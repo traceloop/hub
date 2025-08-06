@@ -1226,14 +1226,14 @@ fn test_gemini_request_with_array_content() {
 
 #[test]
 fn test_schema_conversion_basic_types() {
-    use crate::providers::vertexai::models::convert_openai_schema_to_gemini_json;
+    use crate::providers::vertexai::models::GeminiSchema;
 
     // Test string type
     let string_schema = json!({
         "type": "string",
         "description": "A name"
     });
-    let result = convert_openai_schema_to_gemini_json(&string_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&string_schema, None)).unwrap();
     assert_eq!(result["type"], "STRING");
     assert_eq!(result["description"], "A name");
 
@@ -1241,27 +1241,27 @@ fn test_schema_conversion_basic_types() {
     let number_schema = json!({
         "type": "number"
     });
-    let result = convert_openai_schema_to_gemini_json(&number_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&number_schema, None)).unwrap();
     assert_eq!(result["type"], "NUMBER");
 
     // Test integer type
     let integer_schema = json!({
         "type": "integer"
     });
-    let result = convert_openai_schema_to_gemini_json(&integer_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&integer_schema, None)).unwrap();
     assert_eq!(result["type"], "INTEGER");
 
     // Test boolean type
     let boolean_schema = json!({
         "type": "boolean"
     });
-    let result = convert_openai_schema_to_gemini_json(&boolean_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&boolean_schema, None)).unwrap();
     assert_eq!(result["type"], "BOOLEAN");
 }
 
 #[test]
 fn test_schema_conversion_array() {
-    use crate::providers::vertexai::models::convert_openai_schema_to_gemini_json;
+    use crate::providers::vertexai::models::GeminiSchema;
 
     let array_schema = json!({
         "type": "array",
@@ -1270,14 +1270,14 @@ fn test_schema_conversion_array() {
         }
     });
 
-    let result = convert_openai_schema_to_gemini_json(&array_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&array_schema, None)).unwrap();
     assert_eq!(result["type"], "ARRAY");
     assert_eq!(result["items"]["type"], "STRING");
 }
 
 #[test]
 fn test_schema_conversion_object() {
-    use crate::providers::vertexai::models::convert_openai_schema_to_gemini_json;
+    use crate::providers::vertexai::models::GeminiSchema;
 
     let object_schema = json!({
         "type": "object",
@@ -1291,7 +1291,7 @@ fn test_schema_conversion_object() {
         }
     });
 
-    let result = convert_openai_schema_to_gemini_json(&object_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
     assert_eq!(result["type"], "OBJECT");
     assert_eq!(result["properties"]["name"]["type"], "STRING");
     assert_eq!(result["properties"]["age"]["type"], "INTEGER");
@@ -1305,7 +1305,7 @@ fn test_schema_conversion_object() {
 
 #[test]
 fn test_schema_conversion_nested() {
-    use crate::providers::vertexai::models::convert_openai_schema_to_gemini_json;
+    use crate::providers::vertexai::models::GeminiSchema;
 
     let nested_schema = json!({
         "type": "array",
@@ -1325,7 +1325,7 @@ fn test_schema_conversion_nested() {
         }
     });
 
-    let result = convert_openai_schema_to_gemini_json(&nested_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&nested_schema, None)).unwrap();
     assert_eq!(result["type"], "ARRAY");
     assert_eq!(result["items"]["type"], "OBJECT");
     assert_eq!(
@@ -1350,17 +1350,15 @@ fn test_schema_conversion_nested() {
 
 #[test]
 fn test_schema_conversion_unsupported_type() {
-    use crate::providers::vertexai::models::convert_openai_schema_to_gemini_json;
+    use crate::providers::vertexai::models::GeminiSchema;
 
     let unsupported_schema = json!({
         "type": "null"
     });
 
-    let result = convert_openai_schema_to_gemini_json(&unsupported_schema);
-    assert!(result.is_ok());
-    let converted = result.unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&unsupported_schema, None)).unwrap();
     // Unsupported types should fallback to STRING
-    assert_eq!(converted["type"], "STRING");
+    assert_eq!(result["type"], "STRING");
 }
 
 #[test]
@@ -1535,7 +1533,7 @@ fn test_gemini_request_conversion_with_json_object() {
 
 #[test]
 fn test_schema_conversion_with_required_and_additional_properties() {
-    use crate::providers::vertexai::models::convert_openai_schema_to_gemini_json;
+    use crate::providers::vertexai::models::GeminiSchema;
 
     let object_schema = json!({
         "type": "object",
@@ -1562,7 +1560,7 @@ fn test_schema_conversion_with_required_and_additional_properties() {
         ]
     });
 
-    let result = convert_openai_schema_to_gemini_json(&object_schema).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
     assert_eq!(result["type"], "OBJECT");
 
     // Check that all properties are converted correctly

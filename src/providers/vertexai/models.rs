@@ -191,7 +191,7 @@ impl From<&crate::models::response_format::JsonSchema> for GeminiSchema {
 }
 
 impl GeminiSchema {
-    fn from_value_with_fallback(schema: &Value, fallback_description: Option<String>) -> Self {
+    pub fn from_value_with_fallback(schema: &Value, fallback_description: Option<String>) -> Self {
         match schema {
             Value::Object(obj) => {
                 let description = obj
@@ -313,11 +313,6 @@ impl GeminiSchema {
     }
 }
 
-// Helper function for backward compatibility with tests
-pub fn convert_openai_schema_to_gemini_json(schema: &Value) -> Result<Value, String> {
-    let gemini_schema = GeminiSchema::from_value_with_fallback(schema, None);
-    serde_json::to_value(gemini_schema).map_err(|e| format!("Failed to serialize schema: {}", e))
-}
 
 impl From<ChatCompletionRequest> for GeminiChatRequest {
     fn from(req: ChatCompletionRequest) -> Self {
