@@ -176,20 +176,6 @@ pub struct VertexAIStreamChunk {
     pub usage_metadata: Option<UsageMetadata>,
 }
 
-impl From<&crate::models::response_format::JsonSchema> for GeminiSchema {
-    fn from(json_schema: &crate::models::response_format::JsonSchema) -> Self {
-        if let Some(schema_value) = &json_schema.schema {
-            // Try to convert from the schema value, fall back to a basic string schema
-            Self::from_value_with_fallback(schema_value, json_schema.description.clone())
-        } else {
-            // If no schema is provided, default to a string schema with the description
-            GeminiSchema::STRING {
-                description: json_schema.description.clone(),
-            }
-        }
-    }
-}
-
 impl GeminiSchema {
     pub fn from_value_with_fallback(schema: &Value, fallback_description: Option<String>) -> Self {
         match schema {
@@ -313,7 +299,6 @@ impl GeminiSchema {
     }
 }
 
-
 impl From<ChatCompletionRequest> for GeminiChatRequest {
     fn from(req: ChatCompletionRequest) -> Self {
         let system_instruction = req
@@ -367,8 +352,16 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             if let Some(response_format) = &req.response_format {
                 if response_format.r#type == "json_schema" {
                     if let Some(json_schema) = &response_format.json_schema {
-                        let gemini_schema = GeminiSchema::from(json_schema);
-                        (Some("application/json".to_string()), Some(gemini_schema))
+                        if let Some(schema_value) = &json_schema.schema {
+                            let gemini_schema = GeminiSchema::from_value_with_fallback(
+                                schema_value,
+                                json_schema.description.clone(),
+                            );
+                            (Some("application/json".to_string()), Some(gemini_schema))
+                        } else {
+                            // No schema provided - only set MIME type for basic JSON output
+                            (Some("application/json".to_string()), None)
+                        }
                     } else {
                         (None, None)
                     }

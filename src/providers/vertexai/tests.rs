@@ -1233,7 +1233,8 @@ fn test_schema_conversion_basic_types() {
         "type": "string",
         "description": "A name"
     });
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&string_schema, None)).unwrap();
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&string_schema, None)).unwrap();
     assert_eq!(result["type"], "STRING");
     assert_eq!(result["description"], "A name");
 
@@ -1241,21 +1242,30 @@ fn test_schema_conversion_basic_types() {
     let number_schema = json!({
         "type": "number"
     });
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&number_schema, None)).unwrap();
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&number_schema, None)).unwrap();
     assert_eq!(result["type"], "NUMBER");
 
     // Test integer type
     let integer_schema = json!({
         "type": "integer"
     });
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&integer_schema, None)).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(
+        &integer_schema,
+        None,
+    ))
+    .unwrap();
     assert_eq!(result["type"], "INTEGER");
 
     // Test boolean type
     let boolean_schema = json!({
         "type": "boolean"
     });
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&boolean_schema, None)).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(
+        &boolean_schema,
+        None,
+    ))
+    .unwrap();
     assert_eq!(result["type"], "BOOLEAN");
 }
 
@@ -1270,7 +1280,8 @@ fn test_schema_conversion_array() {
         }
     });
 
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&array_schema, None)).unwrap();
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&array_schema, None)).unwrap();
     assert_eq!(result["type"], "ARRAY");
     assert_eq!(result["items"]["type"], "STRING");
 }
@@ -1291,7 +1302,8 @@ fn test_schema_conversion_object() {
         }
     });
 
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
     assert_eq!(result["type"], "OBJECT");
     assert_eq!(result["properties"]["name"]["type"], "STRING");
     assert_eq!(result["properties"]["age"]["type"], "INTEGER");
@@ -1325,7 +1337,8 @@ fn test_schema_conversion_nested() {
         }
     });
 
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&nested_schema, None)).unwrap();
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&nested_schema, None)).unwrap();
     assert_eq!(result["type"], "ARRAY");
     assert_eq!(result["items"]["type"], "OBJECT");
     assert_eq!(
@@ -1356,7 +1369,11 @@ fn test_schema_conversion_unsupported_type() {
         "type": "null"
     });
 
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&unsupported_schema, None)).unwrap();
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(
+        &unsupported_schema,
+        None,
+    ))
+    .unwrap();
     // Unsupported types should fallback to STRING
     assert_eq!(result["type"], "STRING");
 }
@@ -1560,7 +1577,8 @@ fn test_schema_conversion_with_required_and_additional_properties() {
         ]
     });
 
-    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
     assert_eq!(result["type"], "OBJECT");
 
     // Check that all properties are converted correctly
