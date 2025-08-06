@@ -87,7 +87,43 @@ pub struct GenerationConfig {
     #[serde(rename = "responseMimeType", skip_serializing_if = "Option::is_none")]
     pub response_mime_type: Option<String>,
     #[serde(rename = "responseSchema", skip_serializing_if = "Option::is_none")]
-    pub response_schema: Option<Value>,
+    pub response_schema: Option<GeminiSchema>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum GeminiSchema {
+    STRING {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    NUMBER {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    INTEGER {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    BOOLEAN {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    ARRAY {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        items: Box<GeminiSchema>,
+    },
+    OBJECT {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        properties: Option<std::collections::HashMap<String, GeminiSchema>>,
+        #[serde(rename = "propertyOrdering", skip_serializing_if = "Option::is_none")]
+        property_ordering: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        required: Option<Vec<String>>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -140,95 +176,147 @@ pub struct VertexAIStreamChunk {
     pub usage_metadata: Option<UsageMetadata>,
 }
 
-pub fn convert_openai_schema_to_gemini(schema: &Value) -> Result<Value, String> {
-    match schema {
-        Value::Object(obj) => {
-            let mut gemini_obj = serde_json::Map::new();
-
-            if let Some(type_val) = obj.get("type") {
-                if let Some(type_str) = type_val.as_str() {
-                    let gemini_type = match type_str {
-                        "string" => "STRING",
-                        "number" => "NUMBER",
-                        "integer" => "INTEGER",
-                        "boolean" => "BOOLEAN",
-                        "array" => "ARRAY",
-                        "object" => "OBJECT",
-                        _ => return Err(format!("Unsupported type: {}", type_str)),
-                    };
-                    gemini_obj.insert("type".to_string(), Value::String(gemini_type.to_string()));
-                }
+impl From<&crate::models::response_format::JsonSchema> for GeminiSchema {
+    fn from(json_schema: &crate::models::response_format::JsonSchema) -> Self {
+        if let Some(schema_value) = &json_schema.schema {
+            // Try to convert from the schema value, fall back to a basic string schema
+            Self::from_value_with_fallback(schema_value, json_schema.description.clone())
+        } else {
+            // If no schema is provided, default to a string schema with the description
+            GeminiSchema::STRING {
+                description: json_schema.description.clone(),
             }
-
-            if let Some(items) = obj.get("items") {
-                let converted_items = convert_openai_schema_to_gemini(items)?;
-                gemini_obj.insert("items".to_string(), converted_items);
-            }
-
-            if let Some(Value::Object(props_obj)) = obj.get("properties") {
-                let mut converted_props = serde_json::Map::new();
-                let mut property_ordering = Vec::new();
-
-                // Handle required fields - prioritize them in ordering
-                let required_fields: Vec<String> =
-                    if let Some(Value::Array(req_array)) = obj.get("required") {
-                        req_array
-                            .iter()
-                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                            .collect()
-                    } else {
-                        Vec::new()
-                    };
-
-                // Add required fields first to property ordering
-                for req_field in &required_fields {
-                    if props_obj.contains_key(req_field) {
-                        property_ordering.push(Value::String(req_field.clone()));
-                    }
-                }
-
-                // Add remaining fields to property ordering
-                for prop_name in props_obj.keys() {
-                    if !required_fields.contains(prop_name) {
-                        property_ordering.push(Value::String(prop_name.clone()));
-                    }
-                }
-
-                // Convert all properties (don't add individual required fields)
-                for (prop_name, prop_schema) in props_obj {
-                    let converted_prop = convert_openai_schema_to_gemini(prop_schema)?;
-                    converted_props.insert(prop_name.clone(), converted_prop);
-                }
-
-                gemini_obj.insert("properties".to_string(), Value::Object(converted_props));
-                gemini_obj.insert(
-                    "propertyOrdering".to_string(),
-                    Value::Array(property_ordering),
-                );
-
-                // Add required fields as an array at the schema level if there are any
-                if !required_fields.is_empty() {
-                    let required_array: Vec<Value> = required_fields
-                        .iter()
-                        .map(|field| Value::String(field.clone()))
-                        .collect();
-                    gemini_obj.insert("required".to_string(), Value::Array(required_array));
-                }
-            }
-
-            // Handle additionalProperties (Gemini doesn't support this directly)
-            if obj.contains_key("additionalProperties") {
-                // Just ignore additionalProperties as Gemini doesn't support it
-            }
-
-            if let Some(description) = obj.get("description") {
-                gemini_obj.insert("description".to_string(), description.clone());
-            }
-
-            Ok(Value::Object(gemini_obj))
         }
-        _ => Err("Schema must be an object".to_string()),
     }
+}
+
+impl GeminiSchema {
+    fn from_value_with_fallback(schema: &Value, fallback_description: Option<String>) -> Self {
+        match schema {
+            Value::Object(obj) => {
+                let description = obj
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .map(|s| s.to_string())
+                    .or(fallback_description);
+
+                if let Some(type_val) = obj.get("type") {
+                    if let Some(type_str) = type_val.as_str() {
+                        match type_str {
+                            "string" => GeminiSchema::STRING { description },
+                            "number" => GeminiSchema::NUMBER { description },
+                            "integer" => GeminiSchema::INTEGER { description },
+                            "boolean" => GeminiSchema::BOOLEAN { description },
+                            "array" => {
+                                if let Some(items) = obj.get("items") {
+                                    let converted_items =
+                                        Self::from_value_with_fallback(items, None);
+                                    GeminiSchema::ARRAY {
+                                        description,
+                                        items: Box::new(converted_items),
+                                    }
+                                } else {
+                                    // Fallback to string array if no items specified
+                                    GeminiSchema::ARRAY {
+                                        description,
+                                        items: Box::new(GeminiSchema::STRING { description: None }),
+                                    }
+                                }
+                            }
+                            "object" => {
+                                if let Some(Value::Object(props_obj)) = obj.get("properties") {
+                                    let mut properties = std::collections::HashMap::new();
+                                    let mut property_ordering = Vec::new();
+
+                                    // Handle required fields - prioritize them in ordering
+                                    let required_fields: Vec<String> = if let Some(Value::Array(
+                                        req_array,
+                                    )) = obj.get("required")
+                                    {
+                                        req_array
+                                            .iter()
+                                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                            .collect()
+                                    } else {
+                                        Vec::new()
+                                    };
+
+                                    // Add required fields first to property ordering
+                                    for req_field in &required_fields {
+                                        if props_obj.contains_key(req_field) {
+                                            property_ordering.push(req_field.clone());
+                                        }
+                                    }
+
+                                    // Add remaining fields to property ordering
+                                    for prop_name in props_obj.keys() {
+                                        if !required_fields.contains(prop_name) {
+                                            property_ordering.push(prop_name.clone());
+                                        }
+                                    }
+
+                                    // Convert all properties
+                                    for (prop_name, prop_schema) in props_obj {
+                                        let converted_prop =
+                                            Self::from_value_with_fallback(prop_schema, None);
+                                        properties.insert(prop_name.clone(), converted_prop);
+                                    }
+
+                                    GeminiSchema::OBJECT {
+                                        description,
+                                        properties: if properties.is_empty() {
+                                            None
+                                        } else {
+                                            Some(properties)
+                                        },
+                                        property_ordering: if property_ordering.is_empty() {
+                                            None
+                                        } else {
+                                            Some(property_ordering)
+                                        },
+                                        required: if required_fields.is_empty() {
+                                            None
+                                        } else {
+                                            Some(required_fields)
+                                        },
+                                    }
+                                } else {
+                                    GeminiSchema::OBJECT {
+                                        description,
+                                        properties: None,
+                                        property_ordering: None,
+                                        required: None,
+                                    }
+                                }
+                            }
+                            _ => {
+                                // Fallback for unsupported types
+                                GeminiSchema::STRING { description }
+                            }
+                        }
+                    } else {
+                        // Fallback if type is not a string
+                        GeminiSchema::STRING { description }
+                    }
+                } else {
+                    // Fallback if no type field
+                    GeminiSchema::STRING { description }
+                }
+            }
+            _ => {
+                // Fallback if schema is not an object
+                GeminiSchema::STRING {
+                    description: fallback_description,
+                }
+            }
+        }
+    }
+}
+
+// Helper function for backward compatibility with tests
+pub fn convert_openai_schema_to_gemini_json(schema: &Value) -> Result<Value, String> {
+    let gemini_schema = GeminiSchema::from_value_with_fallback(schema, None);
+    serde_json::to_value(gemini_schema).map_err(|e| format!("Failed to serialize schema: {}", e))
 }
 
 impl From<ChatCompletionRequest> for GeminiChatRequest {
@@ -284,16 +372,8 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             if let Some(response_format) = &req.response_format {
                 if response_format.r#type == "json_schema" {
                     if let Some(json_schema) = &response_format.json_schema {
-                        if let Some(schema) = &json_schema.schema {
-                            match convert_openai_schema_to_gemini(schema) {
-                                Ok(gemini_schema) => {
-                                    (Some("application/json".to_string()), Some(gemini_schema))
-                                }
-                                Err(_) => (None, None),
-                            }
-                        } else {
-                            (None, None)
-                        }
+                        let gemini_schema = GeminiSchema::from(json_schema);
+                        (Some("application/json".to_string()), Some(gemini_schema))
                     } else {
                         (None, None)
                     }
