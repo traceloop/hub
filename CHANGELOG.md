@@ -1,3 +1,9 @@
+## v0.6.1 (2025-08-06)
+
+### Fix
+
+- **deps**: revert commitizen tower version bump (#61)
+
 ## v0.6.0 (2025-08-06)
 
 ### Feat
