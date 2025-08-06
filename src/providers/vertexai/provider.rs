@@ -168,11 +168,12 @@ impl Provider for VertexAIProvider {
         };
 
         let request_body = GeminiChatRequest::from(payload.clone());
-        let has_structured_output = request_body.generation_config
+        let has_structured_output = request_body
+            .generation_config
             .as_ref()
             .map(|config| config.response_schema.is_some())
             .unwrap_or(false);
-        
+
         debug!("Sending request to endpoint: {}", endpoint);
         debug!(
             "Request Body: {}",
@@ -251,7 +252,10 @@ impl Provider for VertexAIProvider {
                         })?;
 
                         return Ok(ChatCompletionResponse::NonStream(
-                            gemini_response.to_openai_with_structured_output(payload.model, has_structured_output),
+                            gemini_response.to_openai_with_structured_output(
+                                payload.model,
+                                has_structured_output,
+                            ),
                         ));
                     }
                 }
@@ -268,7 +272,8 @@ impl Provider for VertexAIProvider {
                     })?;
 
                 Ok(ChatCompletionResponse::NonStream(
-                    gemini_response.to_openai_with_structured_output(payload.model, has_structured_output),
+                    gemini_response
+                        .to_openai_with_structured_output(payload.model, has_structured_output),
                 ))
             }
         } else {
