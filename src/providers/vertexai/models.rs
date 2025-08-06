@@ -170,18 +170,15 @@ pub fn convert_openai_schema_to_gemini(schema: &Value) -> Result<Value, String> 
                 let mut property_ordering = Vec::new();
 
                 // Handle required fields - prioritize them in ordering
-                let required_fields: Vec<String> = if let Some(required) = obj.get("required") {
-                    if let Value::Array(req_array) = required {
+                let required_fields: Vec<String> =
+                    if let Some(Value::Array(req_array)) = obj.get("required") {
                         req_array
                             .iter()
                             .filter_map(|v| v.as_str().map(|s| s.to_string()))
                             .collect()
                     } else {
                         Vec::new()
-                    }
-                } else {
-                    Vec::new()
-                };
+                    };
 
                 // Add required fields first to property ordering
                 for req_field in &required_fields {
