@@ -13,6 +13,7 @@ use crate::models::completion::CompletionRequest;
 use crate::models::content::ChatMessageContentPart;
 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
+use crate::models::response_format::{JsonSchema, ResponseFormat};
 use crate::models::tool_choice::SimpleToolChoice;
 use crate::models::tool_choice::ToolChoice;
 use crate::models::tool_definition::{FunctionDefinition, ToolDefinition};
@@ -1221,4 +1222,483 @@ fn test_gemini_request_with_array_content() {
         gemini_request.contents[0].parts[0].text,
         Some("Part 1 Part 2".to_string())
     );
+}
+
+#[test]
+fn test_schema_conversion_basic_types() {
+    use crate::providers::vertexai::models::GeminiSchema;
+
+    // Test string type
+    let string_schema = json!({
+        "type": "string",
+        "description": "A name"
+    });
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&string_schema, None)).unwrap();
+    assert_eq!(result["type"], "STRING");
+    assert_eq!(result["description"], "A name");
+
+    // Test number type
+    let number_schema = json!({
+        "type": "number"
+    });
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&number_schema, None)).unwrap();
+    assert_eq!(result["type"], "NUMBER");
+
+    // Test integer type
+    let integer_schema = json!({
+        "type": "integer"
+    });
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(
+        &integer_schema,
+        None,
+    ))
+    .unwrap();
+    assert_eq!(result["type"], "INTEGER");
+
+    // Test boolean type
+    let boolean_schema = json!({
+        "type": "boolean"
+    });
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(
+        &boolean_schema,
+        None,
+    ))
+    .unwrap();
+    assert_eq!(result["type"], "BOOLEAN");
+}
+
+#[test]
+fn test_schema_conversion_array() {
+    use crate::providers::vertexai::models::GeminiSchema;
+
+    let array_schema = json!({
+        "type": "array",
+        "items": {
+            "type": "string"
+        }
+    });
+
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&array_schema, None)).unwrap();
+    assert_eq!(result["type"], "ARRAY");
+    assert_eq!(result["items"]["type"], "STRING");
+}
+
+#[test]
+fn test_schema_conversion_object() {
+    use crate::providers::vertexai::models::GeminiSchema;
+
+    let object_schema = json!({
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "age": {
+                "type": "integer"
+            }
+        }
+    });
+
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
+    assert_eq!(result["type"], "OBJECT");
+    assert_eq!(result["properties"]["name"]["type"], "STRING");
+    assert_eq!(result["properties"]["age"]["type"], "INTEGER");
+
+    // Check property ordering
+    let property_ordering = result["propertyOrdering"].as_array().unwrap();
+    assert_eq!(property_ordering.len(), 2);
+    assert!(property_ordering.contains(&json!("name")));
+    assert!(property_ordering.contains(&json!("age")));
+}
+
+#[test]
+fn test_schema_conversion_nested() {
+    use crate::providers::vertexai::models::GeminiSchema;
+
+    let nested_schema = json!({
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "recipeName": {
+                    "type": "string"
+                },
+                "ingredients": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    });
+
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&nested_schema, None)).unwrap();
+    assert_eq!(result["type"], "ARRAY");
+    assert_eq!(result["items"]["type"], "OBJECT");
+    assert_eq!(
+        result["items"]["properties"]["recipeName"]["type"],
+        "STRING"
+    );
+    assert_eq!(
+        result["items"]["properties"]["ingredients"]["type"],
+        "ARRAY"
+    );
+    assert_eq!(
+        result["items"]["properties"]["ingredients"]["items"]["type"],
+        "STRING"
+    );
+
+    // Check property ordering
+    let property_ordering = result["items"]["propertyOrdering"].as_array().unwrap();
+    assert_eq!(property_ordering.len(), 2);
+    assert!(property_ordering.contains(&json!("recipeName")));
+    assert!(property_ordering.contains(&json!("ingredients")));
+}
+
+#[test]
+fn test_schema_conversion_unsupported_type() {
+    use crate::providers::vertexai::models::GeminiSchema;
+
+    let unsupported_schema = json!({
+        "type": "null"
+    });
+
+    let result = serde_json::to_value(GeminiSchema::from_value_with_fallback(
+        &unsupported_schema,
+        None,
+    ))
+    .unwrap();
+    // Unsupported types should fallback to STRING
+    assert_eq!(result["type"], "STRING");
+}
+
+#[test]
+fn test_gemini_request_conversion_with_response_format() {
+    let response_format = ResponseFormat {
+        r#type: "json_schema".to_string(),
+        json_schema: Some(JsonSchema {
+            name: "recipe_list".to_string(),
+            description: Some("A list of recipes".to_string()),
+            schema: Some(json!({
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "recipeName": {
+                            "type": "string"
+                        },
+                        "ingredients": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            })),
+            strict: Some(false),
+        }),
+    };
+
+    let chat_request = ChatCompletionRequest {
+        model: "gemini-1.5-pro".to_string(),
+        messages: vec![ChatCompletionMessage {
+            role: "user".to_string(),
+            content: Some(ChatMessageContent::String("Generate a recipe".to_string())),
+            tool_calls: None,
+            name: None,
+            refusal: None,
+        }],
+        temperature: None,
+        top_p: None,
+        n: None,
+        stream: None,
+        stop: None,
+        max_tokens: None,
+        presence_penalty: None,
+        frequency_penalty: None,
+        logit_bias: None,
+        user: None,
+        tools: None,
+        tool_choice: None,
+        parallel_tool_calls: None,
+        max_completion_tokens: None,
+        logprobs: None,
+        top_logprobs: None,
+        response_format: Some(response_format),
+    };
+
+    let gemini_request = GeminiChatRequest::from(chat_request);
+
+    // Check that generation_config has the structured output fields
+    let generation_config = gemini_request.generation_config.unwrap();
+    assert_eq!(
+        generation_config.response_mime_type,
+        Some("application/json".to_string())
+    );
+    assert!(generation_config.response_schema.is_some());
+
+    let response_schema = generation_config.response_schema.unwrap();
+    let response_schema_json = serde_json::to_value(&response_schema).unwrap();
+    assert_eq!(response_schema_json["type"], "ARRAY");
+    assert_eq!(response_schema_json["items"]["type"], "OBJECT");
+    assert_eq!(
+        response_schema_json["items"]["properties"]["recipeName"]["type"],
+        "STRING"
+    );
+    assert_eq!(
+        response_schema_json["items"]["properties"]["ingredients"]["type"],
+        "ARRAY"
+    );
+    assert_eq!(
+        response_schema_json["items"]["properties"]["ingredients"]["items"]["type"],
+        "STRING"
+    );
+}
+
+#[test]
+fn test_gemini_request_conversion_without_response_format() {
+    let chat_request = ChatCompletionRequest {
+        model: "gemini-1.5-pro".to_string(),
+        messages: vec![ChatCompletionMessage {
+            role: "user".to_string(),
+            content: Some(ChatMessageContent::String("Hello".to_string())),
+            tool_calls: None,
+            name: None,
+            refusal: None,
+        }],
+        temperature: None,
+        top_p: None,
+        n: None,
+        stream: None,
+        stop: None,
+        max_tokens: None,
+        presence_penalty: None,
+        frequency_penalty: None,
+        logit_bias: None,
+        user: None,
+        tools: None,
+        tool_choice: None,
+        parallel_tool_calls: None,
+        max_completion_tokens: None,
+        logprobs: None,
+        top_logprobs: None,
+        response_format: None,
+    };
+
+    let gemini_request = GeminiChatRequest::from(chat_request);
+
+    // Check that generation_config doesn't have structured output fields
+    let generation_config = gemini_request.generation_config.unwrap();
+    assert_eq!(generation_config.response_mime_type, None);
+    assert_eq!(generation_config.response_schema, None);
+}
+
+#[test]
+fn test_gemini_request_conversion_with_json_object() {
+    let response_format = ResponseFormat {
+        r#type: "json_object".to_string(),
+        json_schema: None,
+    };
+
+    let chat_request = ChatCompletionRequest {
+        model: "gemini-1.5-pro".to_string(),
+        messages: vec![ChatCompletionMessage {
+            role: "user".to_string(),
+            content: Some(ChatMessageContent::String(
+                "Generate JSON output".to_string(),
+            )),
+            tool_calls: None,
+            name: None,
+            refusal: None,
+        }],
+        temperature: None,
+        top_p: None,
+        n: None,
+        stream: None,
+        stop: None,
+        max_tokens: None,
+        presence_penalty: None,
+        frequency_penalty: None,
+        logit_bias: None,
+        user: None,
+        tools: None,
+        tool_choice: None,
+        parallel_tool_calls: None,
+        max_completion_tokens: None,
+        logprobs: None,
+        top_logprobs: None,
+        response_format: Some(response_format),
+    };
+
+    let gemini_request = GeminiChatRequest::from(chat_request);
+
+    // Check that generation_config has JSON mime type but no schema
+    let generation_config = gemini_request.generation_config.unwrap();
+    assert_eq!(
+        generation_config.response_mime_type,
+        Some("application/json".to_string())
+    );
+    assert_eq!(generation_config.response_schema, None);
+}
+
+#[test]
+fn test_schema_conversion_with_required_and_additional_properties() {
+    use crate::providers::vertexai::models::GeminiSchema;
+
+    let object_schema = json!({
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "age": {
+                "type": "number"
+            },
+            "gender": {
+                "type": "string"
+            },
+            "isAlive": {
+                "type": "boolean"
+            },
+            "name": {
+                "type": "string"
+            }
+        },
+        "required": [
+            "gender",
+            "name",
+            "age",
+            "isAlive"
+        ]
+    });
+
+    let result =
+        serde_json::to_value(GeminiSchema::from_value_with_fallback(&object_schema, None)).unwrap();
+    assert_eq!(result["type"], "OBJECT");
+
+    // Check that all properties are converted correctly
+    assert_eq!(result["properties"]["age"]["type"], "NUMBER");
+    assert_eq!(result["properties"]["gender"]["type"], "STRING");
+    assert_eq!(result["properties"]["isAlive"]["type"], "BOOLEAN");
+    assert_eq!(result["properties"]["name"]["type"], "STRING");
+
+    // Check that required fields are at the schema level
+    let required_fields = result["required"].as_array().unwrap();
+    assert_eq!(required_fields.len(), 4);
+    assert!(required_fields.contains(&json!("gender")));
+    assert!(required_fields.contains(&json!("name")));
+    assert!(required_fields.contains(&json!("age")));
+    assert!(required_fields.contains(&json!("isAlive")));
+
+    // Check property ordering (required fields should be first)
+    let property_ordering = result["propertyOrdering"].as_array().unwrap();
+    assert_eq!(property_ordering.len(), 4);
+    // All fields are required, so they should all be in the ordering
+    assert!(property_ordering.contains(&json!("gender")));
+    assert!(property_ordering.contains(&json!("name")));
+    assert!(property_ordering.contains(&json!("age")));
+    assert!(property_ordering.contains(&json!("isAlive")));
+}
+
+#[test]
+fn test_gemini_request_conversion_with_exact_user_format() {
+    let response_format = ResponseFormat {
+        r#type: "json_schema".to_string(),
+        json_schema: Some(JsonSchema {
+            name: "age_gender_isAlive_name".to_string(),
+            description: None,
+            schema: Some(json!({
+                "additionalProperties": false,
+                "properties": {
+                    "age": {
+                        "type": "number"
+                    },
+                    "gender": {
+                        "type": "string"
+                    },
+                    "isAlive": {
+                        "type": "boolean"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "gender",
+                    "name",
+                    "age",
+                    "isAlive"
+                ],
+                "type": "object"
+            })),
+            strict: Some(false),
+        }),
+    };
+
+    let chat_request = ChatCompletionRequest {
+        model: "gemini-1.5-pro".to_string(),
+        messages: vec![ChatCompletionMessage {
+            role: "user".to_string(),
+            content: Some(ChatMessageContent::String(
+                "Generate person data".to_string(),
+            )),
+            tool_calls: None,
+            name: None,
+            refusal: None,
+        }],
+        temperature: None,
+        top_p: None,
+        n: None,
+        stream: None,
+        stop: None,
+        max_tokens: None,
+        presence_penalty: None,
+        frequency_penalty: None,
+        logit_bias: None,
+        user: None,
+        tools: None,
+        tool_choice: None,
+        parallel_tool_calls: None,
+        max_completion_tokens: None,
+        logprobs: None,
+        top_logprobs: None,
+        response_format: Some(response_format),
+    };
+
+    let gemini_request = GeminiChatRequest::from(chat_request);
+
+    // Check that generation_config has the structured output fields
+    let generation_config = gemini_request.generation_config.unwrap();
+    assert_eq!(
+        generation_config.response_mime_type,
+        Some("application/json".to_string())
+    );
+    assert!(generation_config.response_schema.is_some());
+
+    let response_schema = generation_config.response_schema.unwrap();
+    let response_schema_json = serde_json::to_value(&response_schema).unwrap();
+    assert_eq!(response_schema_json["type"], "OBJECT");
+    assert_eq!(response_schema_json["properties"]["age"]["type"], "NUMBER");
+    assert_eq!(
+        response_schema_json["properties"]["gender"]["type"],
+        "STRING"
+    );
+    assert_eq!(
+        response_schema_json["properties"]["isAlive"]["type"],
+        "BOOLEAN"
+    );
+    assert_eq!(response_schema_json["properties"]["name"]["type"], "STRING");
+
+    // Check that required fields are at the schema level
+    let required_fields = response_schema_json["required"].as_array().unwrap();
+    assert_eq!(required_fields.len(), 4);
+    assert!(required_fields.contains(&json!("gender")));
+    assert!(required_fields.contains(&json!("name")));
+    assert!(required_fields.contains(&json!("age")));
+    assert!(required_fields.contains(&json!("isAlive")));
 }

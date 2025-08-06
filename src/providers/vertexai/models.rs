@@ -84,6 +84,46 @@ pub struct GenerationConfig {
     pub max_output_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_sequences: Option<Vec<String>>,
+    #[serde(rename = "responseMimeType", skip_serializing_if = "Option::is_none")]
+    pub response_mime_type: Option<String>,
+    #[serde(rename = "responseSchema", skip_serializing_if = "Option::is_none")]
+    pub response_schema: Option<GeminiSchema>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum GeminiSchema {
+    STRING {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    NUMBER {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    INTEGER {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    BOOLEAN {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+    },
+    ARRAY {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        items: Box<GeminiSchema>,
+    },
+    OBJECT {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        properties: Option<std::collections::HashMap<String, GeminiSchema>>,
+        #[serde(rename = "propertyOrdering", skip_serializing_if = "Option::is_none")]
+        property_ordering: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        required: Option<Vec<String>>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -136,6 +176,129 @@ pub struct VertexAIStreamChunk {
     pub usage_metadata: Option<UsageMetadata>,
 }
 
+impl GeminiSchema {
+    pub fn from_value_with_fallback(schema: &Value, fallback_description: Option<String>) -> Self {
+        match schema {
+            Value::Object(obj) => {
+                let description = obj
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .map(|s| s.to_string())
+                    .or(fallback_description);
+
+                if let Some(type_val) = obj.get("type") {
+                    if let Some(type_str) = type_val.as_str() {
+                        match type_str {
+                            "string" => GeminiSchema::STRING { description },
+                            "number" => GeminiSchema::NUMBER { description },
+                            "integer" => GeminiSchema::INTEGER { description },
+                            "boolean" => GeminiSchema::BOOLEAN { description },
+                            "array" => {
+                                if let Some(items) = obj.get("items") {
+                                    let converted_items =
+                                        Self::from_value_with_fallback(items, None);
+                                    GeminiSchema::ARRAY {
+                                        description,
+                                        items: Box::new(converted_items),
+                                    }
+                                } else {
+                                    // Fallback to string array if no items specified
+                                    GeminiSchema::ARRAY {
+                                        description,
+                                        items: Box::new(GeminiSchema::STRING { description: None }),
+                                    }
+                                }
+                            }
+                            "object" => {
+                                if let Some(Value::Object(props_obj)) = obj.get("properties") {
+                                    let mut properties = std::collections::HashMap::new();
+                                    let mut property_ordering = Vec::new();
+
+                                    // Handle required fields - prioritize them in ordering
+                                    let required_fields: Vec<String> = if let Some(Value::Array(
+                                        req_array,
+                                    )) = obj.get("required")
+                                    {
+                                        req_array
+                                            .iter()
+                                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                            .collect()
+                                    } else {
+                                        Vec::new()
+                                    };
+
+                                    // Add required fields first to property ordering
+                                    for req_field in &required_fields {
+                                        if props_obj.contains_key(req_field) {
+                                            property_ordering.push(req_field.clone());
+                                        }
+                                    }
+
+                                    // Add remaining fields to property ordering
+                                    for prop_name in props_obj.keys() {
+                                        if !required_fields.contains(prop_name) {
+                                            property_ordering.push(prop_name.clone());
+                                        }
+                                    }
+
+                                    // Convert all properties
+                                    for (prop_name, prop_schema) in props_obj {
+                                        let converted_prop =
+                                            Self::from_value_with_fallback(prop_schema, None);
+                                        properties.insert(prop_name.clone(), converted_prop);
+                                    }
+
+                                    GeminiSchema::OBJECT {
+                                        description,
+                                        properties: if properties.is_empty() {
+                                            None
+                                        } else {
+                                            Some(properties)
+                                        },
+                                        property_ordering: if property_ordering.is_empty() {
+                                            None
+                                        } else {
+                                            Some(property_ordering)
+                                        },
+                                        required: if required_fields.is_empty() {
+                                            None
+                                        } else {
+                                            Some(required_fields)
+                                        },
+                                    }
+                                } else {
+                                    GeminiSchema::OBJECT {
+                                        description,
+                                        properties: None,
+                                        property_ordering: None,
+                                        required: None,
+                                    }
+                                }
+                            }
+                            _ => {
+                                // Fallback for unsupported types
+                                GeminiSchema::STRING { description }
+                            }
+                        }
+                    } else {
+                        // Fallback if type is not a string
+                        GeminiSchema::STRING { description }
+                    }
+                } else {
+                    // Fallback if no type field
+                    GeminiSchema::STRING { description }
+                }
+            }
+            _ => {
+                // Fallback if schema is not an object
+                GeminiSchema::STRING {
+                    description: fallback_description,
+                }
+            }
+        }
+    }
+}
+
 impl From<ChatCompletionRequest> for GeminiChatRequest {
     fn from(req: ChatCompletionRequest) -> Self {
         let system_instruction = req
@@ -185,12 +348,41 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             })
             .collect();
 
+        let (response_mime_type, response_schema) =
+            if let Some(response_format) = &req.response_format {
+                if response_format.r#type == "json_schema" {
+                    if let Some(json_schema) = &response_format.json_schema {
+                        if let Some(schema_value) = &json_schema.schema {
+                            let gemini_schema = GeminiSchema::from_value_with_fallback(
+                                schema_value,
+                                json_schema.description.clone(),
+                            );
+                            (Some("application/json".to_string()), Some(gemini_schema))
+                        } else {
+                            // No schema provided - only set MIME type for basic JSON output
+                            (Some("application/json".to_string()), None)
+                        }
+                    } else {
+                        (None, None)
+                    }
+                } else if response_format.r#type == "json_object" {
+                    // For json_object type, set MIME type but no schema
+                    (Some("application/json".to_string()), None)
+                } else {
+                    (None, None)
+                }
+            } else {
+                (None, None)
+            };
+
         let generation_config = Some(GenerationConfig {
             temperature: req.temperature,
             top_p: req.top_p,
             top_k: None,
             max_output_tokens: req.max_tokens,
             stop_sequences: req.stop,
+            response_mime_type: response_mime_type.clone(),
+            response_schema: response_schema.clone(),
         });
 
         let tools = req.tools.map(|tools| {
@@ -229,6 +421,14 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
 
 impl GeminiChatResponse {
     pub fn to_openai(self, model: String) -> ChatCompletion {
+        self.to_openai_with_structured_output(model, false)
+    }
+
+    pub fn to_openai_with_structured_output(
+        self,
+        model: String,
+        is_structured_output: bool,
+    ) -> ChatCompletion {
         let choices = self
             .candidates
             .into_iter()
@@ -239,7 +439,27 @@ impl GeminiChatResponse {
 
                 for part in candidate.content.parts {
                     if let Some(text) = part.text {
-                        message_text.push_str(&text);
+                        if is_structured_output {
+                            // Check if the text looks like JSON and try to parse it
+                            let trimmed_text = text.trim();
+                            if (trimmed_text.starts_with('{') && trimmed_text.ends_with('}'))
+                                || (trimmed_text.starts_with('[') && trimmed_text.ends_with(']'))
+                            {
+                                // Validate that it's proper JSON
+                                match serde_json::from_str::<serde_json::Value>(trimmed_text) {
+                                    Ok(_) => {
+                                        message_text.push_str(trimmed_text);
+                                    }
+                                    Err(_) => {
+                                        message_text.push_str(&text);
+                                    }
+                                }
+                            } else {
+                                message_text.push_str(&text);
+                            }
+                        } else {
+                            message_text.push_str(&text);
+                        }
                     }
                     if let Some(fc) = part.function_call {
                         tool_calls.push(ChatMessageToolCall {
