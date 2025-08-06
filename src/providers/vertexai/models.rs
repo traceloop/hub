@@ -19,6 +19,18 @@ pub struct GeminiChatRequest {
     pub tools: Option<Vec<GeminiTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<GeminiToolChoice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_instruction: Option<GeminiSystemInstruction>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GeminiSystemInstruction {
+    pub parts: Vec<GeminiSystemPart>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GeminiSystemPart {
+    pub text: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -126,9 +138,29 @@ pub struct VertexAIStreamChunk {
 
 impl From<ChatCompletionRequest> for GeminiChatRequest {
     fn from(req: ChatCompletionRequest) -> Self {
+        let system_instruction = req
+            .messages
+            .iter()
+            .find(|msg| msg.role == "system")
+            .and_then(|message| match &message.content {
+                Some(ChatMessageContent::String(text)) => Some(GeminiSystemInstruction {
+                    parts: vec![GeminiSystemPart { text: text.clone() }],
+                }),
+                Some(ChatMessageContent::Array(parts)) => parts
+                    .iter()
+                    .find(|part| part.r#type == "text")
+                    .map(|part| GeminiSystemInstruction {
+                        parts: vec![GeminiSystemPart {
+                            text: part.text.clone(),
+                        }],
+                    }),
+                _ => None,
+            });
+
         let contents = req
             .messages
             .into_iter()
+            .filter(|msg| msg.role != "system")
             .map(|msg| GeminiContent {
                 role: match msg.role.as_str() {
                     "assistant" => "model".to_string(),
@@ -190,6 +222,7 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             safety_settings: None,
             tools,
             tool_choice,
+            system_instruction,
         }
     }
 }
