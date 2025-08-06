@@ -30,3 +30,4 @@ memory-bank/
 
 # Environment variables
 .env
+service.json
