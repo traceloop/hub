@@ -144,9 +144,7 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             .find(|msg| msg.role == "system")
             .and_then(|message| match &message.content {
                 Some(ChatMessageContent::String(text)) => Some(GeminiSystemInstruction {
-                    parts: vec![GeminiSystemPart {
-                        text: text.clone(),
-                    }],
+                    parts: vec![GeminiSystemPart { text: text.clone() }],
                 }),
                 Some(ChatMessageContent::Array(parts)) => parts
                     .iter()
