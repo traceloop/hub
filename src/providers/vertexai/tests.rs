@@ -1170,7 +1170,10 @@ fn test_gemini_request_with_system_message() {
 
     assert_eq!(gemini_request.contents.len(), 1);
     assert_eq!(gemini_request.contents[0].role, "user");
-    assert_eq!(gemini_request.system_instruction.unwrap().parts[0].text, "You are a helpful assistant");
+    assert_eq!(
+        gemini_request.system_instruction.unwrap().parts[0].text,
+        "You are a helpful assistant"
+    );
 }
 
 #[test]
