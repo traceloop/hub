@@ -9,7 +9,7 @@ use {hub_lib::management::db_based_config_integration, sqlx::PgPool, std::time::
 
 #[allow(dead_code)]
 const DEFAULT_CONFIG_PATH: &str = "config.yaml";
-const DEFAULT_PORT: &str = "3000";
+const DEFAULT_PORT: &str = "3100";
 const DEFAULT_MANAGEMENT_PORT: &str = "8080";
 const DEFAULT_DB_POLL_INTERVAL_SECONDS: u64 = 30;
 
