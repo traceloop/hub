@@ -4,6 +4,7 @@ use crate::models::completion::CompletionRequest;
 use crate::models::embeddings::EmbeddingsRequest;
 use crate::models::streaming::ChatCompletionChunk;
 use crate::pipelines::otel::OtelTracer;
+use crate::providers::provider::get_vendor_name;
 use crate::{
     ai_models::registry::ModelRegistry,
     config::models::{Pipeline, PluginConfig},
@@ -110,6 +111,9 @@ pub async fn chat_completions(
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
+            // Set vendor now that we know which model/provider we're using
+            tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            
             let response = model
                 .chat_completions(payload.clone())
                 .await
@@ -146,6 +150,9 @@ pub async fn completions(
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
+            // Set vendor now that we know which model/provider we're using
+            tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            
             let response = model.completions(payload.clone()).await.inspect_err(|e| {
                 eprintln!("Completion error for model {model_key}: {e:?}");
             })?;
@@ -170,6 +177,9 @@ pub async fn embeddings(
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
+            // Set vendor now that we know which model/provider we're using
+            tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            
             let response = model.embeddings(payload.clone()).await.inspect_err(|e| {
                 eprintln!("Embeddings error for model {model_key}: {e:?}");
             })?;

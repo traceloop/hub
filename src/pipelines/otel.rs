@@ -172,6 +172,10 @@ impl OtelTracer {
     pub fn log_error(&mut self, description: String) {
         self.span.set_status(Status::error(description));
     }
+
+    pub fn set_vendor(&mut self, vendor: &str) {
+        self.span.set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
+    }
 }
 
 impl RecordSpan for ChatCompletionRequest {
