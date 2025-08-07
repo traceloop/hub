@@ -188,10 +188,11 @@ impl GeminiSchema {
                     .map(|s| s.to_string())
                     .or(fallback_description);
 
-                let enum_values = obj
-                    .get("enum")
-                    .and_then(|e| e.as_array())
-                    .map(|e| e.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
+                let enum_values = obj.get("enum").and_then(|e| e.as_array()).map(|e| {
+                    e.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                });
 
                 if let Some(type_val) = obj.get("type") {
                     if let Some(type_str) = type_val.as_str() {
