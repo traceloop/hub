@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
+use tracing::info;
 
 use super::models::{AnthropicChatCompletionRequest, AnthropicChatCompletionResponse};
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -38,6 +39,28 @@ impl Provider for AnthropicProvider {
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
+        // Validate reasoning config if present
+        if let Some(reasoning) = &payload.reasoning {
+            if let Err(e) = reasoning.validate() {
+                eprintln!("Invalid reasoning config: {}", e);
+                return Err(StatusCode::BAD_REQUEST);
+            }
+            
+            if let Some(max_tokens) = reasoning.max_tokens {
+                info!("✅ Anthropic reasoning enabled with max_tokens: {}", max_tokens);
+            } else if let Some(thinking_prompt) = reasoning.to_thinking_prompt() {
+                info!("✅ Anthropic reasoning enabled with effort level: {:?} -> prompt: \"{}\"", 
+                     reasoning.effort, thinking_prompt.chars().take(50).collect::<String>() + "...");
+            } else {
+                tracing::debug!("ℹ️ Anthropic reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})", 
+                               reasoning.effort, reasoning.max_tokens);
+            }
+        }
+        
+        let exclude_reasoning = payload.reasoning.as_ref()
+            .and_then(|r| r.exclude)
+            .unwrap_or(false);
+            
         let request = AnthropicChatCompletionRequest::from(payload);
         let response = self
             .http_client
@@ -61,7 +84,9 @@ impl Provider for AnthropicProvider {
                     .json()
                     .await
                     .expect("Failed to parse Anthropic response");
-                Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
+                Ok(ChatCompletionResponse::NonStream(
+                    anthropic_response.into_chat_completion(exclude_reasoning)
+                ))
             }
         } else {
             eprintln!(

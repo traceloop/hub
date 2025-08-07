@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use reqwest_streams::JsonStreamResponse;
+use serde::{Deserialize, Serialize};
 
 use crate::config::constants::stream_buffer_size_bytes;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -11,6 +12,29 @@ use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
 use reqwest::Client;
 use tracing::info;
+
+#[derive(Serialize, Deserialize, Clone)]
+struct AzureChatCompletionRequest {
+    #[serde(flatten)]
+    base: ChatCompletionRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
+}
+
+impl From<ChatCompletionRequest> for AzureChatCompletionRequest {
+    fn from(mut base: ChatCompletionRequest) -> Self {
+        let reasoning_effort = base.reasoning.as_ref()
+            .and_then(|r| r.to_openai_effort());
+        
+        // Remove reasoning field from base request since Azure uses reasoning_effort
+        base.reasoning = None;
+        
+        Self {
+            base,
+            reasoning_effort,
+        }
+    }
+}
 
 pub struct AzureProvider {
     config: ProviderConfig,
@@ -55,6 +79,23 @@ impl Provider for AzureProvider {
         payload: ChatCompletionRequest,
         model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
+        // Validate reasoning config if present
+        if let Some(reasoning) = &payload.reasoning {
+            if let Err(e) = reasoning.validate() {
+                eprintln!("Invalid reasoning config: {}", e);
+                return Err(StatusCode::BAD_REQUEST);
+            }
+            
+            if let Some(max_tokens) = reasoning.max_tokens {
+                info!("✅ Azure reasoning with max_tokens: {} (note: Azure uses effort levels, max_tokens ignored)", max_tokens);
+            } else if let Some(effort) = reasoning.to_openai_effort() {
+                info!("✅ Azure reasoning enabled with effort level: \"{}\"", effort);
+            } else {
+                tracing::debug!("ℹ️ Azure reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})", 
+                               reasoning.effort, reasoning.max_tokens);
+            }
+        }
+        
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
         let url = format!(
@@ -64,11 +105,14 @@ impl Provider for AzureProvider {
             api_version
         );
 
+        // Convert to Azure-specific request format
+        let azure_request = AzureChatCompletionRequest::from(payload.clone());
+
         let response = self
             .http_client
             .post(&url)
             .header("api-key", &self.config.api_key)
-            .json(&payload)
+            .json(&azure_request)
             .send()
             .await
             .map_err(|e| {

@@ -151,6 +151,7 @@ impl OtelTracer {
                         },
                         finish_reason: chunk_choice.finish_reason.clone(),
                         logprobs: None,
+                        reasoning: chunk_choice.delta.reasoning.clone(),
                     });
                 }
             }

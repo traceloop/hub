@@ -124,6 +124,7 @@ impl From<TitanChatCompletionResponse> for ChatCompletion {
                 message,
                 finish_reason: Some(response.stop_reason),
                 logprobs: None,
+                reasoning: None,
             }],
             usage: Usage {
                 prompt_tokens: response.usage.input_tokens,
@@ -312,6 +313,7 @@ impl From<Ai21ChatCompletionResponse> for ChatCompletion {
                     },
                     finish_reason: Some(choice.finish_reason),
                     logprobs: None,
+                    reasoning: None,
                 })
                 .collect(),
             usage: Usage {

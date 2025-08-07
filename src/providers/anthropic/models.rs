@@ -90,7 +90,7 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             ))
         );
 
-        let system = request
+        let mut system = request
             .messages
             .iter()
             .find(|msg| msg.role == "system")
@@ -102,6 +102,16 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
                     .map(|part| part.text.clone()),
                 _ => None,
             });
+
+        // Add reasoning prompt if reasoning is requested
+        if let Some(reasoning_config) = &request.reasoning {
+            if let Some(thinking_prompt) = reasoning_config.to_thinking_prompt() {
+                system = Some(match system {
+                    Some(existing) => format!("{}\n\n{}", existing, thinking_prompt),
+                    None => thinking_prompt,
+                });
+            }
+        }
 
         let messages: Vec<ChatCompletionMessage> = request
             .messages
@@ -196,27 +206,66 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
     }
 }
 
-impl From<AnthropicChatCompletionResponse> for ChatCompletion {
-    fn from(response: AnthropicChatCompletionResponse) -> Self {
+impl AnthropicChatCompletionResponse {
+    pub fn into_chat_completion(self, exclude_reasoning: bool) -> ChatCompletion {
+        let message = self.content.clone().into();
+        let reasoning = if exclude_reasoning {
+            None
+        } else {
+            // Extract reasoning from content if present
+            self.extract_reasoning_from_content()
+        };
+
         ChatCompletion {
-            id: response.id,
+            id: self.id,
             object: None,
             created: None,
-            model: response.model,
+            model: self.model,
             choices: vec![ChatCompletionChoice {
                 index: 0,
-                message: response.content.into(),
+                message,
                 finish_reason: Some("stop".to_string()),
                 logprobs: None,
+                reasoning,
             }],
             usage: crate::models::usage::Usage {
-                prompt_tokens: response.usage.input_tokens,
-                completion_tokens: response.usage.output_tokens,
-                total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+                prompt_tokens: self.usage.input_tokens,
+                completion_tokens: self.usage.output_tokens,
+                total_tokens: self.usage.input_tokens + self.usage.output_tokens,
                 completion_tokens_details: None,
                 prompt_tokens_details: None,
             },
             system_fingerprint: None,
         }
+    }
+
+    fn extract_reasoning_from_content(&self) -> Option<String> {
+        // Look for structured reasoning markers in text content
+        for block in &self.content {
+            if let ContentBlock::Text { text } = block {
+                // Look for reasoning wrapped in markers like <reasoning>...</reasoning>
+                if let Some(start) = text.find("<reasoning>") {
+                    if let Some(end) = text.find("</reasoning>") {
+                        let reasoning_start = start + "<reasoning>".len();
+                        if reasoning_start < end {
+                            return Some(text[reasoning_start..end].trim().to_string());
+                        }
+                    }
+                }
+                // Fallback to heuristic if no markers found
+                if text.contains("Let me think") || text.contains("First, I need to") ||
+                   text.contains("Step by step") || text.contains("My reasoning is") {
+                    // Try to extract just the reasoning portion, not the entire text
+                    return Some(text.clone());
+                }
+            }
+        }
+        None
+    }
+}
+
+impl From<AnthropicChatCompletionResponse> for ChatCompletion {
+    fn from(response: AnthropicChatCompletionResponse) -> Self {
+        response.into_chat_completion(false)
     }
 }

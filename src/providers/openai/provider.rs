@@ -9,7 +9,31 @@ use async_trait::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
 use reqwest_streams::*;
+use serde::{Deserialize, Serialize};
 use tracing::info;
+
+#[derive(Serialize, Deserialize, Clone)]
+struct OpenAIChatCompletionRequest {
+    #[serde(flatten)]
+    base: ChatCompletionRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
+}
+
+impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
+    fn from(mut base: ChatCompletionRequest) -> Self {
+        let reasoning_effort = base.reasoning.as_ref()
+            .and_then(|r| r.to_openai_effort());
+        
+        // Remove reasoning field from base request since OpenAI uses reasoning_effort
+        base.reasoning = None;
+        
+        Self {
+            base,
+            reasoning_effort,
+        }
+    }
+}
 
 pub struct OpenAIProvider {
     config: ProviderConfig,
@@ -48,11 +72,22 @@ impl Provider for OpenAIProvider {
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
+        // Validate reasoning config if present
+        if let Some(reasoning) = &payload.reasoning {
+            if let Err(e) = reasoning.validate() {
+                eprintln!("Invalid reasoning config: {}", e);
+                return Err(StatusCode::BAD_REQUEST);
+            }
+        }
+        
+        // Convert to OpenAI-specific request format
+        let openai_request = OpenAIChatCompletionRequest::from(payload.clone());
+        
         let response = self
             .http_client
             .post(format!("{}/chat/completions", self.base_url()))
             .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .json(&payload)
+            .json(&openai_request)
             .send()
             .await
             .map_err(|e| {
