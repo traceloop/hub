@@ -22,12 +22,11 @@ struct OpenAIChatCompletionRequest {
 
 impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
     fn from(mut base: ChatCompletionRequest) -> Self {
-        let reasoning_effort = base.reasoning.as_ref()
-            .and_then(|r| r.to_openai_effort());
-        
+        let reasoning_effort = base.reasoning.as_ref().and_then(|r| r.to_openai_effort());
+
         // Remove reasoning field from base request since OpenAI uses reasoning_effort
         base.reasoning = None;
-        
+
         Self {
             base,
             reasoning_effort,
@@ -79,10 +78,10 @@ impl Provider for OpenAIProvider {
                 return Err(StatusCode::BAD_REQUEST);
             }
         }
-        
+
         // Convert to OpenAI-specific request format
         let openai_request = OpenAIChatCompletionRequest::from(payload.clone());
-        
+
         let response = self
             .http_client
             .post(format!("{}/chat/completions", self.base_url()))

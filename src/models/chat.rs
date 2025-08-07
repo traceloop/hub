@@ -27,19 +27,21 @@ impl ReasoningConfig {
         if self.effort.is_some() && self.max_tokens.is_some() {
             tracing::warn!("Both effort and max_tokens specified - prioritizing max_tokens");
         }
-        
+
         // Only validate effort if max_tokens is not present (since max_tokens takes priority)
         if let Some(effort) = &self.effort {
             if effort.trim().is_empty() {
                 return Err("Effort cannot be empty string".to_string());
-            } else if self.max_tokens.is_none() && !["low", "medium", "high"].contains(&effort.as_str()) {
+            } else if self.max_tokens.is_none()
+                && !["low", "medium", "high"].contains(&effort.as_str())
+            {
                 return Err("Invalid effort value. Must be 'low', 'medium', or 'high'".to_string());
             }
         }
-        
+
         Ok(())
     }
-    
+
     // For OpenAI/Azure - Direct passthrough (but prioritize max_tokens over effort)
     pub fn to_openai_effort(&self) -> Option<String> {
         if self.max_tokens.is_some() {
@@ -47,15 +49,18 @@ impl ReasoningConfig {
             None
         } else {
             // Only return effort if it's not empty
-            self.effort.as_ref().filter(|e| !e.trim().is_empty()).cloned()
+            self.effort
+                .as_ref()
+                .filter(|e| !e.trim().is_empty())
+                .cloned()
         }
     }
-    
+
     // For Vertex AI (Gemini) - Use max_tokens directly
     pub fn to_gemini_thinking_budget(&self) -> Option<i32> {
         self.max_tokens.map(|tokens| tokens as i32)
     }
-    
+
     // For Anthropic/Bedrock - Custom prompt generation (prioritize max_tokens over effort)
     pub fn to_thinking_prompt(&self) -> Option<String> {
         if self.max_tokens.is_some() {
@@ -64,8 +69,10 @@ impl ReasoningConfig {
         } else {
             match self.effort.as_deref() {
                 Some(effort) if !effort.trim().is_empty() => match effort {
-                    "high" => Some("Think through this step-by-step with detailed reasoning.".to_string()),
-                    "medium" => Some("Consider this problem thoughtfully.".to_string()), 
+                    "high" => {
+                        Some("Think through this step-by-step with detailed reasoning.".to_string())
+                    }
+                    "medium" => Some("Consider this problem thoughtfully.".to_string()),
                     "low" => Some("Think about this briefly.".to_string()),
                     _ => None,
                 },

@@ -333,7 +333,10 @@ impl GeminiSchema {
 
 impl From<ChatCompletionRequest> for GeminiChatRequest {
     fn from(req: ChatCompletionRequest) -> Self {
-        tracing::debug!("🔄 Converting ChatCompletionRequest to GeminiChatRequest, reasoning: {:?}", req.reasoning);
+        tracing::debug!(
+            "🔄 Converting ChatCompletionRequest to GeminiChatRequest, reasoning: {:?}",
+            req.reasoning
+        );
         let system_instruction = req
             .messages
             .iter()
@@ -408,7 +411,9 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
                 (None, None)
             };
 
-        let thinking_config = req.reasoning.as_ref()
+        let thinking_config = req
+            .reasoning
+            .as_ref()
             .and_then(|r| {
                 tracing::debug!("📝 Processing reasoning config for thinkingConfig: {:?}", r);
                 r.to_gemini_thinking_budget()
@@ -419,7 +424,7 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
                     thinking_budget: Some(budget),
                 }
             });
-        
+
         tracing::debug!("🔧 Final thinking_config: {:?}", thinking_config);
 
         let generation_config = Some(GenerationConfig {
@@ -464,8 +469,11 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             tool_choice,
             system_instruction,
         };
-        
-        tracing::debug!("📦 Created GeminiChatRequest with generation_config: {:?}", result.generation_config);
+
+        tracing::debug!(
+            "📦 Created GeminiChatRequest with generation_config: {:?}",
+            result.generation_config
+        );
         result
     }
 }

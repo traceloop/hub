@@ -137,27 +137,36 @@ impl Provider for VertexAIProvider {
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-        tracing::debug!("🎯 VertexAI provider received request for model: {}", payload.model);
-        
+        tracing::debug!(
+            "🎯 VertexAI provider received request for model: {}",
+            payload.model
+        );
+
         // Validate reasoning config if present
         if let Some(reasoning) = &payload.reasoning {
             tracing::debug!("🧠 VertexAI processing reasoning config: {:?}", reasoning);
-            
+
             if let Err(e) = reasoning.validate() {
                 tracing::error!("❌ VertexAI reasoning validation failed: {}", e);
                 return Err(StatusCode::BAD_REQUEST);
             }
-            
+
             if let Some(thinking_budget) = reasoning.to_gemini_thinking_budget() {
-                tracing::info!("✅ VertexAI reasoning enabled with thinking_budget: {} tokens", thinking_budget);
+                tracing::info!(
+                    "✅ VertexAI reasoning enabled with thinking_budget: {} tokens",
+                    thinking_budget
+                );
             } else {
-                tracing::debug!("ℹ️ VertexAI reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})", 
-                               reasoning.effort, reasoning.max_tokens);
+                tracing::debug!(
+                    "ℹ️ VertexAI reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
+                    reasoning.effort,
+                    reasoning.max_tokens
+                );
             }
         } else {
             tracing::debug!("ℹ️ VertexAI no reasoning config provided");
         }
-        
+
         let auth_token = self.get_auth_token().await?;
         let endpoint_suffix = if payload.stream.unwrap_or(false) {
             "streamGenerateContent"
@@ -196,11 +205,11 @@ impl Provider for VertexAIProvider {
             .unwrap_or(false);
 
         tracing::debug!("🌐 Sending request to endpoint: {}", endpoint);
-        
+
         let serialized_body = serde_json::to_string_pretty(&request_body)
             .unwrap_or_else(|e| format!("Failed to serialize request: {e}"));
         tracing::debug!("📤 Full Request Body:\n{}", serialized_body);
-        
+
         // Specifically log the generation_config part
         if let Some(gen_config) = &request_body.generation_config {
             tracing::debug!("⚙️ Generation Config: {:?}", gen_config);

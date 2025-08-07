@@ -23,12 +23,11 @@ struct AzureChatCompletionRequest {
 
 impl From<ChatCompletionRequest> for AzureChatCompletionRequest {
     fn from(mut base: ChatCompletionRequest) -> Self {
-        let reasoning_effort = base.reasoning.as_ref()
-            .and_then(|r| r.to_openai_effort());
-        
+        let reasoning_effort = base.reasoning.as_ref().and_then(|r| r.to_openai_effort());
+
         // Remove reasoning field from base request since Azure uses reasoning_effort
         base.reasoning = None;
-        
+
         Self {
             base,
             reasoning_effort,
@@ -85,17 +84,26 @@ impl Provider for AzureProvider {
                 eprintln!("Invalid reasoning config: {}", e);
                 return Err(StatusCode::BAD_REQUEST);
             }
-            
+
             if let Some(max_tokens) = reasoning.max_tokens {
-                info!("✅ Azure reasoning with max_tokens: {} (note: Azure uses effort levels, max_tokens ignored)", max_tokens);
+                info!(
+                    "✅ Azure reasoning with max_tokens: {} (note: Azure uses effort levels, max_tokens ignored)",
+                    max_tokens
+                );
             } else if let Some(effort) = reasoning.to_openai_effort() {
-                info!("✅ Azure reasoning enabled with effort level: \"{}\"", effort);
+                info!(
+                    "✅ Azure reasoning enabled with effort level: \"{}\"",
+                    effort
+                );
             } else {
-                tracing::debug!("ℹ️ Azure reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})", 
-                               reasoning.effort, reasoning.max_tokens);
+                tracing::debug!(
+                    "ℹ️ Azure reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
+                    reasoning.effort,
+                    reasoning.max_tokens
+                );
             }
         }
-        
+
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
         let url = format!(

@@ -253,8 +253,11 @@ impl AnthropicChatCompletionResponse {
                     }
                 }
                 // Fallback to heuristic if no markers found
-                if text.contains("Let me think") || text.contains("First, I need to") ||
-                   text.contains("Step by step") || text.contains("My reasoning is") {
+                if text.contains("Let me think")
+                    || text.contains("First, I need to")
+                    || text.contains("Step by step")
+                    || text.contains("My reasoning is")
+                {
                     // Try to extract just the reasoning portion, not the entire text
                     return Some(text.clone());
                 }
