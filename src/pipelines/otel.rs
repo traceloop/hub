@@ -174,7 +174,8 @@ impl OtelTracer {
     }
 
     pub fn set_vendor(&mut self, vendor: &str) {
-        self.span.set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
+        self.span
+            .set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
     }
 }
 
@@ -403,7 +404,7 @@ mod tests {
         assert_eq!(get_vendor_name("anthropic"), "Anthropic");
         assert_eq!(get_vendor_name("bedrock"), "AWS");
         assert_eq!(get_vendor_name("vertexai"), "Google");
-        
+
         // Test fallback for unknown provider
         assert_eq!(get_vendor_name("unknown_provider"), "unknown_provider");
     }
@@ -416,12 +417,12 @@ mod tests {
             span: opentelemetry::global::tracer("test").start("test"),
             accumulated_completion: None,
         };
-        
+
         // Call set_vendor with different vendor names - this tests the method exists and accepts strings
         tracer.set_vendor("OpenAI");
         tracer.set_vendor("Anthropic");
         tracer.set_vendor("Azure");
-        
+
         // If this test passes, it means set_vendor() is working without panicking
         assert!(true);
     }
