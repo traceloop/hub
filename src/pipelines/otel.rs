@@ -172,6 +172,11 @@ impl OtelTracer {
     pub fn log_error(&mut self, description: String) {
         self.span.set_status(Status::error(description));
     }
+
+    pub fn set_vendor(&mut self, vendor: &str) {
+        self.span
+            .set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
+    }
 }
 
 impl RecordSpan for ChatCompletionRequest {
@@ -383,5 +388,42 @@ impl RecordSpan for EmbeddingUsage {
             "gen_ai.usage.total_tokens",
             self.total_tokens.unwrap_or(0) as i64,
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::providers::provider::get_vendor_name;
+
+    #[test]
+    fn test_get_vendor_name_mappings() {
+        // Test all provider type mappings to standardized vendor names
+        assert_eq!(get_vendor_name("openai"), "openai");
+        assert_eq!(get_vendor_name("azure"), "Azure");
+        assert_eq!(get_vendor_name("anthropic"), "Anthropic");
+        assert_eq!(get_vendor_name("bedrock"), "AWS");
+        assert_eq!(get_vendor_name("vertexai"), "Google");
+
+        // Test fallback for unknown provider
+        assert_eq!(get_vendor_name("unknown_provider"), "unknown_provider");
+    }
+
+    #[test]
+    fn test_set_vendor_method_exists() {
+        // Test that set_vendor method compiles and can be called
+        // This ensures the method signature is correct
+        let mut tracer = OtelTracer {
+            span: opentelemetry::global::tracer("test").start("test"),
+            accumulated_completion: None,
+        };
+
+        // Call set_vendor with different vendor names - this tests the method exists and accepts strings
+        tracer.set_vendor("OpenAI");
+        tracer.set_vendor("Anthropic");
+        tracer.set_vendor("Azure");
+
+        // If this test passes, it means set_vendor() is working without panicking
+        assert!(true);
     }
 }

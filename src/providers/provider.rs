@@ -32,3 +32,15 @@ pub trait Provider: Send + Sync {
         model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode>;
 }
+
+/// Maps provider type strings to standardized vendor names for OTEL reporting
+pub fn get_vendor_name(provider_type: &str) -> String {
+    match provider_type {
+        "openai" => "openai".to_string(),
+        "azure" => "Azure".to_string(),
+        "anthropic" => "Anthropic".to_string(),
+        "bedrock" => "AWS".to_string(),
+        "vertexai" => "Google".to_string(),
+        _ => provider_type.to_string(), // fallback to original if unknown
+    }
+}
