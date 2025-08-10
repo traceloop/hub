@@ -152,6 +152,4 @@ pub struct ChatCompletionChoice {
     pub finish_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logprobs: Option<LogProbs>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning: Option<String>,
 }

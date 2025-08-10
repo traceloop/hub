@@ -209,12 +209,6 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
 impl AnthropicChatCompletionResponse {
     pub fn into_chat_completion(self, exclude_reasoning: bool) -> ChatCompletion {
         let message = self.content.clone().into();
-        let reasoning = if exclude_reasoning {
-            None
-        } else {
-            // Extract reasoning from content if present
-            self.extract_reasoning_from_content()
-        };
 
         ChatCompletion {
             id: self.id,
@@ -226,7 +220,6 @@ impl AnthropicChatCompletionResponse {
                 message,
                 finish_reason: Some("stop".to_string()),
                 logprobs: None,
-                reasoning,
             }],
             usage: crate::models::usage::Usage {
                 prompt_tokens: self.usage.input_tokens,
@@ -237,33 +230,6 @@ impl AnthropicChatCompletionResponse {
             },
             system_fingerprint: None,
         }
-    }
-
-    fn extract_reasoning_from_content(&self) -> Option<String> {
-        // Look for structured reasoning markers in text content
-        for block in &self.content {
-            if let ContentBlock::Text { text } = block {
-                // Look for reasoning wrapped in markers like <reasoning>...</reasoning>
-                if let Some(start) = text.find("<reasoning>") {
-                    if let Some(end) = text.find("</reasoning>") {
-                        let reasoning_start = start + "<reasoning>".len();
-                        if reasoning_start < end {
-                            return Some(text[reasoning_start..end].trim().to_string());
-                        }
-                    }
-                }
-                // Fallback to heuristic if no markers found
-                if text.contains("Let me think")
-                    || text.contains("First, I need to")
-                    || text.contains("Step by step")
-                    || text.contains("My reasoning is")
-                {
-                    // Try to extract just the reasoning portion, not the entire text
-                    return Some(text.clone());
-                }
-            }
-        }
-        None
     }
 }
 

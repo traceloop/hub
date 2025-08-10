@@ -552,7 +552,6 @@ impl GeminiChatResponse {
                     },
                     finish_reason: candidate.finish_reason,
                     logprobs: None,
-                    reasoning: None, // TODO: Extract thinking content from response
                 }
             })
             .collect();
@@ -620,7 +619,7 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
                                 })
                                 .collect()
                         }),
-                    reasoning: None, // TODO: Extract thinking content from streaming
+                    reasoning: None,
                 },
                 finish_reason: first_candidate.and_then(|c| c.finish_reason.clone()),
             }],

@@ -123,7 +123,6 @@ mod antropic_tests {
             logprobs: None,
             top_logprobs: None,
             response_format: None,
-            reasoning: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -238,7 +237,6 @@ mod titan_tests {
             logprobs: None,
             top_logprobs: None,
             response_format: None,
-            reasoning: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -364,7 +362,6 @@ mod ai21_tests {
             logprobs: None,
             top_logprobs: None,
             response_format: None,
-            reasoning: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -439,7 +436,6 @@ mod arn_tests {
             logprobs: None,
             top_logprobs: None,
             response_format: None,
-            reasoning: None,
         };
 
         // The test here is that we don't get a transformation error
@@ -491,7 +487,6 @@ mod arn_tests {
             logprobs: None,
             top_logprobs: None,
             response_format: None,
-            reasoning: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
