@@ -74,7 +74,7 @@ impl Provider for OpenAIProvider {
         // Validate reasoning config if present
         if let Some(reasoning) = &payload.reasoning {
             if let Err(e) = reasoning.validate() {
-                eprintln!("Invalid reasoning config: {}", e);
+                tracing::error!("Invalid reasoning config: {}", e);
                 return Err(StatusCode::BAD_REQUEST);
             }
         }
