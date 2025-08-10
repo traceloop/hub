@@ -66,12 +66,6 @@ impl Provider for AnthropicProvider {
             }
         }
 
-        let exclude_reasoning = payload
-            .reasoning
-            .as_ref()
-            .and_then(|r| r.exclude)
-            .unwrap_or(false);
-
         let request = AnthropicChatCompletionRequest::from(payload);
         let response = self
             .http_client
@@ -96,7 +90,7 @@ impl Provider for AnthropicProvider {
                     .await
                     .expect("Failed to parse Anthropic response");
                 Ok(ChatCompletionResponse::NonStream(
-                    anthropic_response.into_chat_completion(exclude_reasoning),
+                    anthropic_response.into_chat_completion(),
                 ))
             }
         } else {

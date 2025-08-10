@@ -207,7 +207,7 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
 }
 
 impl AnthropicChatCompletionResponse {
-    pub fn into_chat_completion(self, exclude_reasoning: bool) -> ChatCompletion {
+    pub fn into_chat_completion(self) -> ChatCompletion {
         let message = self.content.clone().into();
 
         ChatCompletion {
@@ -235,6 +235,6 @@ impl AnthropicChatCompletionResponse {
 
 impl From<AnthropicChatCompletionResponse> for ChatCompletion {
     fn from(response: AnthropicChatCompletionResponse) -> Self {
-        response.into_chat_completion(false)
+        response.into_chat_completion()
     }
 }
