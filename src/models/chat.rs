@@ -31,7 +31,9 @@ impl ReasoningConfig {
         // Only validate effort if max_tokens is not present (since max_tokens takes priority)
         if let Some(effort) = &self.effort {
             if effort.trim().is_empty() {
-                return Err("Effort cannot be empty string".to_string());
+                if self.max_tokens.is_none() {
+                    return Err("Effort cannot be empty string".to_string());
+                }
             } else if self.max_tokens.is_none()
                 && !["low", "medium", "high"].contains(&effort.as_str())
             {
