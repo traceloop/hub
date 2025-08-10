@@ -5,6 +5,7 @@ use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
+use crate::types::ProviderType;
 
 #[async_trait]
 pub trait Provider: Send + Sync {
@@ -12,7 +13,7 @@ pub trait Provider: Send + Sync {
     where
         Self: Sized;
     fn key(&self) -> String;
-    fn r#type(&self) -> String;
+    fn r#type(&self) -> ProviderType;
 
     async fn chat_completions(
         &self,
@@ -33,14 +34,13 @@ pub trait Provider: Send + Sync {
     ) -> Result<EmbeddingsResponse, StatusCode>;
 }
 
-/// Maps provider type strings to standardized vendor names for OTEL reporting
-pub fn get_vendor_name(provider_type: &str) -> String {
+/// Maps provider type enum to standardized vendor names for OTEL reporting
+pub fn get_vendor_name(provider_type: &ProviderType) -> String {
     match provider_type {
-        "openai" => "openai".to_string(),
-        "azure" => "Azure".to_string(),
-        "anthropic" => "Anthropic".to_string(),
-        "bedrock" => "AWS".to_string(),
-        "vertexai" => "Google".to_string(),
-        _ => provider_type.to_string(), // fallback to original if unknown
+        ProviderType::OpenAI => "openai".to_string(),
+        ProviderType::Azure => "Azure".to_string(),
+        ProviderType::Anthropic => "Anthropic".to_string(),
+        ProviderType::Bedrock => "AWS".to_string(),
+        ProviderType::VertexAI => "Google".to_string(),
     }
 }

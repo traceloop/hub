@@ -203,6 +203,7 @@ mod tests {
         },
         providers::provider::Provider,
         providers::registry::ProviderRegistry,
+        types::ProviderType,
     };
     use async_trait::async_trait;
     use axum::{
@@ -231,8 +232,8 @@ mod tests {
             self.key.clone()
         }
 
-        fn r#type(&self) -> String {
-            "mock".to_string()
+        fn r#type(&self) -> ProviderType {
+            ProviderType::OpenAI // Using OpenAI as default for mock
         }
 
         async fn chat_completions(
@@ -264,7 +265,7 @@ mod tests {
     fn create_test_provider_registry() -> Arc<ProviderRegistry> {
         let provider_config = ProviderConfig {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: String::new(),
             params: HashMap::new(),
         };
@@ -339,13 +340,13 @@ mod tests {
     async fn test_models_endpoint_multiple_providers() {
         let provider_config_1 = ProviderConfig {
             key: "test-provider-1".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: String::new(),
             params: HashMap::new(),
         };
         let provider_config_2 = ProviderConfig {
             key: "test-provider-2".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: String::new(),
             params: HashMap::new(),
         };
@@ -442,8 +443,8 @@ mod tests {
         fn key(&self) -> String {
             "openai-key".to_string()
         }
-        fn r#type(&self) -> String {
-            "openai".to_string()
+        fn r#type(&self) -> ProviderType {
+            ProviderType::OpenAI
         }
 
         async fn chat_completions(
@@ -489,8 +490,8 @@ mod tests {
         fn key(&self) -> String {
             "anthropic-key".to_string()
         }
-        fn r#type(&self) -> String {
-            "anthropic".to_string()
+        fn r#type(&self) -> ProviderType {
+            ProviderType::Anthropic
         }
 
         async fn chat_completions(
@@ -536,8 +537,8 @@ mod tests {
         fn key(&self) -> String {
             "azure-key".to_string()
         }
-        fn r#type(&self) -> String {
-            "azure".to_string()
+        fn r#type(&self) -> ProviderType {
+            ProviderType::Azure
         }
 
         async fn chat_completions(
@@ -579,11 +580,11 @@ mod tests {
     fn test_vendor_mapping_integration() {
         // Test that different provider types map to correct vendor names
         // This tests the integration between provider types and vendor names
-        assert_eq!(get_vendor_name("openai"), "openai");
-        assert_eq!(get_vendor_name("anthropic"), "Anthropic");
-        assert_eq!(get_vendor_name("azure"), "Azure");
-        assert_eq!(get_vendor_name("bedrock"), "AWS");
-        assert_eq!(get_vendor_name("vertexai"), "Google");
+        assert_eq!(get_vendor_name(&ProviderType::OpenAI), "openai");
+        assert_eq!(get_vendor_name(&ProviderType::Anthropic), "Anthropic");
+        assert_eq!(get_vendor_name(&ProviderType::Azure), "Azure");
+        assert_eq!(get_vendor_name(&ProviderType::Bedrock), "AWS");
+        assert_eq!(get_vendor_name(&ProviderType::VertexAI), "Google");
     }
 
     #[test]
@@ -594,9 +595,9 @@ mod tests {
         let anthropic_provider = TestProviderAnthropic;
         let azure_provider = TestProviderAzure;
 
-        assert_eq!(openai_provider.r#type(), "openai");
-        assert_eq!(anthropic_provider.r#type(), "anthropic");
-        assert_eq!(azure_provider.r#type(), "azure");
+        assert_eq!(openai_provider.r#type(), ProviderType::OpenAI);
+        assert_eq!(anthropic_provider.r#type(), ProviderType::Anthropic);
+        assert_eq!(azure_provider.r#type(), ProviderType::Azure);
 
         // Test that these map to the correct vendor names
         assert_eq!(get_vendor_name(&openai_provider.r#type()), "openai");

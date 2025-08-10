@@ -52,7 +52,7 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
 #[cfg(test)]
 mod tests {
     use super::*; // To import validate_gateway_config
-    use crate::types::{ModelConfig, Pipeline, PipelineType, PluginConfig, Provider}; // For test data
+    use crate::types::{ModelConfig, Pipeline, PipelineType, PluginConfig, Provider, ProviderType}; // For test data
 
     #[test]
     fn test_valid_config() {
@@ -60,7 +60,7 @@ mod tests {
             general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
-                r#type: "openai".to_string(),
+                r#type: ProviderType::OpenAI,
                 api_key: "key1".to_string(),
                 params: Default::default(),
             }],
@@ -87,7 +87,7 @@ mod tests {
             general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
-                r#type: "openai".to_string(),
+                r#type: ProviderType::OpenAI,
                 api_key: "key1".to_string(),
                 params: Default::default(),
             }],
@@ -112,7 +112,7 @@ mod tests {
             general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
-                r#type: "openai".to_string(),
+                r#type: ProviderType::OpenAI,
                 api_key: "key1".to_string(),
                 params: Default::default(),
             }],

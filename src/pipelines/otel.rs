@@ -395,18 +395,16 @@ impl RecordSpan for EmbeddingUsage {
 mod tests {
     use super::*;
     use crate::providers::provider::get_vendor_name;
+    use crate::types::ProviderType;
 
     #[test]
     fn test_get_vendor_name_mappings() {
         // Test all provider type mappings to standardized vendor names
-        assert_eq!(get_vendor_name("openai"), "openai");
-        assert_eq!(get_vendor_name("azure"), "Azure");
-        assert_eq!(get_vendor_name("anthropic"), "Anthropic");
-        assert_eq!(get_vendor_name("bedrock"), "AWS");
-        assert_eq!(get_vendor_name("vertexai"), "Google");
-
-        // Test fallback for unknown provider
-        assert_eq!(get_vendor_name("unknown_provider"), "unknown_provider");
+        assert_eq!(get_vendor_name(&ProviderType::OpenAI), "openai");
+        assert_eq!(get_vendor_name(&ProviderType::Azure), "Azure");
+        assert_eq!(get_vendor_name(&ProviderType::Anthropic), "Anthropic");
+        assert_eq!(get_vendor_name(&ProviderType::Bedrock), "AWS");
+        assert_eq!(get_vendor_name(&ProviderType::VertexAI), "Google");
     }
 
     #[test]

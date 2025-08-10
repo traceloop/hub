@@ -152,7 +152,7 @@ fn create_test_provider(client: reqwest::Client) -> VertexAIProvider {
     VertexAIProvider::with_test_client(
         &ProviderConfig {
             key: "vertexai".to_string(),
-            r#type: "vertexai".to_string(),
+            r#type: crate::types::ProviderType::VertexAI,
             api_key: "".to_string(), // Empty API key to force service account auth
             params,
         },
@@ -170,7 +170,7 @@ fn create_test_provider_with_api_key(client: reqwest::Client, api_key: String) -
     VertexAIProvider::with_test_client(
         &ProviderConfig {
             key: "vertexai".to_string(),
-            r#type: "vertexai".to_string(),
+            r#type: crate::types::ProviderType::VertexAI,
             api_key,
             params,
         },
@@ -712,7 +712,7 @@ fn test_invalid_location_format() {
 
     let config = ProviderConfig {
         key: "test-vertexai".to_string(),
-        r#type: "vertexai".to_string(),
+        r#type: crate::types::ProviderType::VertexAI,
         api_key: "".to_string(),
         params,
     };
@@ -742,7 +742,7 @@ fn test_auth_config_precedence() {
 
     let config = ProviderConfig {
         key: "test-vertexai".to_string(),
-        r#type: "vertexai".to_string(),
+        r#type: crate::types::ProviderType::VertexAI,
         api_key: "test-api-key".to_string(),
         params,
     };
@@ -759,7 +759,7 @@ fn test_auth_config_credentials_only() {
 
     let config = ProviderConfig {
         key: "test-vertexai".to_string(),
-        r#type: "vertexai".to_string(),
+        r#type: crate::types::ProviderType::VertexAI,
         api_key: "".to_string(),
         params,
     };
@@ -915,13 +915,13 @@ fn test_provider_new() {
 
     let config = ProviderConfig {
         key: "test-vertexai".to_string(),
-        r#type: "vertexai".to_string(),
+        r#type: crate::types::ProviderType::VertexAI,
         api_key: "".to_string(),
         params,
     };
 
     let provider = VertexAIProvider::new(&config);
-    assert_eq!(provider.r#type(), "vertexai");
+    assert_eq!(provider.r#type(), crate::types::ProviderType::VertexAI);
     assert_eq!(provider.key(), "test-vertexai");
 }
 
@@ -930,7 +930,7 @@ fn test_provider_new() {
 fn test_provider_new_missing_project_id() {
     let config = ProviderConfig {
         key: "test-vertexai".to_string(),
-        r#type: "vertexai".to_string(),
+        r#type: crate::types::ProviderType::VertexAI,
         api_key: "".to_string(),
         params: HashMap::new(),
     };

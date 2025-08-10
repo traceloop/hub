@@ -184,7 +184,7 @@ impl ConfigProviderService {
 
         Ok(Provider {
             key: dto.name,
-            r#type: dto.provider_type.to_string(),
+            r#type: dto.provider_type,
             api_key: api_key_from_dto.unwrap_or_default(),
             params,
         })

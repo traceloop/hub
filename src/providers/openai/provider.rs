@@ -5,6 +5,7 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
+use crate::types::ProviderType;
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
@@ -39,8 +40,8 @@ impl Provider for OpenAIProvider {
         self.config.key.clone()
     }
 
-    fn r#type(&self) -> String {
-        "openai".to_string()
+    fn r#type(&self) -> ProviderType {
+        ProviderType::OpenAI
     }
 
     async fn chat_completions(

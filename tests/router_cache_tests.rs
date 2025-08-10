@@ -1,5 +1,7 @@
 use hub_lib::state::AppState;
-use hub_lib::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
+use hub_lib::types::{
+    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider, ProviderType,
+};
 use std::sync::Arc;
 
 #[tokio::test]
@@ -9,7 +11,7 @@ async fn test_router_always_available() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -43,7 +45,7 @@ async fn test_configuration_change_detection() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -87,7 +89,7 @@ async fn test_invalid_configuration_rejected() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -102,7 +104,7 @@ async fn test_invalid_configuration_rejected() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -130,7 +132,7 @@ async fn test_concurrent_router_access() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -195,7 +197,7 @@ async fn test_pipeline_with_failing_tracing_endpoint() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -250,7 +252,7 @@ async fn test_tracing_isolation_between_pipelines() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
