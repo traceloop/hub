@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use axum::http::StatusCode;
+use std::borrow::Cow;
 
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
@@ -35,12 +36,12 @@ pub trait Provider: Send + Sync {
 }
 
 /// Maps provider type enum to standardized vendor names for OTEL reporting
-pub fn get_vendor_name(provider_type: &ProviderType) -> String {
+pub fn get_vendor_name(provider_type: &ProviderType) -> Cow<'static, str> {
     match provider_type {
-        ProviderType::OpenAI => "openai".to_string(),
-        ProviderType::Azure => "Azure".to_string(),
-        ProviderType::Anthropic => "Anthropic".to_string(),
-        ProviderType::Bedrock => "AWS".to_string(),
-        ProviderType::VertexAI => "Google".to_string(),
+        ProviderType::OpenAI => Cow::Borrowed("openai"),
+        ProviderType::Azure => Cow::Borrowed("Azure"),
+        ProviderType::Anthropic => Cow::Borrowed("Anthropic"),
+        ProviderType::Bedrock => Cow::Borrowed("AWS"),
+        ProviderType::VertexAI => Cow::Borrowed("Google"),
     }
 }
