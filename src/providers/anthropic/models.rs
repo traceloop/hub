@@ -206,35 +206,27 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
     }
 }
 
-impl AnthropicChatCompletionResponse {
-    pub fn into_chat_completion(self) -> ChatCompletion {
-        let message = self.content.clone().into();
-
+impl From<AnthropicChatCompletionResponse> for ChatCompletion {
+    fn from(response: AnthropicChatCompletionResponse) -> Self {
         ChatCompletion {
-            id: self.id,
+            id: response.id,
             object: None,
             created: None,
-            model: self.model,
+            model: response.model,
             choices: vec![ChatCompletionChoice {
                 index: 0,
-                message,
+                message: response.content.into(),
                 finish_reason: Some("stop".to_string()),
                 logprobs: None,
             }],
             usage: crate::models::usage::Usage {
-                prompt_tokens: self.usage.input_tokens,
-                completion_tokens: self.usage.output_tokens,
-                total_tokens: self.usage.input_tokens + self.usage.output_tokens,
+                prompt_tokens: response.usage.input_tokens,
+                completion_tokens: response.usage.output_tokens,
+                total_tokens: response.usage.input_tokens + response.usage.output_tokens,
                 completion_tokens_details: None,
                 prompt_tokens_details: None,
             },
             system_fingerprint: None,
         }
-    }
-}
-
-impl From<AnthropicChatCompletionResponse> for ChatCompletion {
-    fn from(response: AnthropicChatCompletionResponse) -> Self {
-        response.into_chat_completion()
     }
 }

@@ -89,9 +89,7 @@ impl Provider for AnthropicProvider {
                     .json()
                     .await
                     .expect("Failed to parse Anthropic response");
-                Ok(ChatCompletionResponse::NonStream(
-                    anthropic_response.into_chat_completion(),
-                ))
+                Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
             }
         } else {
             eprintln!(
