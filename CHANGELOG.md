@@ -1,3 +1,10 @@
+## v0.7.1 (2025-08-10)
+
+### Fix
+
+- fix bump package (#67)
+- revert tower http request (#66)
+
 ## v0.7.0 (2025-08-10)
 
 ### Feat
