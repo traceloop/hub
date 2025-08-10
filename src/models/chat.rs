@@ -12,6 +12,76 @@ use super::tool_choice::ToolChoice;
 use super::tool_definition::ToolDefinition;
 use super::usage::Usage;
 
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct ReasoningConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>, // "low" | "medium" | "high"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>, // Alternative to effort
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclude: Option<bool>, // Whether to exclude from response (default: false)
+}
+
+impl ReasoningConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.effort.is_some() && self.max_tokens.is_some() {
+            tracing::warn!("Both effort and max_tokens specified - prioritizing max_tokens");
+        }
+
+        // Only validate effort if max_tokens is not present (since max_tokens takes priority)
+        if let Some(effort) = &self.effort {
+            if effort.trim().is_empty() {
+                return Err("Effort cannot be empty string".to_string());
+            } else if self.max_tokens.is_none()
+                && !["low", "medium", "high"].contains(&effort.as_str())
+            {
+                return Err("Invalid effort value. Must be 'low', 'medium', or 'high'".to_string());
+            }
+        }
+
+        Ok(())
+    }
+
+    // For OpenAI/Azure - Direct passthrough (but prioritize max_tokens over effort)
+    pub fn to_openai_effort(&self) -> Option<String> {
+        if self.max_tokens.is_some() {
+            // If max_tokens is specified, don't use effort for OpenAI
+            None
+        } else {
+            // Only return effort if it's not empty
+            self.effort
+                .as_ref()
+                .filter(|e| !e.trim().is_empty())
+                .cloned()
+        }
+    }
+
+    // For Vertex AI (Gemini) - Use max_tokens directly
+    pub fn to_gemini_thinking_budget(&self) -> Option<i32> {
+        self.max_tokens.map(|tokens| tokens as i32)
+    }
+
+    // For Anthropic/Bedrock - Custom prompt generation (prioritize max_tokens over effort)
+    pub fn to_thinking_prompt(&self) -> Option<String> {
+        if self.max_tokens.is_some() {
+            // If max_tokens is specified, use a generic thinking prompt
+            Some("Think through this step-by-step with detailed reasoning.".to_string())
+        } else {
+            match self.effort.as_deref() {
+                Some(effort) if !effort.trim().is_empty() => match effort {
+                    "high" => {
+                        Some("Think through this step-by-step with detailed reasoning.".to_string())
+                    }
+                    "medium" => Some("Consider this problem thoughtfully.".to_string()),
+                    "low" => Some("Think about this briefly.".to_string()),
+                    _ => None,
+                },
+                _ => None,
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, ToSchema)]
 pub struct ChatCompletionRequest {
     pub model: String,
@@ -50,6 +120,8 @@ pub struct ChatCompletionRequest {
     pub top_logprobs: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_format: Option<ResponseFormat>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<ReasoningConfig>,
 }
 
 // Note: ChatCompletionResponse cannot derive ToSchema due to BoxStream

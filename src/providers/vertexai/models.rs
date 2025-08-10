@@ -73,6 +73,12 @@ pub struct ContentPart {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ThinkingConfig {
+    #[serde(rename = "thinkingBudget", skip_serializing_if = "Option::is_none")]
+    pub thinking_budget: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GenerationConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
@@ -88,6 +94,8 @@ pub struct GenerationConfig {
     pub response_mime_type: Option<String>,
     #[serde(rename = "responseSchema", skip_serializing_if = "Option::is_none")]
     pub response_schema: Option<GeminiSchema>,
+    #[serde(rename = "thinkingConfig", skip_serializing_if = "Option::is_none")]
+    pub thinking_config: Option<ThinkingConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -325,6 +333,10 @@ impl GeminiSchema {
 
 impl From<ChatCompletionRequest> for GeminiChatRequest {
     fn from(req: ChatCompletionRequest) -> Self {
+        tracing::debug!(
+            "🔄 Converting ChatCompletionRequest to GeminiChatRequest, reasoning: {:?}",
+            req.reasoning
+        );
         let system_instruction = req
             .messages
             .iter()
@@ -399,6 +411,22 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
                 (None, None)
             };
 
+        let thinking_config = req
+            .reasoning
+            .as_ref()
+            .and_then(|r| {
+                tracing::debug!("📝 Processing reasoning config for thinkingConfig: {:?}", r);
+                r.to_gemini_thinking_budget()
+            })
+            .map(|budget| {
+                tracing::debug!("🎛️ Creating ThinkingConfig with budget: {} tokens", budget);
+                ThinkingConfig {
+                    thinking_budget: Some(budget),
+                }
+            });
+
+        tracing::debug!("🔧 Final thinking_config: {:?}", thinking_config);
+
         let generation_config = Some(GenerationConfig {
             temperature: req.temperature,
             top_p: req.top_p,
@@ -407,6 +435,7 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             stop_sequences: req.stop,
             response_mime_type: response_mime_type.clone(),
             response_schema: response_schema.clone(),
+            thinking_config,
         });
 
         let tools = req.tools.map(|tools| {
@@ -432,14 +461,20 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             _ => GeminiToolChoice::None,
         });
 
-        Self {
+        let result = Self {
             contents,
             generation_config,
             safety_settings: None,
             tools,
             tool_choice,
             system_instruction,
-        }
+        };
+
+        tracing::debug!(
+            "📦 Created GeminiChatRequest with generation_config: {:?}",
+            result.generation_config
+        );
+        result
     }
 }
 
@@ -584,6 +619,7 @@ impl From<VertexAIStreamChunk> for ChatCompletionChunk {
                                 })
                                 .collect()
                         }),
+                    reasoning: None,
                 },
                 finish_reason: first_candidate.and_then(|c| c.finish_reason.clone()),
             }],
