@@ -1,3 +1,20 @@
+## v0.7.1 (2025-08-10)
+
+### Fix
+
+- fix bump package (#67)
+- revert tower http request (#66)
+
+## v0.7.0 (2025-08-10)
+
+### Feat
+
+- add reasoning support (#63)
+
+### Fix
+
+- make effort optional for gemini (#65)
+
 ## v0.6.2 (2025-08-07)
 
 ### Fix

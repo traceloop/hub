@@ -90,7 +90,7 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             ))
         );
 
-        let system = request
+        let mut system = request
             .messages
             .iter()
             .find(|msg| msg.role == "system")
@@ -102,6 +102,16 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
                     .map(|part| part.text.clone()),
                 _ => None,
             });
+
+        // Add reasoning prompt if reasoning is requested
+        if let Some(reasoning_config) = &request.reasoning {
+            if let Some(thinking_prompt) = reasoning_config.to_thinking_prompt() {
+                system = Some(match system {
+                    Some(existing) => format!("{}\n\n{}", existing, thinking_prompt),
+                    None => thinking_prompt,
+                });
+            }
+        }
 
         let messages: Vec<ChatCompletionMessage> = request
             .messages
