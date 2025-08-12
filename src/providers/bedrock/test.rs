@@ -47,7 +47,7 @@ fn get_test_provider_config(
 
     crate::config::models::Provider {
         key: "test_key".to_string(),
-        r#type: "".to_string(),
+        r#type: crate::types::ProviderType::Bedrock,
         api_key: "".to_string(),
         params,
     }
@@ -84,7 +84,7 @@ mod antropic_tests {
         let provider = BedrockProvider::new(&config);
 
         assert_eq!(provider.key(), "test_key");
-        assert_eq!(provider.r#type(), "bedrock");
+        assert_eq!(provider.r#type(), crate::types::ProviderType::Bedrock);
     }
 
     #[tokio::test]
@@ -166,7 +166,7 @@ mod titan_tests {
         let provider = BedrockProvider::new(&config);
 
         assert_eq!(provider.key(), "test_key");
-        assert_eq!(provider.r#type(), "bedrock");
+        assert_eq!(provider.r#type(), crate::types::ProviderType::Bedrock);
     }
 
     #[tokio::test]
@@ -279,7 +279,7 @@ mod ai21_tests {
         let provider = BedrockProvider::new(&config);
 
         assert_eq!(provider.key(), "test_key");
-        assert_eq!(provider.r#type(), "bedrock");
+        assert_eq!(provider.r#type(), crate::types::ProviderType::Bedrock);
     }
 
     #[tokio::test]

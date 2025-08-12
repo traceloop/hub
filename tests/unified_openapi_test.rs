@@ -1,6 +1,8 @@
 use hub_lib::openapi::get_openapi_spec;
 use hub_lib::state::AppState;
-use hub_lib::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
+use hub_lib::types::{
+    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider, ProviderType,
+};
 use std::sync::Arc;
 
 #[test]
@@ -125,7 +127,7 @@ async fn test_router_creation_no_conflicts() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],

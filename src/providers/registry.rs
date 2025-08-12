@@ -7,6 +7,7 @@ use crate::providers::{
     anthropic::AnthropicProvider, azure::AzureProvider, bedrock::BedrockProvider,
     openai::OpenAIProvider, provider::Provider, vertexai::VertexAIProvider,
 };
+use crate::types::ProviderType;
 
 pub struct ProviderRegistry {
     providers: HashMap<String, Arc<dyn Provider>>,
@@ -17,13 +18,12 @@ impl ProviderRegistry {
         let mut providers = HashMap::new();
 
         for config in provider_configs {
-            let provider: Arc<dyn Provider> = match config.r#type.as_str() {
-                "openai" => Arc::new(OpenAIProvider::new(config)),
-                "anthropic" => Arc::new(AnthropicProvider::new(config)),
-                "azure" => Arc::new(AzureProvider::new(config)),
-                "bedrock" => Arc::new(BedrockProvider::new(config)),
-                "vertexai" => Arc::new(VertexAIProvider::new(config)),
-                _ => continue,
+            let provider: Arc<dyn Provider> = match config.r#type {
+                ProviderType::OpenAI => Arc::new(OpenAIProvider::new(config)),
+                ProviderType::Anthropic => Arc::new(AnthropicProvider::new(config)),
+                ProviderType::Azure => Arc::new(AzureProvider::new(config)),
+                ProviderType::Bedrock => Arc::new(BedrockProvider::new(config)),
+                ProviderType::VertexAI => Arc::new(VertexAIProvider::new(config)),
             };
             providers.insert(config.key.clone(), provider);
         }

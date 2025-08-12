@@ -9,6 +9,7 @@ use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::providers::provider::Provider;
+use crate::types::ProviderType;
 
 use crate::providers::anthropic::{
     AnthropicChatCompletionRequest, AnthropicChatCompletionResponse,
@@ -128,8 +129,8 @@ impl Provider for BedrockProvider {
         self.config.key.clone()
     }
 
-    fn r#type(&self) -> String {
-        "bedrock".to_string()
+    fn r#type(&self) -> ProviderType {
+        ProviderType::Bedrock
     }
 
     async fn chat_completions(

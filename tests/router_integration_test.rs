@@ -1,4 +1,6 @@
-use hub_lib::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
+use hub_lib::types::{
+    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider, ProviderType,
+};
 use hub_lib::{config, state::AppState};
 use std::sync::Arc;
 
@@ -22,7 +24,7 @@ async fn test_router_integration_flow() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -63,7 +65,7 @@ async fn test_router_integration_flow() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -95,7 +97,7 @@ async fn test_router_integration_flow() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -158,7 +160,7 @@ async fn test_concurrent_configuration_updates() {
         general: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "test-key".to_string(),
             params: Default::default(),
         }],
@@ -189,7 +191,7 @@ async fn test_concurrent_configuration_updates() {
                 general: None,
                 providers: vec![Provider {
                     key: format!("provider-{}", i),
-                    r#type: "openai".to_string(),
+                    r#type: ProviderType::OpenAI,
                     api_key: "test-key".to_string(),
                     params: Default::default(),
                 }],

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 use utoipa::ToSchema;
 
+pub use crate::types::ProviderType;
+
 /// Represents different ways to store and retrieve secrets
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
 #[serde(tag = "type")]
@@ -47,49 +49,6 @@ impl SecretObject {
     /// Create an environment variable reference
     pub fn environment(variable_name: String) -> Self {
         Self::Environment { variable_name }
-    }
-}
-
-/// Enum representing the type of LLM provider.
-#[derive(Serialize, Deserialize, Debug, ToSchema, Clone, Copy, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum ProviderType {
-    #[serde(rename = "azure")]
-    Azure,
-    #[serde(rename = "openai")]
-    OpenAI,
-    #[serde(rename = "anthropic")]
-    Anthropic,
-    #[serde(rename = "bedrock")]
-    Bedrock,
-    #[serde(rename = "vertexai")]
-    VertexAI,
-}
-
-impl std::fmt::Display for ProviderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ProviderType::Azure => write!(f, "azure"),
-            ProviderType::OpenAI => write!(f, "openai"),
-            ProviderType::Anthropic => write!(f, "anthropic"),
-            ProviderType::Bedrock => write!(f, "bedrock"),
-            ProviderType::VertexAI => write!(f, "vertexai"),
-        }
-    }
-}
-
-impl std::str::FromStr for ProviderType {
-    type Err = String; // Or a custom error type
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "azure" => Ok(ProviderType::Azure),
-            "openai" => Ok(ProviderType::OpenAI),
-            "anthropic" => Ok(ProviderType::Anthropic),
-            "bedrock" => Ok(ProviderType::Bedrock),
-            "vertexai" => Ok(ProviderType::VertexAI),
-            _ => Err(format!("Unknown provider type: {s}")),
-        }
     }
 }
 

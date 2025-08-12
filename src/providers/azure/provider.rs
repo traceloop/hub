@@ -10,6 +10,7 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
+use crate::types::ProviderType;
 use reqwest::Client;
 use tracing::info;
 
@@ -69,8 +70,8 @@ impl Provider for AzureProvider {
         self.config.key.clone()
     }
 
-    fn r#type(&self) -> String {
-        "azure".to_string()
+    fn r#type(&self) -> ProviderType {
+        ProviderType::Azure
     }
 
     async fn chat_completions(

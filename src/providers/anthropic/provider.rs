@@ -9,6 +9,7 @@ use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::{EmbeddingsRequest, EmbeddingsResponse};
 use crate::providers::provider::Provider;
+use crate::types::ProviderType;
 
 pub struct AnthropicProvider {
     api_key: String,
@@ -30,8 +31,8 @@ impl Provider for AnthropicProvider {
         self.config.key.clone()
     }
 
-    fn r#type(&self) -> String {
-        "anthropic".to_string()
+    fn r#type(&self) -> ProviderType {
+        ProviderType::Anthropic
     }
 
     async fn chat_completions(

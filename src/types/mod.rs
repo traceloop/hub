@@ -2,13 +2,7 @@ use serde::{Deserialize, Serialize};
 // use serde_json::Value as JsonValue; // Removed
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-// Uuid is no longer needed here if ee_id is removed
-// use uuid::Uuid;
-
-// Helper for defaulting boolean to true for serde
-// fn bool_true() -> bool { // Removed
-//     true
-// }
+use utoipa::ToSchema;
 
 fn default_trace_content_enabled() -> bool {
     true
@@ -22,10 +16,53 @@ fn default_log_level_core() -> String {
     "warning".to_string()
 }
 
+/// Enum representing the type of LLM provider.
+#[derive(Serialize, Deserialize, Debug, ToSchema, Clone, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderType {
+    #[serde(rename = "azure")]
+    Azure,
+    #[serde(rename = "openai")]
+    OpenAI,
+    #[serde(rename = "anthropic")]
+    Anthropic,
+    #[serde(rename = "bedrock")]
+    Bedrock,
+    #[serde(rename = "vertexai")]
+    VertexAI,
+}
+
+impl std::fmt::Display for ProviderType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProviderType::Azure => write!(f, "azure"),
+            ProviderType::OpenAI => write!(f, "openai"),
+            ProviderType::Anthropic => write!(f, "anthropic"),
+            ProviderType::Bedrock => write!(f, "bedrock"),
+            ProviderType::VertexAI => write!(f, "vertexai"),
+        }
+    }
+}
+
+impl std::str::FromStr for ProviderType {
+    type Err = String; // Or a custom error type
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "azure" => Ok(ProviderType::Azure),
+            "openai" => Ok(ProviderType::OpenAI),
+            "anthropic" => Ok(ProviderType::Anthropic),
+            "bedrock" => Ok(ProviderType::Bedrock),
+            "vertexai" => Ok(ProviderType::VertexAI),
+            _ => Err(format!("Unknown provider type: {s}")),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Provider {
     pub key: String,
-    pub r#type: String, // e.g., "openai", "azure"
+    pub r#type: ProviderType,
 
     #[serde(default = "no_api_key")]
     pub api_key: String,
@@ -133,12 +170,3 @@ pub struct GatewayConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pipelines: Vec<Pipeline>,
 }
-
-// Example of how ee DTOs could be transformed (conceptual, to be implemented in ee crate)
-/*
-impl From<ee_crate_dto::ProviderResponse> for SharedProviderConfig {
-    fn from(dto: ee_crate_dto::ProviderResponse) -> Self {
-        // ... transformation logic ...
-    }
-}
-*/

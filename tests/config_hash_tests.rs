@@ -1,5 +1,5 @@
 use hub_lib::config::hash::{calculate_config_hash, configs_are_equal};
-use hub_lib::types::{GatewayConfig, Provider};
+use hub_lib::types::{GatewayConfig, Provider, ProviderType};
 use std::collections::HashMap;
 
 #[test]
@@ -8,7 +8,7 @@ fn test_identical_configs_have_same_hash() {
         general: None,
         providers: vec![Provider {
             key: "test".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "key".to_string(),
             params: Default::default(),
         }],
@@ -31,7 +31,7 @@ fn test_different_configs_have_different_hashes() {
         general: None,
         providers: vec![Provider {
             key: "test1".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "key".to_string(),
             params: Default::default(),
         }],
@@ -43,7 +43,7 @@ fn test_different_configs_have_different_hashes() {
         general: None,
         providers: vec![Provider {
             key: "test2".to_string(), // Different key
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "key".to_string(),
             params: Default::default(),
         }],
@@ -72,7 +72,7 @@ fn test_params_order_independence() {
         general: None,
         providers: vec![Provider {
             key: "test".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "key".to_string(),
             params: params1,
         }],
@@ -84,7 +84,7 @@ fn test_params_order_independence() {
         general: None,
         providers: vec![Provider {
             key: "test".to_string(),
-            r#type: "openai".to_string(),
+            r#type: ProviderType::OpenAI,
             api_key: "key".to_string(),
             params: params2,
         }],

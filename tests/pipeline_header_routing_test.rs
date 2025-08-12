@@ -1,11 +1,13 @@
 use hub_lib::state::AppState;
-use hub_lib::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
+use hub_lib::types::{
+    GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider, ProviderType,
+};
 use std::sync::Arc;
 
 fn create_test_config_with_multiple_pipelines() -> GatewayConfig {
     let provider = Provider {
         key: "test-provider".to_string(),
-        r#type: "openai".to_string(),
+        r#type: ProviderType::OpenAI,
         api_key: "test-key".to_string(),
         params: Default::default(),
     };

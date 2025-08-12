@@ -8,6 +8,7 @@ use crate::models::embeddings::{
 use crate::models::streaming::ChatCompletionChunk;
 use crate::models::usage::EmbeddingUsage;
 use crate::providers::provider::Provider;
+use crate::types::ProviderType;
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use futures::StreamExt;
@@ -128,8 +129,8 @@ impl Provider for VertexAIProvider {
         self.config.key.clone()
     }
 
-    fn r#type(&self) -> String {
-        "vertexai".to_string()
+    fn r#type(&self) -> ProviderType {
+        ProviderType::VertexAI
     }
 
     async fn chat_completions(
