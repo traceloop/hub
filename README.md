@@ -375,7 +375,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## Support
 
-- 📖 [Documentation](https://docs.traceloop.com)
-- 💬 [Discord Community](https://discord.gg/traceloop)
+- 📖 [Documentation](https://traceloop.com/docs/hub)
+- 💬 [Slack Community](https://traceloop.com/slack)
 - 🐛 [Issue Tracker](https://github.com/traceloop/hub/issues)
 - 📧 [Email Support](mailto:support@traceloop.com)
