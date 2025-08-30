@@ -1,9 +1,48 @@
-# Traceloop Hub LLM Gateway
+<p align="center">
+<a href="https://www.traceloop.com/docs/hub#gh-light-mode-only">
+<img width="300" src="https://raw.githubusercontent.com/traceloop/hub/main/img/logo-light.png">
+</a>
+<a href="https://www.traceloop.com/docs/hub#gh-dark-mode-only">
+<img width="300" src="https://raw.githubusercontent.com/traceloop/hub/main/img/logo-dark.png">
+</a>
+</p>
+<p align="center">
+  <p align="center">Open-source, high-performance LLM gateway written in Rust. Connect to any LLM provider with a single API. Observability Included.</p>
+</p>
+<h4 align="center">
+    <a href="https://traceloop.com/docs/hub/getting-started"><strong>Get started »</strong></a>
+    <br />
+    <br />
+  <a href="https://traceloop.com/slack">Slack</a> |
+  <a href="https://traceloop.com/docs/hub">Docs</a>
+</h4>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Docker](https://img.shields.io/docker/v/traceloop/hub?label=Docker)](https://hub.docker.com/r/traceloop/hub)
+<h4 align="center">
+  <a href="https://github.com/traceloop/hub/releases">
+    <img src="https://img.shields.io/github/release/traceloop/hub">
+  </a>
+   <a href="https://github.com/traceloop/hub/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-Apache 2.0-blue.svg" alt="Traceloop Hub is released under the Apache-2.0 License">
+  </a>
+  <a href="https://github.com/traceloop/hub/actions/workflows/ci.yml">
+  <img src="https://github.com/traceloop/hub/actions/workflows/ci.yml/badge.svg">
+  </a>
+  <a href="https://github.com/traceloop/hub/issues">
+    <img src="https://img.shields.io/github/commit-activity/m/traceloop/hub" alt="git commit activity" />
+  </a>
+  <a href="https://www.ycombinator.com/companies/traceloop"><img src="https://img.shields.io/website?color=%23f26522&down_message=Y%20Combinator&label=Backed&logo=ycombinator&style=flat-square&up_message=Y%20Combinator&url=https%3A%2F%2Fwww.ycombinator.com"></a>
+  <a href="https://github.com/traceloop/hub/blob/main/CONTRIBUTING.md">
+    <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen" alt="PRs welcome!" />
+  </a>
+  <a href="https://traceloop.com/slack">
+    <img src="https://img.shields.io/badge/chat-on%20Slack-blueviolet" alt="Slack community channel" />
+  </a>
+  <a href="https://twitter.com/traceloopdev">
+    <img src="https://img.shields.io/badge/follow-%40traceloopdev-1DA1F2?logo=twitter&style=social" alt="Traceloop Twitter" />
+  </a>
+</h4>
 
-Traceloop Hub is a high-performance LLM gateway written in Rust that centralizes control and tracing of all LLM calls. It provides a unified OpenAI-compatible API for connecting to multiple LLM providers with observability built-in.
+Traceloop Hub is a next-gen high-performance LLM gateway written in Rust that centralizes control and tracing of all LLM calls. It provides a unified OpenAI-compatible API for connecting to multiple LLM providers with observability built-in.
 
 ## Features
 
