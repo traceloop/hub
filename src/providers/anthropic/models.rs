@@ -103,7 +103,6 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
                 _ => None,
             });
 
-       
         let messages: Vec<ChatCompletionMessage> = request
             .messages
             .into_iter()

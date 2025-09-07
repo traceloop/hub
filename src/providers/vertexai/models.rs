@@ -414,12 +414,9 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
                 // Handle Gemini thinking budget logic inline
                 r.max_tokens.map(|tokens| tokens as i32)
             })
-            .map(|budget| {
-                ThinkingConfig {
-                    thinking_budget: Some(budget),
-                }
+            .map(|budget| ThinkingConfig {
+                thinking_budget: Some(budget),
             });
-
 
         let generation_config = Some(GenerationConfig {
             temperature: req.temperature,
