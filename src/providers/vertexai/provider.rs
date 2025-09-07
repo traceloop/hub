@@ -145,27 +145,10 @@ impl Provider for VertexAIProvider {
 
         // Validate reasoning config if present
         if let Some(reasoning) = &payload.reasoning {
-            tracing::debug!("🧠 VertexAI processing reasoning config: {:?}", reasoning);
-
             if let Err(e) = reasoning.validate() {
-                tracing::error!("❌ VertexAI reasoning validation failed: {}", e);
+                tracing::error!("VertexAI reasoning validation failed: {}", e);
                 return Err(StatusCode::BAD_REQUEST);
             }
-
-            if let Some(thinking_budget) = reasoning.to_gemini_thinking_budget() {
-                tracing::info!(
-                    "✅ VertexAI reasoning enabled with thinking_budget: {} tokens",
-                    thinking_budget
-                );
-            } else {
-                tracing::debug!(
-                    "ℹ️ VertexAI reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
-                    reasoning.effort,
-                    reasoning.max_tokens
-                );
-            }
-        } else {
-            tracing::debug!("ℹ️ VertexAI no reasoning config provided");
         }
 
         let auth_token = self.get_auth_token().await?;

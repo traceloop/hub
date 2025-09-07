@@ -708,35 +708,99 @@ mod arn_tests {
 
     #[test]
     fn test_reasoning_config_to_thinking_prompt() {
-        // Test effort-based prompts
-        let high_effort_config = crate::models::chat::ReasoningConfig {
-            effort: Some("high".to_string()),
-            max_tokens: None,
-            exclude: None,
-        };
-        assert!(high_effort_config.to_thinking_prompt().is_some());
+        use crate::models::chat::ChatCompletionRequest;
+        use crate::models::content::ChatCompletionMessage;
+        use crate::providers::anthropic::AnthropicChatCompletionRequest;
 
-        let medium_effort_config = crate::models::chat::ReasoningConfig {
-            effort: Some("medium".to_string()),
+        // Test effort-based prompts by converting through AnthropicChatCompletionRequest
+        let high_effort_request = ChatCompletionRequest {
+            model: "test".to_string(),
+            messages: vec![ChatCompletionMessage {
+                role: "user".to_string(),
+                content: Some(crate::models::content::ChatMessageContent::String(
+                    "test".to_string(),
+                )),
+                name: None,
+                tool_calls: None,
+                refusal: None,
+            }],
+            reasoning: Some(crate::models::chat::ReasoningConfig {
+                effort: Some("high".to_string()),
+                max_tokens: None,
+                exclude: None,
+            }),
+            temperature: None,
+            top_p: None,
+            n: None,
+            stream: None,
+            stop: None,
             max_tokens: None,
-            exclude: None,
+            max_completion_tokens: None,
+            parallel_tool_calls: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            logit_bias: None,
+            tool_choice: None,
+            tools: None,
+            user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
         };
-        assert!(medium_effort_config.to_thinking_prompt().is_some());
 
-        let low_effort_config = crate::models::chat::ReasoningConfig {
-            effort: Some("low".to_string()),
-            max_tokens: None,
-            exclude: None,
-        };
-        assert!(low_effort_config.to_thinking_prompt().is_some());
+        let anthropic_request = AnthropicChatCompletionRequest::from(high_effort_request);
+        assert!(anthropic_request.system.is_some());
+        assert!(
+            anthropic_request
+                .system
+                .unwrap()
+                .contains("Think through this step-by-step")
+        );
 
         // Test max_tokens takes priority over effort
-        let max_tokens_config = crate::models::chat::ReasoningConfig {
-            effort: Some("high".to_string()),
-            max_tokens: Some(1000),
-            exclude: None,
+        let max_tokens_request = ChatCompletionRequest {
+            model: "test".to_string(),
+            messages: vec![ChatCompletionMessage {
+                role: "user".to_string(),
+                content: Some(crate::models::content::ChatMessageContent::String(
+                    "test".to_string(),
+                )),
+                name: None,
+                tool_calls: None,
+                refusal: None,
+            }],
+            reasoning: Some(crate::models::chat::ReasoningConfig {
+                effort: Some("high".to_string()),
+                max_tokens: Some(1000),
+                exclude: None,
+            }),
+            temperature: None,
+            top_p: None,
+            n: None,
+            stream: None,
+            stop: None,
+            max_tokens: None,
+            max_completion_tokens: None,
+            parallel_tool_calls: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            logit_bias: None,
+            tool_choice: None,
+            tools: None,
+            user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
         };
-        assert!(max_tokens_config.to_thinking_prompt().is_some());
+
+        let anthropic_request = AnthropicChatCompletionRequest::from(max_tokens_request);
+        assert!(anthropic_request.system.is_some());
+        assert!(
+            anthropic_request
+                .system
+                .unwrap()
+                .contains("Think through this step-by-step")
+        );
     }
 
     #[tokio::test]

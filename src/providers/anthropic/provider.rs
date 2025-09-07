@@ -46,7 +46,6 @@ impl Provider for AnthropicProvider {
                 tracing::error!("Invalid reasoning config: {}", e);
                 return Err(StatusCode::BAD_REQUEST);
             }
-
         }
 
         let request = AnthropicChatCompletionRequest::from(payload);

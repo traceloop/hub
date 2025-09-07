@@ -30,7 +30,8 @@ impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
                 None
             } else {
                 // Only return effort if it's not empty
-                reasoning.effort
+                reasoning
+                    .effort
                     .as_ref()
                     .filter(|e| !e.trim().is_empty())
                     .cloned()
