@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
-use tracing::info;
 
 use super::models::{AnthropicChatCompletionRequest, AnthropicChatCompletionResponse};
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};

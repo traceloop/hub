@@ -90,7 +90,7 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             ))
         );
 
-        let mut system = request
+        let system = request
             .messages
             .iter()
             .find(|msg| msg.role == "system")
