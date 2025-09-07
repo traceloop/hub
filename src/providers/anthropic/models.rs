@@ -103,34 +103,7 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
                 _ => None,
             });
 
-        // Add reasoning prompt if reasoning is requested
-        if let Some(reasoning_config) = &request.reasoning {
-            // Handle Anthropic reasoning logic inline
-            let thinking_prompt = if reasoning_config.max_tokens.is_some() {
-                // If max_tokens is specified, use a generic thinking prompt
-                Some("Think through this step-by-step with detailed reasoning.".to_string())
-            } else {
-                match reasoning_config.effort.as_deref() {
-                    Some(effort) if !effort.trim().is_empty() => match effort {
-                        "high" => Some(
-                            "Think through this step-by-step with detailed reasoning.".to_string(),
-                        ),
-                        "medium" => Some("Consider this problem thoughtfully.".to_string()),
-                        "low" => Some("Think about this briefly.".to_string()),
-                        _ => None,
-                    },
-                    _ => None,
-                }
-            };
-
-            if let Some(thinking_prompt) = thinking_prompt {
-                system = Some(match system {
-                    Some(existing) => format!("{}\n\n{}", existing, thinking_prompt),
-                    None => thinking_prompt,
-                });
-            }
-        }
-
+       
         let messages: Vec<ChatCompletionMessage> = request
             .messages
             .into_iter()
