@@ -452,16 +452,14 @@ impl From<ChatCompletionRequest> for GeminiChatRequest {
             _ => GeminiToolChoice::None,
         });
 
-        let result = Self {
+        Self {
             contents,
             generation_config,
             safety_settings: None,
             tools,
             tool_choice,
             system_instruction,
-        };
-
-        result
+        }
     }
 }
 
