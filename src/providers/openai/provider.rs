@@ -93,8 +93,7 @@ impl Provider for OpenAIProvider {
     ) -> Result<ChatCompletionResponse, StatusCode> {
         // Validate reasoning config if present
         if let Some(reasoning) = &payload.reasoning {
-            if let Err(e) = reasoning.validate() {
-                tracing::error!("Invalid reasoning config: {}", e);
+            if let Err(_e) = reasoning.validate() {
                 return Err(StatusCode::BAD_REQUEST);
             }
         }
