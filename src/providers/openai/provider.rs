@@ -33,11 +33,11 @@ impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
             Some(val) if val > 0 => Some(val),
             _ => base.max_tokens,
         };
-        
+
         // Remove both fields from base since we handle max_completion_tokens separately
         base.max_tokens = None;
         base.max_completion_tokens = None;
-        
+
         // Remove reasoning field from base request since OpenAI uses reasoning_effort
         base.reasoning = None;
 
@@ -97,7 +97,6 @@ impl Provider for OpenAIProvider {
         // Convert to OpenAI-specific request format
         let openai_request = OpenAIChatCompletionRequest::from(payload.clone());
 
-        
         let response = self
             .http_client
             .post(format!("{}/chat/completions", self.base_url()))
