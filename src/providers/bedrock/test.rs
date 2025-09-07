@@ -712,7 +712,7 @@ mod arn_tests {
         use crate::models::content::ChatCompletionMessage;
         use crate::providers::anthropic::AnthropicChatCompletionRequest;
 
-        // Test effort-based prompts by converting through AnthropicChatCompletionRequest
+        // Test that reasoning config no longer adds prompts to system message
         let high_effort_request = ChatCompletionRequest {
             model: "test".to_string(),
             messages: vec![ChatCompletionMessage {
@@ -749,65 +749,15 @@ mod arn_tests {
         };
 
         let anthropic_request = AnthropicChatCompletionRequest::from(high_effort_request);
-        assert!(anthropic_request.system.is_some());
-        assert!(
-            anthropic_request
-                .system
-                .unwrap()
-                .contains("Think through this step-by-step")
-        );
-
-        // Test max_tokens takes priority over effort
-        let max_tokens_request = ChatCompletionRequest {
-            model: "test".to_string(),
-            messages: vec![ChatCompletionMessage {
-                role: "user".to_string(),
-                content: Some(crate::models::content::ChatMessageContent::String(
-                    "test".to_string(),
-                )),
-                name: None,
-                tool_calls: None,
-                refusal: None,
-            }],
-            reasoning: Some(crate::models::chat::ReasoningConfig {
-                effort: Some("high".to_string()),
-                max_tokens: Some(1000),
-                exclude: None,
-            }),
-            temperature: None,
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            max_tokens: None,
-            max_completion_tokens: None,
-            parallel_tool_calls: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            tool_choice: None,
-            tools: None,
-            user: None,
-            logprobs: None,
-            top_logprobs: None,
-            response_format: None,
-        };
-
-        let anthropic_request = AnthropicChatCompletionRequest::from(max_tokens_request);
-        assert!(anthropic_request.system.is_some());
-        assert!(
-            anthropic_request
-                .system
-                .unwrap()
-                .contains("Think through this step-by-step")
-        );
+        // System should be None since no system message was provided and reasoning logic removed
+        assert!(anthropic_request.system.is_none());
     }
 
     #[tokio::test]
     async fn test_anthropic_reasoning_prompt_transformation() {
         use crate::providers::anthropic::AnthropicChatCompletionRequest;
 
-        // Test that reasoning config transforms into system prompt for Anthropic
+        // Test that reasoning config no longer transforms into system prompt for Anthropic
         let payload = ChatCompletionRequest {
             model: "anthropic.claude-3-5-sonnet-20241022-v2:0".to_string(),
             messages: vec![ChatCompletionMessage {
@@ -844,16 +794,10 @@ mod arn_tests {
         // Transform the request to Anthropic format
         let anthropic_request = AnthropicChatCompletionRequest::from(payload);
 
-        // Verify reasoning prompt is included in system message
+        // Verify reasoning prompt is no longer included in system message
         assert!(
-            anthropic_request.system.is_some(),
-            "System message should be present for reasoning"
-        );
-        let system_message = anthropic_request.system.unwrap();
-        assert!(
-            system_message.contains("Think through this step-by-step with detailed reasoning"),
-            "System message should contain reasoning prompt: {}",
-            system_message
+            anthropic_request.system.is_none(),
+            "System message should not be present since reasoning logic was removed"
         );
     }
 
@@ -908,20 +852,15 @@ mod arn_tests {
 
         let anthropic_request = AnthropicChatCompletionRequest::from(payload);
 
-        // Verify both original system message and reasoning prompt are present
+        // Verify original system message is preserved (reasoning logic removed)
         assert!(
             anthropic_request.system.is_some(),
             "System message should be present"
         );
         let system_message = anthropic_request.system.unwrap();
-        assert!(
-            system_message.contains("You are a helpful assistant"),
-            "Should preserve original system message: {}",
-            system_message
-        );
-        assert!(
-            system_message.contains("Consider this problem thoughtfully"),
-            "Should append reasoning prompt: {}",
+        assert_eq!(
+            system_message, "You are a helpful assistant.",
+            "Should only contain original system message: {}",
             system_message
         );
     }
