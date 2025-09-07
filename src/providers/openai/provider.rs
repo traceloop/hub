@@ -25,6 +25,16 @@ impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
     fn from(mut base: ChatCompletionRequest) -> Self {
         let reasoning_effort = base.reasoning.as_ref().and_then(|r| r.to_openai_effort());
 
+        // Handle max_completion_tokens logic - use max_completion_tokens if provided and > 0,
+        // otherwise fall back to max_tokens
+        base.max_completion_tokens = match (base.max_completion_tokens, base.max_tokens) {
+            (Some(v), _) if v > 0 => Some(v),
+            (_, Some(v)) if v > 0 => Some(v),
+            _ => None,
+        };
+
+        base.max_tokens = None;
+
         // Remove reasoning field from base request since OpenAI uses reasoning_effort
         base.reasoning = None;
 
