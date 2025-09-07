@@ -23,16 +23,24 @@ struct OpenAIChatCompletionRequest {
 
 impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
     fn from(mut base: ChatCompletionRequest) -> Self {
-        let reasoning_effort = base.reasoning.as_ref().and_then(|r| r.to_openai_effort());
+        // Handle OpenAI reasoning effort logic inline
+        let reasoning_effort = base.reasoning.as_ref().and_then(|reasoning| {
+            if reasoning.max_tokens.is_some() {
+                // If max_tokens is specified, don't use effort for OpenAI
+                None
+            } else {
+                // Only return effort if it's not empty
+                reasoning.effort
+                    .as_ref()
+                    .filter(|e| !e.trim().is_empty())
+                    .cloned()
+            }
+        });
 
-        // Handle max_completion_tokens logic - use max_completion_tokens if provided and > 0,
-        // otherwise fall back to max_tokens
-        base.max_completion_tokens = match (base.max_completion_tokens, base.max_tokens) {
-            (Some(v), _) if v > 0 => Some(v),
-            (_, Some(v)) if v > 0 => Some(v),
-            _ => None,
-        };
-
+        // Convert max_tokens to max_completion_tokens if present
+        if base.max_tokens.is_some() && base.max_completion_tokens.is_none() {
+            base.max_completion_tokens = base.max_tokens;
+        }
         base.max_tokens = None;
 
         // Remove reasoning field from base request since OpenAI uses reasoning_effort

@@ -47,24 +47,6 @@ impl Provider for AnthropicProvider {
                 return Err(StatusCode::BAD_REQUEST);
             }
 
-            if let Some(max_tokens) = reasoning.max_tokens {
-                info!(
-                    "✅ Anthropic reasoning enabled with max_tokens: {}",
-                    max_tokens
-                );
-            } else if let Some(thinking_prompt) = reasoning.to_thinking_prompt() {
-                info!(
-                    "✅ Anthropic reasoning enabled with effort level: {:?} -> prompt: \"{}\"",
-                    reasoning.effort,
-                    thinking_prompt.chars().take(50).collect::<String>() + "..."
-                );
-            } else {
-                tracing::debug!(
-                    "ℹ️ Anthropic reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
-                    reasoning.effort,
-                    reasoning.max_tokens
-                );
-            }
         }
 
         let request = AnthropicChatCompletionRequest::from(payload);
