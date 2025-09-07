@@ -19,8 +19,6 @@ struct OpenAIChatCompletionRequest {
     base: ChatCompletionRequest,
     #[serde(skip_serializing_if = "Option::is_none")]
     reasoning_effort: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    max_completion_tokens: Option<u32>,
 }
 
 impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
@@ -29,22 +27,19 @@ impl From<ChatCompletionRequest> for OpenAIChatCompletionRequest {
 
         // Handle max_completion_tokens logic - use max_completion_tokens if provided and > 0,
         // otherwise fall back to max_tokens
-        let max_completion_tokens = match base.max_completion_tokens {
+        base.max_completion_tokens = match base.max_completion_tokens {
             Some(val) if val > 0 => Some(val),
             _ => base.max_tokens,
         };
 
-        // Remove both fields from base since we handle max_completion_tokens separately
         base.max_tokens = None;
-        base.max_completion_tokens = None;
 
         // Remove reasoning field from base request since OpenAI uses reasoning_effort
         base.reasoning = None;
 
         Self {
             base,
-            reasoning_effort,
-            max_completion_tokens,
+            reasoning_effort
         }
     }
 }
