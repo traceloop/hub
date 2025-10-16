@@ -8,6 +8,7 @@ commitizen:
   - helm/Chart.yaml:version
   version_provider: commitizen
   version_scheme: semver
+  major_version_zero: true
   update_changelog_on_bump: true
   changelog_file: CHANGELOG.md
 
