@@ -1,0 +1,13 @@
+---
+commitizen:
+  name: cz_conventional_commits
+  tag_format: v$version
+  version: 0.7.2
+  version_files:
+  - Cargo.toml:^version
+  - helm/Chart.yaml:version
+  version_provider: commitizen
+  version_scheme: semver
+  update_changelog_on_bump: true
+  changelog_file: CHANGELOG.md
+
