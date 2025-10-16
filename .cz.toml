@@ -3,8 +3,9 @@ name = "cz_conventional_commits"
 tag_format = "v$version"
 major_version_zero = true
 update_changelog_on_bump = true
-version = "0.7.0"
+version = "0.7.2"
 version_files = [
-    "Cargo.toml:^version"
+    "Cargo.toml:^version",
+    "helm/Chart.yaml:^version"
 ]
 version_provider = "cargo"
