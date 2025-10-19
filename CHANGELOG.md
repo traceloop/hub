@@ -1,3 +1,11 @@
+## v0.7.3 (2025-10-19)
+
+### Fix
+
+- sync versions to 0.7.2 and migrate to .cz.yaml config (#70)
+- max_tokens change to max_completion_tokens (#68)
+- **tracing**: add vendor reporting for OTEL tracing (#64)
+
 ## v0.7.1 (2025-08-10)
 
 ### Fix
