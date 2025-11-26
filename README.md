@@ -121,6 +121,7 @@ hub/
 Perfect for simple deployments and development environments.
 
 **Features:**
+
 - Static configuration via `config.yaml`
 - No external dependencies
 - Simple provider and model setup
@@ -128,6 +129,7 @@ Perfect for simple deployments and development environments.
 - Single port (3000)
 
 **Example config.yaml:**
+
 ```yaml
 providers:
   - key: openai
@@ -152,6 +154,7 @@ pipelines:
 Ideal for production environments requiring dynamic configuration.
 
 **Features:**
+
 - PostgreSQL-backed configuration
 - REST Management API (`/api/v1/management/*`)
 - Hot reload without restarts
@@ -160,9 +163,11 @@ Ideal for production environments requiring dynamic configuration.
 - Dual ports (3000 for Gateway, 8080 for Management)
 
 **Setup:**
+
 1. Set up PostgreSQL database
 2. Run migrations: `sqlx migrate run`
 3. Set environment variables:
+
    ```bash
    HUB_MODE=database
    DATABASE_URL=postgresql://user:pass@host:5432/db
@@ -173,6 +178,7 @@ Ideal for production environments requiring dynamic configuration.
 ### Core LLM Gateway (Both Modes)
 
 **Port 3000:**
+
 - `POST /api/v1/chat/completions` - Chat completions
 - `POST /api/v1/completions` - Text completions  
 - `POST /api/v1/embeddings` - Text embeddings
@@ -183,6 +189,7 @@ Ideal for production environments requiring dynamic configuration.
 ### Management API (Database Mode Only)
 
 **Port 8080:**
+
 - `GET /health` - Management API health check
 - `GET|POST|PUT|DELETE /api/v1/management/providers` - Provider management
 - `GET|POST|PUT|DELETE /api/v1/management/model-definitions` - Model management
@@ -191,6 +198,7 @@ Ideal for production environments requiring dynamic configuration.
 ## Provider Configuration
 
 ### OpenAI
+
 ```yaml
 providers:
   - key: openai
@@ -202,6 +210,7 @@ providers:
 ```
 
 ### Anthropic
+
 ```yaml
 providers:
   - key: anthropic
@@ -210,6 +219,7 @@ providers:
 ```
 
 ### Azure OpenAI
+
 ```yaml
 providers:
   - key: azure
@@ -220,6 +230,7 @@ providers:
 ```
 
 ### AWS Bedrock
+
 ```yaml
 providers:
   - key: bedrock
@@ -229,6 +240,7 @@ providers:
 ```
 
 ### Google VertexAI
+
 ```yaml
 providers:
   - key: vertexai
@@ -254,6 +266,8 @@ helm install hub ./helm \
 ```
 
 ### Docker Compose
+
+[docker compose example](./example/docker)
 
 ```yaml
 version: '3.8'
@@ -301,11 +315,13 @@ services:
 ## Development
 
 ### Prerequisites
+
 - Rust 1.87+
 - PostgreSQL 12+ (for database mode)
 - `sqlx-cli` (for migrations)
 
 ### Commands
+
 ```bash
 # Build OSS version
 cargo build
@@ -327,6 +343,7 @@ HUB_MODE=database DATABASE_URL=postgresql://... cargo run
 ```
 
 ### Database Setup (for Database Mode)
+
 ```bash
 # Install sqlx-cli
 cargo install sqlx-cli --no-default-features --features postgres
@@ -366,6 +383,7 @@ The project follows a unified single-crate architecture:
 ### OpenTelemetry Tracing
 
 Configure in your pipeline:
+
 ```yaml
 pipelines:
   - name: traced-chat
@@ -381,6 +399,7 @@ pipelines:
 ### Prometheus Metrics
 
 Available at `/metrics`:
+
 - Request counts and latencies
 - Provider-specific metrics
 - Error rates
