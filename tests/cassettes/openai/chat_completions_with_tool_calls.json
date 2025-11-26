@@ -1,0 +1,75 @@
+[
+  {
+    "id": "chatcmpl-Cg68fIMqMf5Qv2SJOaiNPEXX12M6R",
+    "object": "chat.completion",
+    "created": 1764149409,
+    "model": "gpt-5.1-2025-11-13",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "id": "call_oBcS8WOj6AlNPeHT9Aqwc8Ky",
+              "function": {
+                "arguments": "{\"location\":\"San Francisco, CA\",\"unit\":\"fahrenheit\"}",
+                "name": "get_weather"
+              },
+              "type": "function"
+            }
+          ]
+        },
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 162,
+      "completion_tokens": 31,
+      "total_tokens": 193,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    },
+    "system_fingerprint": null
+  },
+  {
+    "id": "chatcmpl-Cg68gVKln7T9zAjDOsrJg7YRWaCzp",
+    "object": "chat.completion",
+    "created": 1764149410,
+    "model": "gpt-5.1-2025-11-13",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "It’s currently sunny in San Francisco with a temperature of about 65°F."
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 69,
+      "completion_tokens": 19,
+      "total_tokens": 88,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 0
+      }
+    },
+    "system_fingerprint": null
+  }
+]
