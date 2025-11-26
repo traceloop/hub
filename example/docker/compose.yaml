@@ -54,5 +54,3 @@ services:
     stdin_open: true
 
 volumes:
-  pgdata:
-    driver: local
