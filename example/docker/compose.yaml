@@ -1,3 +1,11 @@
+# Docker Compose configuration for local development with PostgreSQL
+# Services:
+#   - postgres: PostgreSQL database with health checks
+#   - hub-migrations: Runs database migrations before starting the application
+#   - hub-database: Main application in database mode
+#
+# Environment variables are loaded from .env (copy from env.template)
+
 services:
   hub-migrations:
     image: traceloop/hub-migrations

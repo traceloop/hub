@@ -1,5 +1,11 @@
 # How to run using docker compose
 
+## Setup
+
+1. Copy `env.template` to `.env`
+2. Customize the credentials and connection strings in `.env`
+3. Run with the env file:
+
 ## Daemon mode
 
 run:

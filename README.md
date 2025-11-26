@@ -267,7 +267,7 @@ helm install hub ./helm \
 
 ### Docker Compose
 
-[docker compose example](./example/docker)
+[docker compose example](./example/docker/README.md)
 
 ```yaml
 version: '3.8'
