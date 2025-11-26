@@ -548,6 +548,7 @@ impl GeminiChatResponse {
                             Some(tool_calls)
                         },
                         name: None,
+                        tool_call_id: None,
                         refusal: None,
                     },
                     finish_reason: candidate.finish_reason,
