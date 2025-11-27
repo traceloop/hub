@@ -33,7 +33,7 @@ services:
     restart: on-failure
 
   postgres:
-    image: postgres:15
+    image: postgres:17
     container_name: postgres_container
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
@@ -54,3 +54,5 @@ services:
     stdin_open: true
 
 volumes:
+  pgdata:
+    driver: local
