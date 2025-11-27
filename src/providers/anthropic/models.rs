@@ -202,6 +202,7 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
             } else {
                 Some(tool_calls)
             },
+            tool_call_id: None,
         }
     }
 }
