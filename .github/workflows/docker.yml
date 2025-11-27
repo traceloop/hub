@@ -7,19 +7,20 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
-    name: Publish Docker Images
-    runs-on: ubuntu-latest
+  build-images:
+    name: Build Docker Images
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm64' || 'ubuntu-latest' }}
     strategy:
       matrix:
-        include:
-          - variant: "hub"
+        variant:
+          - name: "hub"
             dockerfile: "Dockerfile"
             suffix: ""
-          - variant: "migrations"
+          - name: "migrations"
             dockerfile: "Dockerfile.db-based-migrations"
             suffix: "-migrations"
-    
+        platform: ["linux/amd64", "linux/arm64"]
+
     permissions:
       id-token: write
       contents: read
@@ -29,8 +30,61 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the GitHub Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract platform architecture
+        id: platform
+        run: |
+          ARCH=$(echo "${{ matrix.platform }}" | cut -d'/' -f2)
+          echo "arch=${ARCH}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image (${{ matrix.variant.name }} - ${{ matrix.platform }})
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.variant.dockerfile }}
+          push: true
+          platforms: ${{ matrix.platform }}
+          tags: |
+            ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-${{ steps.platform.outputs.arch }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  create-manifests:
+    name: Create Multi-Arch Manifests
+    runs-on: ubuntu-latest
+    needs: build-images
+    strategy:
+      matrix:
+        variant:
+          - name: "hub"
+            suffix: ""
+          - name: "migrations"
+            suffix: "-migrations"
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -52,27 +106,24 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ghcr.io/traceloop/hub${{ matrix.suffix }}
-            traceloop/hub${{ matrix.suffix }}
+            ghcr.io/traceloop/hub${{ matrix.variant.suffix }}
+            traceloop/hub${{ matrix.variant.suffix }}
           tags: |
             type=sha
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            
-      - name: Build and push Docker image (${{ matrix.variant }})
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.docker-metadata.outputs.tags }}
-          labels: ${{ steps.docker-metadata.outputs.labels }}
-          platforms: |
-            linux/amd64, linux/arm64
+
+      - name: Create and push multi-arch manifest (${{ matrix.variant.name }})
+        run: |
+          # Create multi-arch manifest from platform-specific images
+          docker buildx imagetools create \
+            $(echo "${{ steps.docker-metadata.outputs.tags }}" | tr '\n' ' ' | sed 's/ / --tag /g' | sed 's/^/--tag /') \
+            ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-amd64 \
+            ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-arm64
   deploy:
     name: Deploy to Traceloop
     runs-on: ubuntu-latest
-    needs: publish
+    needs: create-manifests
     steps:
       - name: Install Octopus CLI
         uses: OctopusDeploy/install-octopus-cli-action@v3
@@ -95,7 +146,7 @@ jobs:
   push-helm-chart:
     name: Push Helm Chart to Dockerhub
     runs-on: ubuntu-latest
-    needs: publish
+    needs: create-manifests
     permissions:
       contents: write
 
