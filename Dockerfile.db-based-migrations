@@ -7,9 +7,9 @@ FROM debian:bookworm-slim AS runtime
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
-    openssl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+  openssl \
+  ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy sqlx-cli from builder
 COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
@@ -18,7 +18,7 @@ COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 COPY migrations /migrations
 
 # Set working directory to migrations
-WORKDIR /migrations
+WORKDIR /
 
 # Default command runs migrations
 ENTRYPOINT ["sqlx", "migrate", "run"] 
