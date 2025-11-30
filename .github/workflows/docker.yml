@@ -54,6 +54,7 @@ jobs:
 
       - name: Build and push Docker image (${{ matrix.variant.name }} - ${{ matrix.platform }})
         uses: docker/build-push-action@v5
+        id: build
         with:
           context: .
           file: ${{ matrix.variant.dockerfile }}
@@ -65,6 +66,7 @@ jobs:
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Temp platform build
 
   create-manifests:
     name: Create Multi-Arch Manifests
@@ -117,27 +119,28 @@ jobs:
       - name: Create and push multi-arch manifests (${{ matrix.variant.name }})
         run: |
           # Create multi-arch manifests from platform-specific images
-          # Process tags and create separate manifests for each registry
-
           TAGS="${{ steps.docker-metadata.outputs.tags }}"
 
-          # Create ghcr.io manifest
-          GHCR_TAGS=$(echo "$TAGS" | grep "ghcr.io" | sed 's/^/--tag /' | tr '\n' ' ')
-          if [ -n "$GHCR_TAGS" ]; then
-            docker buildx imagetools create \
-              $GHCR_TAGS \
-              ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-amd64 \
-              ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-arm64
-          fi
+          # Process each tag and create manifest
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              echo "Creating manifest for: $tag"
 
-          # Create Docker Hub manifest
-          DOCKER_TAGS=$(echo "$TAGS" | grep -v "ghcr.io" | sed 's/^/--tag /' | tr '\n' ' ')
-          if [ -n "$DOCKER_TAGS" ]; then
-            docker buildx imagetools create \
-              $DOCKER_TAGS \
-              traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-amd64 \
-              traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-arm64
-          fi
+              # Determine registry prefix for platform images
+              if [[ "$tag" == ghcr.io/* ]]; then
+                PREFIX="ghcr.io/traceloop/hub${{ matrix.variant.suffix }}"
+              else
+                PREFIX="traceloop/hub${{ matrix.variant.suffix }}"
+              fi
+
+              # Create and push manifest
+              docker manifest create "$tag" \
+                "${PREFIX}:${{ github.sha }}-amd64" \
+                "${PREFIX}:${{ github.sha }}-arm64"
+
+              docker manifest push "$tag"
+            fi
+          done <<< "$TAGS"
   deploy:
     name: Deploy to Traceloop
     runs-on: ubuntu-latest
