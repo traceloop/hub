@@ -66,7 +66,6 @@ jobs:
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=Temp platform build
 
   create-manifests:
     name: Create Multi-Arch Manifests
