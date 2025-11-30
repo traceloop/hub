@@ -61,6 +61,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           tags: |
             ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-${{ steps.platform.outputs.arch }}
+            traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-${{ steps.platform.outputs.arch }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -113,13 +114,30 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      - name: Create and push multi-arch manifest (${{ matrix.variant.name }})
+      - name: Create and push multi-arch manifests (${{ matrix.variant.name }})
         run: |
-          # Create multi-arch manifest from platform-specific images
-          docker buildx imagetools create \
-            $(echo "${{ steps.docker-metadata.outputs.tags }}" | tr '\n' ' ' | sed 's/ / --tag /g' | sed 's/^/--tag /') \
-            ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-amd64 \
-            ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-arm64
+          # Create multi-arch manifests from platform-specific images
+          # Process tags and create separate manifests for each registry
+
+          TAGS="${{ steps.docker-metadata.outputs.tags }}"
+
+          # Create ghcr.io manifest
+          GHCR_TAGS=$(echo "$TAGS" | grep "ghcr.io" | sed 's/^/--tag /' | tr '\n' ' ')
+          if [ -n "$GHCR_TAGS" ]; then
+            docker buildx imagetools create \
+              $GHCR_TAGS \
+              ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-amd64 \
+              ghcr.io/traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-arm64
+          fi
+
+          # Create Docker Hub manifest
+          DOCKER_TAGS=$(echo "$TAGS" | grep -v "ghcr.io" | sed 's/^/--tag /' | tr '\n' ' ')
+          if [ -n "$DOCKER_TAGS" ]; then
+            docker buildx imagetools create \
+              $DOCKER_TAGS \
+              traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-amd64 \
+              traceloop/hub${{ matrix.variant.suffix }}:${{ github.sha }}-arm64
+          fi
   deploy:
     name: Deploy to Traceloop
     runs-on: ubuntu-latest
