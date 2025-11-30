@@ -9,7 +9,7 @@ on:
 jobs:
   build-images:
     name: Build Docker Images
-    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-22.04-arm' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'Linux-ARM64' || 'ubuntu-latest' }}
     strategy:
       matrix:
         variant:
