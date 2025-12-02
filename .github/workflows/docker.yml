@@ -158,12 +158,20 @@ jobs:
           OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
         run: octopus release create --project hub --version=sha-${GITHUB_SHA::7} --packageVersion=sha-${GITHUB_SHA::7} --no-prompt
 
-      - name: Deploy Octopus release
+      - name: Deploy Octopus release (Staging)
         env:
           OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
           OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
           OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
         run: octopus release deploy --project hub --version=sha-${GITHUB_SHA::7} --environment Staging --no-prompt
+      
+      - name: Deploy Octopus release (staging-new)
+        env:
+          OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
+          OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
+          OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
+        run: octopus release deploy --project hub --version=sha-${GITHUB_SHA::7} --environment staging-new --no-prompt
+
   push-helm-chart:
     name: Push Helm Chart to Dockerhub
     runs-on: ubuntu-latest
