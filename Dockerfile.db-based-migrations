@@ -1,7 +1,7 @@
 FROM rust:1.87-bookworm AS builder
 
 # Install sqlx-cli with version that's compatible with edition2021
-RUN cargo install sqlx-cli --version 0.8.6 --no-default-features --features postgres
+RUN cargo install sqlx-cli --version 0.8.6 --no-default-features --features postgres --locked
 
 FROM debian:bookworm-slim AS runtime
 
@@ -21,4 +21,4 @@ COPY migrations /migrations
 WORKDIR /migrations
 
 # Default command runs migrations
-ENTRYPOINT ["sqlx", "migrate", "run"] 
+ENTRYPOINT ["sqlx", "migrate", "run", "--source", "/migrations"] 
