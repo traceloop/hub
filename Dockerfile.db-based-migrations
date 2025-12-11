@@ -21,4 +21,4 @@ COPY migrations /migrations
 WORKDIR /migrations
 
 # Default command runs migrations
-ENTRYPOINT ["sqlx", "migrate", "run"] 
+ENTRYPOINT ["sqlx", "migrate", "run", "--source", "/migrations"] 
