@@ -111,6 +111,7 @@ impl From<TitanChatCompletionResponse> for ChatCompletion {
             )),
             name: None,
             tool_calls: None,
+            tool_call_id: None,
             refusal: None, //this is not returned titan as at 1/04/2025
         };
 
@@ -308,6 +309,7 @@ impl From<Ai21ChatCompletionResponse> for ChatCompletion {
                         content: Some(ChatMessageContent::String(choice.message.content)),
                         name: None,
                         tool_calls: None,
+                        tool_call_id: None,
                         refusal: None, //Ai21 does not return this as at 1/04/2025
                     },
                     finish_reason: Some(choice.finish_reason),
