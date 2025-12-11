@@ -31,3 +31,7 @@ memory-bank/
 # Environment variables
 .env
 service.json
+
+
+# Ignore postgres data for docker-compose
+example/docker/pgdata
