@@ -1,0 +1,58 @@
+# Docker Compose configuration for local development with PostgreSQL
+# Services:
+#   - postgres: PostgreSQL database with health checks
+#   - hub-migrations: Runs database migrations before starting the application
+#   - hub-database: Main application in database mode
+#
+# Environment variables are loaded from .env (copy from env.template)
+
+services:
+  hub-migrations:
+    image: traceloop/hub-migrations
+    working_dir: /
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  hub-database:
+    image: traceloop/hub
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    environment:
+      - HUB_MODE=database
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      hub-migrations:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  postgres:
+    image: postgres:17
+    container_name: postgres_container
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=${PGDATA}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+
+volumes:
+  pgdata:
+    driver: local
