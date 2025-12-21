@@ -54,28 +54,28 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          # Conditional image selection
-          image: "{{ if .Values.ee.enabled }}{{ .Values.ee.image.repository }}{{ else }}{{ .Values.image.repository }}{{ end }}:{{ .Values.image.tag | default .Chart.Version }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.Version }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           workingDir: /app
           env:
             - name: PORT
               value: {{ .Values.service.port | quote }}
-            {{- if .Values.ee.enabled }}
+            {{- if .Values.management.enabled }}
             - name: MANAGEMENT_PORT
               value: {{ .Values.service.managementPort | quote }}
-            # EE-specific environment variables
+            - name: HUB_MODE
+              value: "database"
             - name: DATABASE_URL
-              value: "postgresql://{{ .Values.ee.database.user }}:$(DB_PASSWORD)@{{ .Values.ee.database.host }}:{{ .Values.ee.database.port }}/{{ .Values.ee.database.name }}"
+              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.ee.database.existingSecret }}
-                  key: {{ .Values.ee.database.passwordKey }}
+                  name: {{ .Values.management.database.existingSecret }}
+                  key: {{ .Values.management.database.passwordKey }}
             - name: DB_POLL_INTERVAL_SECONDS
-              value: {{ .Values.ee.config.pollIntervalSeconds | quote }}
+              value: {{ .Values.management.config.pollIntervalSeconds | quote }}
             # Dynamic environment variables from arbitrary secrets
-            {{- range $envVar, $secretRef := .Values.ee.secrets }}
+            {{- range $envVar, $secretRef := .Values.management.secrets }}
             - name: {{ $envVar }}
               valueFrom:
                 secretKeyRef:
