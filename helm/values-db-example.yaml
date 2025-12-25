@@ -68,7 +68,7 @@ env: []
   # - name: DEBUG
   #   value: "true"
 
-# Configuration for the hub (OSS mode only - not used when management.enabled=true)
+# Configuration for the hub (not used when management.enabled=true)
 config:
   # Define providers that will be available in the hub
   providers:
@@ -96,7 +96,7 @@ secrets:
 # Management API configuration
 management:
   # Enable Management API features
-  enabled: false  # Default to OSS mode
+  enabled: false
 
   # PostgreSQL configuration for Management API mode
   database:
@@ -166,6 +166,15 @@ management:
 #     ANTHROPIC_API_KEY:
 #       secretName: "llm-providers"
 #       key: "anthropic_key"
+#     AWS_ACCESS_KEY_ID:
+#       secretName: "cloud-credentials"
+#       key: "aws_access_key"
+#     AWS_SECRET_ACCESS_KEY:
+#       secretName: "cloud-credentials"
+#       key: "aws_secret_key"
+#     AZURE_OPENAI_API_KEY:
+#       secretName: "azure-config"
+#       key: "api_key"
 #   migrations:
 #     image:
 #       repository: "docker.io/traceloop/hub-migrations"

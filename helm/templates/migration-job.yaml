@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "app.fullname" . }}-migrations-{{ .Values.management.migrations.image.tag | default .Chart.AppVersion | replace "." "-" }}
+  name: {{ include "app.fullname" . }}-migrations-{{ .Values.management.migrations.image.tag | default .Chart.Version | replace "." "-" }}
   labels:
     {{- include "app.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrations
@@ -20,7 +20,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrations
-          image: "{{ .Values.management.migrations.image.repository }}:{{ .Values.management.migrations.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.management.migrations.image.repository }}:{{ .Values.management.migrations.image.tag | default .Chart.Version }}"
           env:
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"

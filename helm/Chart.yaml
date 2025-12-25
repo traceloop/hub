@@ -3,4 +3,3 @@ name: helm-hub
 description: A Helm chart for Hub application
 type: application
 version: 0.7.2
-appVersion: "0.7.2"
