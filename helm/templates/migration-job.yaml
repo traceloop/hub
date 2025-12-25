@@ -22,6 +22,30 @@ spec:
         - name: migrations
           image: "{{ .Values.management.migrations.image.repository }}:{{ .Values.management.migrations.image.tag | default .Chart.Version }}"
           env:
+            {{- if .Values.management.database.configMapName }}
+            - name: POSTGRES_DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: POSTGRES_DATABASE_HOST
+            - name: POSTGRES_DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: POSTGRES_DATABASE_PORT
+            - name: POSTGRES_DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: POSTGRES_DATABASE_NAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.management.database.existingSecret }}
+                  key: {{ .Values.management.database.passwordKey | default "password" }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@$(POSTGRES_DATABASE_HOST):$(POSTGRES_DATABASE_PORT)/$(POSTGRES_DATABASE_NAME)?sslmode={{ .Values.management.database.sslMode }}"
+            {{- else }}
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
             - name: DB_PASSWORD
@@ -29,6 +53,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.management.database.existingSecret | default (printf "%s-db-secret" (include "app.fullname" .)) }}
                   key: {{ .Values.management.database.passwordKey | default "password" }}
+            {{- end }}
           resources:
             {{- toYaml .Values.management.migrations.resources | nindent 12 }}
   backoffLimit: 3
