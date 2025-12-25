@@ -22,12 +22,20 @@ jobs:
         id: version
         run: |
           VERSION=$(yq '.commitizen.version' .cz.yaml)
+          if [[ -z "$VERSION" ]]; then
+            echo "Error: Could not extract version from .cz.yaml"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Helm Chart Name
         id: chartName
         run: |
-          CHART_NAME=$(grep '^name:' helm/Chart.yaml | awk '{print $2}')
+          CHART_NAME=$(yq '.name' helm/Chart.yaml)
+          if [[ -z "$CHART_NAME" ]]; then
+            echo "Error: Could not extract chart name from helm/Chart.yaml"
+            exit 1
+          fi
           echo "chart_name=$CHART_NAME" >> $GITHUB_OUTPUT
 
   build-images:
