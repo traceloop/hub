@@ -2,13 +2,13 @@ name: Publish Docker Images
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   extract-version:
     name: Extract Version
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'bump:')
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
