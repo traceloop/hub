@@ -70,8 +70,8 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.management.database.existingSecret }}
-                  key: {{ .Values.management.database.passwordKey }}
+                  name: {{ .Values.management.database.existingSecret | default (printf "%s-db-secret" (include "app.fullname" .)) }}
+                  key: {{ .Values.management.database.passwordKey | default "password" }}
             - name: DB_POLL_INTERVAL_SECONDS
               value: {{ .Values.management.config.pollIntervalSeconds | quote }}
             # Dynamic environment variables from arbitrary secrets
