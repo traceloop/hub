@@ -113,7 +113,7 @@ jobs:
   create-manifests:
     name: Create Multi-Arch Manifests
     runs-on: ubuntu-latest
-    needs: build-images
+    needs: [extract-version, build-images]
     strategy:
       matrix:
         variant:
@@ -125,6 +125,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+
+    env:
+      VERSION: ${{ needs.extract-version.outputs.version }}
 
     steps:
       - name: Download digests
@@ -150,28 +153,23 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
-        id: docker-metadata
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ghcr.io/traceloop/hub${{ matrix.variant.suffix }}
-            traceloop/hub${{ matrix.variant.suffix }}
-          tags: |
-            type=sha
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Create and push multi-arch manifests (${{ matrix.variant.name }})
         working-directory: /tmp/digests
         run: |
-          # Get tags from metadata
-          TAGS="${{ steps.docker-metadata.outputs.tags }}"
+          GHCR_IMAGE="ghcr.io/traceloop/hub${{ matrix.variant.suffix }}"
+          DOCKERHUB_IMAGE="traceloop/hub${{ matrix.variant.suffix }}"
 
-          # Create manifest list using digests
           docker buildx imagetools create \
-            $(printf '%s\n' "$TAGS" | sed 's/^/--tag /' | tr '\n' ' ') \
-            $(printf 'ghcr.io/traceloop/hub${{ matrix.variant.suffix }}@sha256:%s ' *)
+            --tag "${GHCR_IMAGE}:${{ env.VERSION }}" \
+            --tag "${GHCR_IMAGE}:sha-${{ env.SHORT_SHA }}" \
+            --tag "${GHCR_IMAGE}:latest" \
+            --tag "${DOCKERHUB_IMAGE}:${{ env.VERSION }}" \
+            --tag "${DOCKERHUB_IMAGE}:sha-${{ env.SHORT_SHA }}" \
+            --tag "${DOCKERHUB_IMAGE}:latest" \
+            $(printf "${GHCR_IMAGE}@sha256:%s " *)
   deploy:
     name: Deploy to Traceloop
     runs-on: ubuntu-latest
