@@ -2,7 +2,7 @@
 commitizen:
   name: cz_conventional_commits
   tag_format: v$version
-  version: 0.7.2
+  version: 0.7.4
   version_files:
   - Cargo.toml:^version
   - helm/Chart.yaml:version

@@ -32,6 +32,7 @@ securityContext: {}
 service:
   type: ClusterIP
   port: 3100
+  managementPort: 8080
 
 # Kubernetes probe configuration
 probes:
@@ -67,12 +68,14 @@ env: []
   # - name: DEBUG
   #   value: "true"
 
-# Configuration for the hub
+# Configuration for the hub (not used when management.enabled=true)
 config:
   # Define providers that will be available in the hub
   providers:
     - key: openai
       # Configuration for the OpenAI provider
+  models: []
+  pipelines: []
 
 # Secret management configuration
 secrets:
@@ -90,30 +93,26 @@ secrets:
     # traceloopApiKey: "TRACELOOP_API_KEY"
     # Add mappings for any other provider API keys as needed
 
-# Enterprise Edition configuration
-ee:
-  # Enable Enterprise Edition features
-  enabled: false  # Default to OSS mode
-  
-  # PostgreSQL configuration for EE mode
+# Management API configuration
+management:
+  # Enable Management API features
+  enabled: false
+
+  # PostgreSQL configuration for Management API mode
   database:
     host: "postgres"
     port: 5432
     name: "hub_gateway"
     user: "hub_user"
+    sslMode: "require"
     # Password will come from existing secret
     existingSecret: "hub-postgres-secret"
     passwordKey: "password"
-    
-  # EE-specific settings
+
+  # Management API-specific settings
   config:
     pollIntervalSeconds: 30
-    
-  # Image override for EE
-  image:
-    repository: "docker.io/traceloop/hub-ee"
-    # tag will default to chart version
-    
+
   # Arbitrary environment variables from secrets
   # Map environment variable names to secret references
   secrets: {}
@@ -130,11 +129,11 @@ ee:
     # CUSTOM_CONFIG_VAR:
     #   secretName: "app-config"
     #   key: "custom_setting"
-    
+
   # Migration job configuration
   migrations:
     image:
-      repository: "docker.io/traceloop/hub-ee-migrations"
+      repository: "docker.io/traceloop/hub-migrations"
       # tag will default to chart version
     resources:
       limits:
@@ -146,14 +145,15 @@ ee:
     backoffLimit: 3
     activeDeadlineSeconds: 300  # 5 minutes timeout
 
-# Example EE configuration (commented out)
-# ee:
+# Example Management API configuration (commented out)
+# management:
 #   enabled: true
 #   database:
 #     host: "my-postgres.example.com"
 #     port: 5432
 #     name: "hub_gateway"
 #     user: "hub_user"
+#     sslMode: "require"
 #     existingSecret: "hub-postgres-secret"
 #     passwordKey: "password"
 #   config:
@@ -164,7 +164,7 @@ ee:
 #       secretName: "llm-providers"
 #       key: "openai_key"
 #     ANTHROPIC_API_KEY:
-#       secretName: "llm-providers"  
+#       secretName: "llm-providers"
 #       key: "anthropic_key"
 #     AWS_ACCESS_KEY_ID:
 #       secretName: "cloud-credentials"
@@ -177,7 +177,7 @@ ee:
 #       key: "api_key"
 #   migrations:
 #     image:
-#       repository: "docker.io/traceloop/hub-ee-migrations"
+#       repository: "docker.io/traceloop/hub-migrations"
 #       # tag: "1.0.0"  # Defaults to chart version
 #     resources:
 #       limits:

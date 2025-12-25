@@ -32,7 +32,7 @@ securityContext: {}
 service:
   type: ClusterIP
   port: 3100
-  # Management API port (only used when ee.enabled is true)
+  # Management API port (only used when management.enabled is true)
   managementPort: 8080
 
 # Kubernetes probe configuration
@@ -69,12 +69,27 @@ env: []
   # - name: DEBUG
   #   value: "true"
 
-# Configuration for the hub
+# Configuration for the hub (OSS mode only - not used when management.enabled=true)
 config:
   # Define providers that will be available in the hub
   providers:
     - key: openai
       # Configuration for the OpenAI provider
+  # Define models available in the hub
+  models: []
+    # Example:
+    # - key: gpt-4o
+    #   type: gpt-4o
+    #   provider: openai
+  # Define pipelines for routing
+  pipelines: []
+    # Example:
+    # - name: default
+    #   type: chat
+    #   plugins:
+    #     - model-router:
+    #         models:
+    #           - gpt-4o
 
 # Secret management configuration
 secrets:
@@ -103,6 +118,7 @@ management:
     port: 5432
     name: "hub_gateway"
     user: "hub_user"
+    sslMode: "require"
     # Password will come from existing secret
     existingSecret: "hub-postgres-secret"
     passwordKey: "password"
