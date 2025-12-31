@@ -46,13 +46,13 @@ spec:
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@$(POSTGRES_DATABASE_HOST):$(POSTGRES_DATABASE_PORT)/$(POSTGRES_DATABASE_NAME)?sslmode={{ .Values.management.database.sslMode }}"
             {{- else }}
-            - name: DATABASE_URL
-              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.management.database.existingSecret | default (printf "%s-db-secret" (include "app.fullname" .)) }}
                   key: {{ .Values.management.database.passwordKey | default "password" }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
             {{- end }}
           resources:
             {{- toYaml .Values.management.migrations.resources | nindent 12 }}
