@@ -1,6 +1,6 @@
 [package]
 name = "hub"
-version = "0.7.5"
+version = "0.7.6"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -51,7 +51,7 @@ tower-http = { version = "0.6.2", features = ["trace"] }
 uuid = { version = "1.16.0", features = ["v4", "serde"] }
 
 # Database dependencies - always available now
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "macros", "chrono", "uuid", "json", "migrate"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "macros", "chrono", "uuid", "json", "migrate", "native-tls"] }
 
 # OpenAPI documentation dependencies
 utoipa = { version = "5.0.0", features = ["axum_extras", "chrono", "uuid", "openapi_extensions"] }
