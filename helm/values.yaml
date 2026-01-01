@@ -69,7 +69,7 @@ env: []
   # - name: DEBUG
   #   value: "true"
 
-# Configuration for the hub (OSS mode only - not used when management.enabled=true)
+# Configuration for the hub (config mode only - not used when management.enabled=true)
 config:
   # Define providers that will be available in the hub
   providers:
