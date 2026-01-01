@@ -70,33 +70,32 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.management.database.configMapName }}
-                  key: POSTGRES_DATABASE_HOST
+                  key: {{ .Values.management.database.configMapKeys.host }}
             - name: POSTGRES_DATABASE_PORT
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.management.database.configMapName }}
-                  key: POSTGRES_DATABASE_PORT
+                  key: {{ .Values.management.database.configMapKeys.port }}
             - name: POSTGRES_DATABASE_NAME
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.management.database.configMapName }}
-                  key: POSTGRES_DATABASE_NAME
+                  key: {{ .Values.management.database.configMapKeys.name }}
+            {{- else }}
+            - name: POSTGRES_DATABASE_HOST
+              value: {{ .Values.management.database.host | quote }}
+            - name: POSTGRES_DATABASE_PORT
+              value: {{ .Values.management.database.port | quote }}
+            - name: POSTGRES_DATABASE_NAME
+              value: {{ .Values.management.database.name | quote }}
+            {{- end }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.management.database.existingSecret }}
-                  key: {{ .Values.management.database.passwordKey | default "password" }}
+                  key: {{ .Values.management.database.passwordKey }}
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@$(POSTGRES_DATABASE_HOST):$(POSTGRES_DATABASE_PORT)/$(POSTGRES_DATABASE_NAME)?sslmode={{ .Values.management.database.sslMode }}"
-            {{- else }}
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.management.database.existingSecret | default (printf "%s-db-secret" (include "app.fullname" .)) }}
-                  key: {{ .Values.management.database.passwordKey | default "password" }}
-            - name: DATABASE_URL
-              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
-            {{- end }}
             - name: DB_POLL_INTERVAL_SECONDS
               value: {{ .Values.management.config.pollIntervalSeconds | quote }}
             # Dynamic environment variables from arbitrary secrets

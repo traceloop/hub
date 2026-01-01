@@ -109,17 +109,18 @@ secrets:
 
 # Management API configuration
 management:
-  # Enable Management API features
-  enabled: false  # Default to OSS mode
-  
-  # PostgreSQL configuration for Management API mode
+  enabled: false
   database:
     host: "postgres"
     port: 5432
     name: "hub_gateway"
     user: "hub_user"
     sslMode: "require"
-    # Password will come from existing secret
+    configMapName: ""
+    configMapKeys:
+      host: "postgresHost"
+      port: "postgresPort"
+      name: "postgresDatabase"
     existingSecret: "hub-postgres-secret"
     passwordKey: "password"
     
