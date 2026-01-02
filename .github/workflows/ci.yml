@@ -16,6 +16,14 @@ jobs:
     name: "build"
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Cache dependencies
+        uses: swatinem/rust-cache@v2
+      - name: Security Audit
+        uses: actions-rust-lang/audit@v1
       - name: Check formatting
         run: cargo fmt --check
       - name: Check clippy

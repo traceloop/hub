@@ -11,7 +11,7 @@ use axum::http::StatusCode;
 use reqwest::Client;
 use reqwest_streams::*;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::error;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct OpenAIChatCompletionRequest {
@@ -101,7 +101,7 @@ impl Provider for OpenAIProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("OpenAI API request error: {e}");
+                error!("OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
@@ -117,12 +117,12 @@ impl Provider for OpenAIProvider {
                     .await
                     .map(ChatCompletionResponse::NonStream)
                     .map_err(|e| {
-                        eprintln!("OpenAI API response error: {e}");
+                        error!("OpenAI API response error: {e}");
                         StatusCode::INTERNAL_SERVER_ERROR
                     })
             }
         } else {
-            info!(
+            error!(
                 "OpenAI API request error: {}",
                 response.text().await.unwrap()
             );
@@ -143,18 +143,18 @@ impl Provider for OpenAIProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("OpenAI API request error: {e}");
+                error!("OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
         if status.is_success() {
             response.json().await.map_err(|e| {
-                eprintln!("OpenAI API response error: {e}");
+                error!("OpenAI API response error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })
         } else {
-            eprintln!(
+            error!(
                 "OpenAI API request error: {}",
                 response.text().await.unwrap()
             );
@@ -175,18 +175,18 @@ impl Provider for OpenAIProvider {
             .send()
             .await
             .map_err(|e| {
-                eprintln!("OpenAI API request error: {e}");
+                error!("OpenAI API request error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
 
         let status = response.status();
         if status.is_success() {
             response.json().await.map_err(|e| {
-                eprintln!("OpenAI API response error: {e}");
+                error!("OpenAI API response error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })
         } else {
-            eprintln!(
+            error!(
                 "OpenAI API request error: {}",
                 response.text().await.unwrap()
             );
