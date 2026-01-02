@@ -1,3 +1,15 @@
+## v0.7.2-dev
+
+### Ci
+
+- add security audit step
+- enable dependency caching
+- use dtolnay/rust-toolchain for stable environment
+
+### Fix
+
+- **providers**: migrate openai to structured logging
+
 ## v0.7.1 (2025-08-10)
 
 ### Fix
