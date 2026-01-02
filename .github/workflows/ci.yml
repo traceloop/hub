@@ -22,8 +22,8 @@ jobs:
           components: clippy, rustfmt
       - name: Cache dependencies
         uses: swatinem/rust-cache@v2
-      - name: Install cargo-audit
-        uses: config-inspector/cargo-audit-action@main
+      - name: Security Audit
+        uses: actions-rust-lang/audit@v1
       - name: Check formatting
         run: cargo fmt --check
       - name: Check clippy
