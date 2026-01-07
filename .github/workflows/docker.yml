@@ -253,3 +253,4 @@ jobs:
       - name: Push Helm Chart
         run: |
           helm push "${{ steps.chartName.outputs.chart_name }}-${{ steps.chartVersion.outputs.chart_version }}.tgz" oci://registry-1.docker.io/traceloop
+          
