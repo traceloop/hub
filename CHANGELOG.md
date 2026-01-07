@@ -1,3 +1,15 @@
+## v0.7.4 (2026-01-07)
+
+### Fix
+
+- **czn**: manual bump (#82)
+- **helm**: deployment using helm chart (#80)
+- **ci**: lock version (#75)
+- **openai**: add tool_call_id request param (#73)
+- sync versions to 0.7.2 and migrate to .cz.yaml config (#70)
+- max_tokens change to max_completion_tokens (#68)
+- **tracing**: add vendor reporting for OTEL tracing (#64)
+
 ## v0.7.1 (2025-08-10)
 
 ### Fix
