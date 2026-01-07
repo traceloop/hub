@@ -49,13 +49,22 @@ spec:
               {{- else }}
               value: {{ .Values.management.database.name | quote }}
               {{- end }}
+            - name: POSTGRES_DATABASE_USER
+              {{- if .Values.management.database.configMapName }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: {{ .Values.management.database.configMapKeys.user }}
+              {{- else }}
+              value: {{ .Values.management.database.user | quote }}
+              {{- end }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.management.database.existingSecret }}
                   key: {{ .Values.management.database.passwordKey }}
             - name: DATABASE_URL
-              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@$(POSTGRES_DATABASE_HOST):$(POSTGRES_DATABASE_PORT)/$(POSTGRES_DATABASE_NAME)?sslmode={{ .Values.management.database.sslMode }}"
+              value: "postgresql://$(POSTGRES_DATABASE_USER):$(DB_PASSWORD)@$(POSTGRES_DATABASE_HOST):$(POSTGRES_DATABASE_PORT)/$(POSTGRES_DATABASE_NAME)?sslmode={{ .Values.management.database.sslMode }}"
           resources:
             {{- toYaml .Values.management.migrations.resources | nindent 12 }}
   backoffLimit: 3

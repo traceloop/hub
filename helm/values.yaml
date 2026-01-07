@@ -121,6 +121,7 @@ management:
       host: "postgresHost"
       port: "postgresPort"
       name: "postgresDatabase"
+      user: "postgresUser"
     existingSecret: "hub-postgres-secret"
     passwordKey: "password"
     
