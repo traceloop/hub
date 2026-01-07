@@ -2,9 +2,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "hub.fullname" . }}-migrations-{{ .Values.migrations.image.tag | default .Chart.AppVersion | replace "." "-" }}
+  name: {{ include "app.fullname" . }}-migrations-{{ .Values.management.migrations.image.tag | default .Chart.Version | replace "." "-" }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "app.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrations
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
@@ -14,21 +14,57 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "hub.selectorLabels" . | nindent 8 }}
+        {{- include "app.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: migrations
     spec:
       restartPolicy: Never
       containers:
         - name: migrations
-          image: "{{ .Values.management.migrations.image.repository }}{{ .Values.management.migrations.image.suffix }}:{{ .Values.management.migrations.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.management.migrations.image.repository }}:{{ .Values.management.migrations.image.tag | default .Chart.Version }}"
           env:
-            - name: DATABASE_URL
-              value: "postgresql://{{ .Values.management.database.user }}:$(DB_PASSWORD)@{{ .Values.management.database.host }}:{{ .Values.management.database.port }}/{{ .Values.management.database.name }}?sslmode={{ .Values.management.database.sslMode }}"
+            - name: POSTGRES_DATABASE_HOST
+              {{- if .Values.management.database.configMapName }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: {{ .Values.management.database.configMapKeys.host }}
+              {{- else }}
+              value: {{ .Values.management.database.host | quote }}
+              {{- end }}
+            - name: POSTGRES_DATABASE_PORT
+              {{- if .Values.management.database.configMapName }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: {{ .Values.management.database.configMapKeys.port }}
+              {{- else }}
+              value: {{ .Values.management.database.port | quote }}
+              {{- end }}
+            - name: POSTGRES_DATABASE_NAME
+              {{- if .Values.management.database.configMapName }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: {{ .Values.management.database.configMapKeys.name }}
+              {{- else }}
+              value: {{ .Values.management.database.name | quote }}
+              {{- end }}
+            - name: POSTGRES_DATABASE_USER
+              {{- if .Values.management.database.configMapName }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.management.database.configMapName }}
+                  key: {{ .Values.management.database.configMapKeys.user }}
+              {{- else }}
+              value: {{ .Values.management.database.user | quote }}
+              {{- end }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.management.database.existingSecret | default (printf "%s-db-secret" (include "hub.fullname" .)) }}
-                  key: password
+                  name: {{ .Values.management.database.existingSecret }}
+                  key: {{ .Values.management.database.passwordKey }}
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_DATABASE_USER):$(DB_PASSWORD)@$(POSTGRES_DATABASE_HOST):$(POSTGRES_DATABASE_PORT)/$(POSTGRES_DATABASE_NAME)?sslmode={{ .Values.management.database.sslMode }}"
           resources:
             {{- toYaml .Values.management.migrations.resources | nindent 12 }}
   backoffLimit: 3
