@@ -60,35 +60,42 @@ spec:
           env:
             - name: PORT
               value: {{ .Values.service.port | quote }}
+            - name: HUB_MODE
+              {{- if .Values.management.enabled }}
+              value: "database"
+              {{- else }}
+              value: "config"
+              {{- end }}
             {{- if .Values.management.enabled }}
             - name: MANAGEMENT_PORT
               value: {{ .Values.service.managementPort | quote }}
-            - name: HUB_MODE
-              value: "database"
-            {{- if .Values.management.database.configMapName }}
             - name: POSTGRES_DATABASE_HOST
+              {{- if .Values.management.database.configMapName }}
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.management.database.configMapName }}
                   key: {{ .Values.management.database.configMapKeys.host }}
+              {{- else }}
+              value: {{ .Values.management.database.host | quote }}
+              {{- end }}
             - name: POSTGRES_DATABASE_PORT
+              {{- if .Values.management.database.configMapName }}
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.management.database.configMapName }}
                   key: {{ .Values.management.database.configMapKeys.port }}
+              {{- else }}
+              value: {{ .Values.management.database.port | quote }}
+              {{- end }}
             - name: POSTGRES_DATABASE_NAME
+              {{- if .Values.management.database.configMapName }}
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.management.database.configMapName }}
                   key: {{ .Values.management.database.configMapKeys.name }}
-            {{- else }}
-            - name: POSTGRES_DATABASE_HOST
-              value: {{ .Values.management.database.host | quote }}
-            - name: POSTGRES_DATABASE_PORT
-              value: {{ .Values.management.database.port | quote }}
-            - name: POSTGRES_DATABASE_NAME
+              {{- else }}
               value: {{ .Values.management.database.name | quote }}
-            {{- end }}
+              {{- end }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
