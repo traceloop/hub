@@ -227,27 +227,18 @@ jobs:
   push-helm-chart:
     name: Push Helm Chart to Dockerhub
     runs-on: ubuntu-latest
-    needs: create-manifests
+    needs: [create-manifests, extract-version]  # ADD extract-version
     permissions:
       contents: write
+
+    env:  # ADD this section
+      VERSION: ${{ needs.extract-version.outputs.version }}
+      IS_RC: ${{ needs.extract-version.outputs.is_rc }}
+      CHART_NAME: ${{ needs.extract-version.outputs.chart_name }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Get Chart Version
-        id: chartVersion
-        run: |
-          CHART_VERSION=$(grep '^version:' helm/Chart.yaml |  awk '{print $2}')
-          echo "CHART_VERSION=$CHART_VERSION"
-          echo "chart_version=$CHART_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Get Chart Name
-        id: chartName
-        run: |
-          CHART_NAME=$(grep '^name:' helm/Chart.yaml |  awk '{print $2}')
-          echo "CHART_NAME=$CHART_NAME"
-          echo "chart_name=$CHART_NAME" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Hub as OCI registry
         run: |
@@ -255,11 +246,15 @@ jobs:
             --username "${{ secrets.DOCKERHUB_USERNAME }}" \
             --password-stdin
 
+      - name: Patch version in Chart.yaml if release candidate  # ADD this
+        if: ${{ env.IS_RC == 'true' }}
+        run: |
+          yq e -i '.version = "${{ env.VERSION }}"' helm/Chart.yaml
+
       - name: Package Helm chart
         run: |
           helm package helm/
 
       - name: Push Helm Chart
         run: |
-          helm push "${{ steps.chartName.outputs.chart_name }}-${{ steps.chartVersion.outputs.chart_version }}.tgz" oci://registry-1.docker.io/traceloop
-          
+          helm push "${{ env.CHART_NAME }}-${{ env.VERSION }}.tgz" oci://registry-1.docker.io/traceloop
