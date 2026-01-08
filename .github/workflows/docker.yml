@@ -11,6 +11,10 @@ on:
         required: false
         default: ""
 
+env:
+  GOPRIVATE: github.com/traceloop
+  APP_NAME: hub
+
 jobs:
   build-images:
     name: Build Docker Images
