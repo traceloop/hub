@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      rc:
+        description: "Optional release-candidate suffix (e.g. rc.1, beta)"
+        required: false
+        default: ""
 
 jobs:
   build-images:
