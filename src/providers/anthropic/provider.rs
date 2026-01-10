@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use reqwest::Client;
-use tracing::info;
 
 use super::models::{AnthropicChatCompletionRequest, AnthropicChatCompletionResponse};
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -42,28 +41,8 @@ impl Provider for AnthropicProvider {
     ) -> Result<ChatCompletionResponse, StatusCode> {
         // Validate reasoning config if present
         if let Some(reasoning) = &payload.reasoning {
-            if let Err(e) = reasoning.validate() {
-                tracing::error!("Invalid reasoning config: {}", e);
+            if let Err(_e) = reasoning.validate() {
                 return Err(StatusCode::BAD_REQUEST);
-            }
-
-            if let Some(max_tokens) = reasoning.max_tokens {
-                info!(
-                    "✅ Anthropic reasoning enabled with max_tokens: {}",
-                    max_tokens
-                );
-            } else if let Some(thinking_prompt) = reasoning.to_thinking_prompt() {
-                info!(
-                    "✅ Anthropic reasoning enabled with effort level: {:?} -> prompt: \"{}\"",
-                    reasoning.effort,
-                    thinking_prompt.chars().take(50).collect::<String>() + "..."
-                );
-            } else {
-                tracing::debug!(
-                    "ℹ️ Anthropic reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
-                    reasoning.effort,
-                    reasoning.max_tokens
-                );
             }
         }
 

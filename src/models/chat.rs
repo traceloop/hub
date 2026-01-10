@@ -43,45 +43,6 @@ impl ReasoningConfig {
 
         Ok(())
     }
-
-    // For OpenAI/Azure - Direct passthrough (but prioritize max_tokens over effort)
-    pub fn to_openai_effort(&self) -> Option<String> {
-        if self.max_tokens.is_some() {
-            // If max_tokens is specified, don't use effort for OpenAI
-            None
-        } else {
-            // Only return effort if it's not empty
-            self.effort
-                .as_ref()
-                .filter(|e| !e.trim().is_empty())
-                .cloned()
-        }
-    }
-
-    // For Vertex AI (Gemini) - Use max_tokens directly
-    pub fn to_gemini_thinking_budget(&self) -> Option<i32> {
-        self.max_tokens.map(|tokens| tokens as i32)
-    }
-
-    // For Anthropic/Bedrock - Custom prompt generation (prioritize max_tokens over effort)
-    pub fn to_thinking_prompt(&self) -> Option<String> {
-        if self.max_tokens.is_some() {
-            // If max_tokens is specified, use a generic thinking prompt
-            Some("Think through this step-by-step with detailed reasoning.".to_string())
-        } else {
-            match self.effort.as_deref() {
-                Some(effort) if !effort.trim().is_empty() => match effort {
-                    "high" => {
-                        Some("Think through this step-by-step with detailed reasoning.".to_string())
-                    }
-                    "medium" => Some("Consider this problem thoughtfully.".to_string()),
-                    "low" => Some("Think about this briefly.".to_string()),
-                    _ => None,
-                },
-                _ => None,
-            }
-        }
-    }
 }
 
 #[derive(Deserialize, Serialize, Clone, ToSchema)]
