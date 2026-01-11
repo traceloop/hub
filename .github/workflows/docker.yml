@@ -204,25 +204,33 @@ jobs:
       - name: Install Octopus CLI
         uses: OctopusDeploy/install-octopus-cli-action@v3
         with:
-          version: "*"
+          version: latest
 
-      - name: Create Octopus Release
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Octopus release
         env:
           OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
           OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
           OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
-        run: octopus release create --project ${{ env.APP_NAME }} \
-          --version="${{ env.VERSION }}" \
-          --packageVersion="${{ env.VERSION }}" \
-          --package="${{ env.CHART_NAME }}:${{ env.VERSION }}" \
-          --no-prompt
-      
+        run: |
+          octopus release create --project ${{ env.APP_NAME }} \
+            --version="${{ env.VERSION }}" \
+            --packageVersion="${{ env.VERSION }}" \
+            --package="${{ env.CHART_NAME }}:${{ env.VERSION }}" \
+            --no-prompt
+
       - name: Deploy Octopus release (staging-new)
         env:
           OCTOPUS_API_KEY: ${{ secrets.OCTOPUS_API_KEY }}
           OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
           OCTOPUS_SPACE: ${{ secrets.OCTOPUS_SPACE }}
-        run: octopus release deploy --project hub --version=${{ env.VERSION }} --environment staging-new --no-prompt
+        run: |
+          octopus release deploy --project ${{ env.APP_NAME }} \
+            --version="${{ env.VERSION }}" \
+            --environment staging-new \
+            --no-prompt
 
   push-helm-chart:
     name: Push Helm Chart to Dockerhub
