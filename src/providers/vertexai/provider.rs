@@ -350,7 +350,8 @@ impl Provider for VertexAIProvider {
             .get("use_test_auth")
             .map_or(false, |v| v == "true");
 
-        let request_body = json!({
+        // Vertex AI format: {"instances": [{"content": "..."}], "parameters": {...}}
+        let vertex_request_body = json!({
             "instances": match &payload.input {
                 EmbeddingsInput::Single(text) => vec![json!({"content": text})],
                 EmbeddingsInput::Multiple(texts) => texts.iter()
@@ -366,6 +367,32 @@ impl Provider for VertexAIProvider {
             }
         });
 
+        // Gemini API format: {"content": {"parts": [{"text": "..."}]}}
+        let text_for_gemini = match &payload.input {
+            EmbeddingsInput::Single(text) => text.clone(),
+            EmbeddingsInput::Multiple(texts) => texts.first().cloned().unwrap_or_default(),
+            EmbeddingsInput::SingleTokenIds(tokens) => tokens
+                .iter()
+                .map(|t| t.to_string())
+                .collect::<Vec<_>>()
+                .join(" "),
+            EmbeddingsInput::MultipleTokenIds(token_arrays) => token_arrays
+                .first()
+                .map(|tokens| {
+                    tokens
+                        .iter()
+                        .map(|t| t.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .unwrap_or_default(),
+        };
+        let gemini_request_body = json!({
+            "content": {
+                "parts": [{"text": text_for_gemini}]
+            }
+        });
+
         let response = if is_test_mode {
             let test_endpoint = std::env::var("VERTEXAI_TEST_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:8080".to_string());
@@ -373,7 +400,7 @@ impl Provider for VertexAIProvider {
             self.http_client
                 .post(&test_endpoint)
                 .bearer_auth("test-token-for-vertex-ai")
-                .json(&request_body)
+                .json(&vertex_request_body)
                 .send()
                 .await
         } else if self.uses_api_key() {
@@ -386,7 +413,7 @@ impl Provider for VertexAIProvider {
             self.http_client
                 .post(&endpoint)
                 .header("x-goog-api-key", &self.config.api_key)
-                .json(&request_body)
+                .json(&gemini_request_body)
                 .send()
                 .await
         } else {
@@ -400,7 +427,7 @@ impl Provider for VertexAIProvider {
             self.http_client
                 .post(&endpoint)
                 .bearer_auth(auth_token)
-                .json(&request_body)
+                .json(&vertex_request_body)
                 .send()
                 .await
         }
