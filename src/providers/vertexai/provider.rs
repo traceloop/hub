@@ -220,7 +220,8 @@ impl Provider for VertexAIProvider {
                 "projects/{}/locations/{}/publishers/google/models/{}",
                 self.project_id, self.location, payload.model
             );
-            let endpoint = format!("https://{service_endpoint}/v1/{full_model_path}:{endpoint_suffix}");
+            let endpoint =
+                format!("https://{service_endpoint}/v1/{full_model_path}:{endpoint_suffix}");
             tracing::debug!("🌐 Using Vertex AI: {}", endpoint);
             self.http_client
                 .post(&endpoint)
