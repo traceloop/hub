@@ -123,6 +123,7 @@ management:
       name: "postgresDatabase"
       user: "postgresUser"
     existingSecret: "hub-postgres-secret"
+    usernameKey: "username"
     passwordKey: "password"
     
   # Management API-specific settings

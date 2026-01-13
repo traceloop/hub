@@ -97,14 +97,10 @@ spec:
               value: {{ .Values.management.database.name | quote }}
               {{- end }}
             - name: POSTGRES_DATABASE_USER
-              {{- if .Values.management.database.configMapName }}
               valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.management.database.configMapName }}
-                  key: {{ .Values.management.database.configMapKeys.user }}
-              {{- else }}
-              value: {{ .Values.management.database.user | quote }}
-              {{- end }}
+                secretKeyRef:
+                  name: {{ .Values.management.database.existingSecret }}
+                  key: {{ .Values.management.database.usernameKey }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
