@@ -1,3 +1,11 @@
+## v0.7.5 (2026-01-14)
+
+### Fix
+
+- **vertexai**: support API key auth via Gemini Developer API (#87)
+- **helm**: deploy using helm chart (#83)
+- remove deploy to old staging CD phase (#84)
+
 ## v0.7.4 (2026-01-07)
 
 ### Fix
