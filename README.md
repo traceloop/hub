@@ -249,8 +249,6 @@ providers:
   - key: vertexai
     type: vertexai
     api_key: your-gemini-api-key
-    project_id: your-project
-    location: us-central1
 
 # Option 2: Service Account (uses Vertex AI)
 providers:

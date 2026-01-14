@@ -103,19 +103,22 @@ impl VertexAIProvider {
 #[async_trait]
 impl Provider for VertexAIProvider {
     fn new(config: &ProviderConfig) -> Self {
-        let project_id = config
-            .params
-            .get("project_id")
-            .expect("project_id is required for VertexAI provider")
-            .to_string();
-        let location_str = config
-            .params
-            .get("location")
-            .expect("location is required for VertexAI provider")
-            .to_string();
+        let has_api_key = !config.api_key.is_empty();
 
-        let location = Self::validate_location(&location_str)
-            .expect("Invalid location provided in configuration");
+        let project_id = config.params.get("project_id").cloned().unwrap_or_default();
+        let location_str = config.params.get("location").cloned().unwrap_or_default();
+
+        // project_id and location only required for service account mode
+        if !has_api_key && (project_id.is_empty() || location_str.is_empty()) {
+            panic!("project_id and location are required when no api_key is provided");
+        }
+
+        let location = if location_str.is_empty() {
+            String::new()
+        } else {
+            Self::validate_location(&location_str)
+                .expect("Invalid location provided in configuration")
+        };
 
         Self {
             config: config.clone(),
