@@ -103,14 +103,14 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
             name: "Test VertexAI Provider".to_string(),
             provider_type: ProviderType::VertexAI,
             config: ProviderConfig::VertexAI(VertexAIProviderConfig {
-                project_id: "test-project-123".to_string(),
-                location: "us-central1".to_string(),
+                project_id: Some("test-project-123".to_string()),
+                location: Some("us-central1".to_string()),
                 credentials_path: Some("/path/to/service-account.json".to_string()),
                 api_key: None,
             }),
             updated_config: ProviderConfig::VertexAI(VertexAIProviderConfig {
-                project_id: "updated-project-456".to_string(),
-                location: "europe-west1".to_string(),
+                project_id: Some("updated-project-456".to_string()),
+                location: Some("europe-west1".to_string()),
                 credentials_path: None,
                 api_key: Some(SecretObject::literal("updated_vertex_api_key".to_string())),
             }),
@@ -207,8 +207,8 @@ async fn test_create_vertexai_provider_success() {
         name: "Test VertexAI Provider".to_string(),
         provider_type: ProviderType::VertexAI,
         config: ProviderConfig::VertexAI(VertexAIProviderConfig {
-            project_id: "test-project-123".to_string(),
-            location: "us-central1".to_string(),
+            project_id: Some("test-project-123".to_string()),
+            location: Some("us-central1".to_string()),
             credentials_path: Some("/path/to/service-account.json".to_string()),
             api_key: None,
         }),
@@ -251,8 +251,8 @@ async fn test_create_vertexai_provider_with_api_key() {
         name: "Test VertexAI Provider with API Key".to_string(),
         provider_type: ProviderType::VertexAI,
         config: ProviderConfig::VertexAI(VertexAIProviderConfig {
-            project_id: "test-project-456".to_string(),
-            location: "europe-west1".to_string(),
+            project_id: Some("test-project-456".to_string()),
+            location: Some("europe-west1".to_string()),
             credentials_path: None,
             api_key: Some(SecretObject::literal("test-vertex-api-key".to_string())),
         }),
@@ -797,8 +797,8 @@ async fn test_vertexai_provider_config_transformation() {
         name: "Test VertexAI Config Transform".to_string(),
         provider_type: ProviderType::VertexAI,
         config: ProviderConfig::VertexAI(VertexAIProviderConfig {
-            project_id: "test-project-transform".to_string(),
-            location: "us-central1".to_string(),
+            project_id: Some("test-project-transform".to_string()),
+            location: Some("us-central1".to_string()),
             credentials_path: Some("/path/to/credentials.json".to_string()),
             api_key: None,
         }),
@@ -815,8 +815,11 @@ async fn test_vertexai_provider_config_transformation() {
 
     // Verify the configuration was stored and retrieved correctly
     if let ProviderConfig::VertexAI(config) = provider_response.config {
-        assert_eq!(config.project_id, "test-project-transform");
-        assert_eq!(config.location, "us-central1");
+        assert_eq!(
+            config.project_id,
+            Some("test-project-transform".to_string())
+        );
+        assert_eq!(config.location, Some("us-central1".to_string()));
         assert_eq!(
             config.credentials_path,
             Some("/path/to/credentials.json".to_string())

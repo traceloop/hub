@@ -169,8 +169,12 @@ impl ConfigProviderService {
                 None
             }
             ProviderConfig::VertexAI(c) => {
-                params.insert("project_id".to_string(), c.project_id);
-                params.insert("location".to_string(), c.location);
+                if let Some(project_id) = c.project_id {
+                    params.insert("project_id".to_string(), project_id);
+                }
+                if let Some(location) = c.location {
+                    params.insert("location".to_string(), location);
+                }
                 if let Some(credentials_path) = c.credentials_path {
                     params.insert("credentials_path".to_string(), credentials_path);
                 }

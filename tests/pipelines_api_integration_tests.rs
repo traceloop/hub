@@ -121,8 +121,8 @@ async fn create_test_provider(
             inference_profile_id: None,
         }),
         ProviderType::VertexAI => ProviderConfig::VertexAI(VertexAIProviderConfig {
-            project_id: format!("vertexai_project_{}", key_suffix),
-            location: "us-central1".to_string(),
+            project_id: Some(format!("vertexai_project_{}", key_suffix)),
+            location: Some("us-central1".to_string()),
             credentials_path: Some(format!("/path/to/vertexai_creds_{}.json", key_suffix)),
             api_key: None,
         }),
