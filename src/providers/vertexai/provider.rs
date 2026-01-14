@@ -29,8 +29,13 @@ pub struct VertexAIProvider {
 }
 
 impl VertexAIProvider {
-    async fn get_auth_token(&self) -> Result<String, StatusCode> {
-        debug!("Getting auth token...");
+    // API key → Gemini Developer API, Service account → Vertex AI
+    fn uses_api_key(&self) -> bool {
+        !self.config.api_key.is_empty()
+    }
+
+    async fn get_oauth_token(&self) -> Result<String, StatusCode> {
+        debug!("Getting OAuth token for service account...");
 
         // Special case for tests - return dummy token when in test mode
         if self
@@ -43,45 +48,40 @@ impl VertexAIProvider {
             return Ok("test-token-for-vertex-ai".to_string());
         }
 
-        if !self.config.api_key.is_empty() {
-            debug!("Using API key authentication");
-            Ok(self.config.api_key.clone())
-        } else {
-            debug!("Using service account authentication");
-            let key_path = self.config
-                .params
-                .get("credentials_path")
-                .map(|p| p.to_string())
-                .or_else(|| std::env::var("GOOGLE_APPLICATION_CREDENTIALS").ok())
-                .expect("Either api_key, credentials_path in config, or GOOGLE_APPLICATION_CREDENTIALS environment variable must be set");
+        let key_path = self
+            .config
+            .params
+            .get("credentials_path")
+            .map(|p| p.to_string())
+            .or_else(|| std::env::var("GOOGLE_APPLICATION_CREDENTIALS").ok())
+            .expect("Either api_key, credentials_path in config, or GOOGLE_APPLICATION_CREDENTIALS environment variable must be set");
 
-            debug!("Reading service account key from: {}", key_path);
-            let key_json =
-                std::fs::read_to_string(key_path).expect("Failed to read service account key file");
+        debug!("Reading service account key from: {}", key_path);
+        let key_json =
+            std::fs::read_to_string(key_path).expect("Failed to read service account key file");
 
-            debug!(
-                "Service account key file content length: {}",
-                key_json.len()
-            );
-            let sa_key: ServiceAccountKey =
-                serde_json::from_str(&key_json).expect("Failed to parse service account key");
+        debug!(
+            "Service account key file content length: {}",
+            key_json.len()
+        );
+        let sa_key: ServiceAccountKey =
+            serde_json::from_str(&key_json).expect("Failed to parse service account key");
 
-            debug!("Successfully parsed service account key");
-            let auth = ServiceAccountAuthenticator::builder(sa_key)
-                .build()
-                .await
-                .expect("Failed to create authenticator");
+        debug!("Successfully parsed service account key");
+        let auth = ServiceAccountAuthenticator::builder(sa_key)
+            .build()
+            .await
+            .expect("Failed to create authenticator");
 
-            debug!("Created authenticator, requesting token...");
-            let scopes = &["https://www.googleapis.com/auth/cloud-platform"];
-            let token = auth.token(scopes).await.map_err(|e| {
-                error!("Failed to get access token: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+        debug!("Created authenticator, requesting token...");
+        let scopes = &["https://www.googleapis.com/auth/cloud-platform"];
+        let token = auth.token(scopes).await.map_err(|e| {
+            error!("Failed to get access token: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-            debug!("Successfully obtained token");
-            Ok(token.token().unwrap_or_default().to_string())
-        }
+        debug!("Successfully obtained token");
+        Ok(token.token().unwrap_or_default().to_string())
     }
 
     pub fn validate_location(location: &str) -> Result<String, String> {
@@ -103,19 +103,22 @@ impl VertexAIProvider {
 #[async_trait]
 impl Provider for VertexAIProvider {
     fn new(config: &ProviderConfig) -> Self {
-        let project_id = config
-            .params
-            .get("project_id")
-            .expect("project_id is required for VertexAI provider")
-            .to_string();
-        let location_str = config
-            .params
-            .get("location")
-            .expect("location is required for VertexAI provider")
-            .to_string();
+        let has_api_key = !config.api_key.is_empty();
 
-        let location = Self::validate_location(&location_str)
-            .expect("Invalid location provided in configuration");
+        let project_id = config.params.get("project_id").cloned().unwrap_or_default();
+        let location_str = config.params.get("location").cloned().unwrap_or_default();
+
+        // project_id and location only required for service account mode
+        if !has_api_key && (project_id.is_empty() || location_str.is_empty()) {
+            panic!("project_id and location are required when no api_key is provided");
+        }
+
+        let location = if location_str.is_empty() {
+            String::new()
+        } else {
+            Self::validate_location(&location_str)
+                .expect("Invalid location provided in configuration")
+        };
 
         Self {
             config: config.clone(),
@@ -168,7 +171,6 @@ impl Provider for VertexAIProvider {
             tracing::debug!("ℹ️ VertexAI no reasoning config provided");
         }
 
-        let auth_token = self.get_auth_token().await?;
         let endpoint_suffix = if payload.stream.unwrap_or(false) {
             "streamGenerateContent"
         } else {
@@ -182,22 +184,6 @@ impl Provider for VertexAIProvider {
             .get("use_test_auth")
             .map_or(false, |v| v == "true");
 
-        let endpoint = if is_test_mode {
-            // In test mode, use the mock server endpoint
-            let test_endpoint = std::env::var("VERTEXAI_TEST_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string());
-            debug!("Using test endpoint: {}", test_endpoint);
-            test_endpoint
-        } else {
-            // Normal mode, use the real endpoint
-            let service_endpoint = format!("{}-aiplatform.googleapis.com", self.location);
-            let full_model_path = format!(
-                "projects/{}/locations/{}/publishers/google/models/{}",
-                self.project_id, self.location, payload.model
-            );
-            format!("https://{service_endpoint}/v1/{full_model_path}:{endpoint_suffix}")
-        };
-
         let request_body = GeminiChatRequest::from(payload.clone());
         let has_structured_output = request_body
             .generation_config
@@ -205,27 +191,48 @@ impl Provider for VertexAIProvider {
             .map(|config| config.response_schema.is_some())
             .unwrap_or(false);
 
-        tracing::debug!("🌐 Sending request to endpoint: {}", endpoint);
-
-        let serialized_body = serde_json::to_string_pretty(&request_body)
-            .unwrap_or_else(|e| format!("Failed to serialize request: {e}"));
-        tracing::debug!("📤 Full Request Body:\n{}", serialized_body);
-
-        // Specifically log the generation_config part
-        if let Some(gen_config) = &request_body.generation_config {
-            tracing::debug!("⚙️ Generation Config: {:?}", gen_config);
-            if let Some(thinking_config) = &gen_config.thinking_config {
-                tracing::debug!("🧠 ThinkingConfig in request: {:?}", thinking_config);
-            }
-        }
-
-        let response_result = self
-            .http_client
-            .post(&endpoint)
-            .bearer_auth(auth_token)
-            .json(&request_body)
-            .send()
-            .await;
+        // Build endpoint and request based on auth mode
+        let response_result = if is_test_mode {
+            let test_endpoint = std::env::var("VERTEXAI_TEST_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8080".to_string());
+            debug!("Using test endpoint: {}", test_endpoint);
+            self.http_client
+                .post(&test_endpoint)
+                .bearer_auth("test-token-for-vertex-ai")
+                .json(&request_body)
+                .send()
+                .await
+        } else if self.uses_api_key() {
+            // API key mode → Gemini Developer API
+            let endpoint = format!(
+                "https://generativelanguage.googleapis.com/v1beta/models/{}:{}",
+                payload.model, endpoint_suffix
+            );
+            tracing::debug!("🌐 Using Gemini Developer API: {}", endpoint);
+            self.http_client
+                .post(&endpoint)
+                .header("x-goog-api-key", &self.config.api_key)
+                .json(&request_body)
+                .send()
+                .await
+        } else {
+            // Service account mode → Vertex AI
+            let auth_token = self.get_oauth_token().await?;
+            let service_endpoint = format!("{}-aiplatform.googleapis.com", self.location);
+            let full_model_path = format!(
+                "projects/{}/locations/{}/publishers/google/models/{}",
+                self.project_id, self.location, payload.model
+            );
+            let endpoint =
+                format!("https://{service_endpoint}/v1/{full_model_path}:{endpoint_suffix}");
+            tracing::debug!("🌐 Using Vertex AI: {}", endpoint);
+            self.http_client
+                .post(&endpoint)
+                .bearer_auth(auth_token)
+                .json(&request_body)
+                .send()
+                .await
+        };
 
         let response = match response_result {
             Ok(resp) => resp,
@@ -339,8 +346,6 @@ impl Provider for VertexAIProvider {
         payload: EmbeddingsRequest,
         _model_config: &ModelConfig,
     ) -> Result<EmbeddingsResponse, StatusCode> {
-        let auth_token = self.get_auth_token().await?;
-
         // Determine if we're in test mode
         let is_test_mode = self
             .config
@@ -348,45 +353,91 @@ impl Provider for VertexAIProvider {
             .get("use_test_auth")
             .map_or(false, |v| v == "true");
 
-        let endpoint = if is_test_mode {
-            // In test mode, use the mock server endpoint
+        // Vertex AI format: {"instances": [{"content": "..."}], "parameters": {...}}
+        let vertex_request_body = json!({
+            "instances": match &payload.input {
+                EmbeddingsInput::Single(text) => vec![json!({"content": text})],
+                EmbeddingsInput::Multiple(texts) => texts.iter()
+                    .map(|text| json!({"content": text}))
+                    .collect::<Vec<_>>(),
+                EmbeddingsInput::SingleTokenIds(tokens) => vec![json!({"content": tokens.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(" ")})],
+                EmbeddingsInput::MultipleTokenIds(token_arrays) => token_arrays.iter()
+                    .map(|tokens| json!({"content": tokens.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(" ")}))
+                    .collect::<Vec<_>>(),
+            },
+            "parameters": {
+                "autoTruncate": true
+            }
+        });
+
+        // Gemini API format: {"content": {"parts": [{"text": "..."}]}}
+        let text_for_gemini = match &payload.input {
+            EmbeddingsInput::Single(text) => text.clone(),
+            EmbeddingsInput::Multiple(texts) => texts.first().cloned().unwrap_or_default(),
+            EmbeddingsInput::SingleTokenIds(tokens) => tokens
+                .iter()
+                .map(|t| t.to_string())
+                .collect::<Vec<_>>()
+                .join(" "),
+            EmbeddingsInput::MultipleTokenIds(token_arrays) => token_arrays
+                .first()
+                .map(|tokens| {
+                    tokens
+                        .iter()
+                        .map(|t| t.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .unwrap_or_default(),
+        };
+        let gemini_request_body = json!({
+            "content": {
+                "parts": [{"text": text_for_gemini}]
+            }
+        });
+
+        let response = if is_test_mode {
             let test_endpoint = std::env::var("VERTEXAI_TEST_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:8080".to_string());
             debug!("Using test endpoint for embeddings: {}", test_endpoint);
-            test_endpoint
+            self.http_client
+                .post(&test_endpoint)
+                .bearer_auth("test-token-for-vertex-ai")
+                .json(&vertex_request_body)
+                .send()
+                .await
+        } else if self.uses_api_key() {
+            // API key mode → Gemini Developer API
+            let endpoint = format!(
+                "https://generativelanguage.googleapis.com/v1beta/models/{}:embedContent",
+                payload.model
+            );
+            debug!("Using Gemini Developer API for embeddings: {}", endpoint);
+            self.http_client
+                .post(&endpoint)
+                .header("x-goog-api-key", &self.config.api_key)
+                .json(&gemini_request_body)
+                .send()
+                .await
         } else {
-            // Normal mode, use the real endpoint
-            format!(
+            // Service account mode → Vertex AI
+            let auth_token = self.get_oauth_token().await?;
+            let endpoint = format!(
                 "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:predict",
                 self.location, self.project_id, self.location, payload.model
-            )
-        };
-
-        let response = self
-            .http_client
-            .post(&endpoint)
-            .bearer_auth(auth_token)
-            .json(&json!({
-                "instances": match payload.input {
-                    EmbeddingsInput::Single(text) => vec![json!({"content": text})],
-                    EmbeddingsInput::Multiple(texts) => texts.into_iter()
-                        .map(|text| json!({"content": text}))
-                        .collect::<Vec<_>>(),
-                    EmbeddingsInput::SingleTokenIds(tokens) => vec![json!({"content": tokens.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(" ")})],
-                    EmbeddingsInput::MultipleTokenIds(token_arrays) => token_arrays.into_iter()
-                        .map(|tokens| json!({"content": tokens.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(" ")}))
-                        .collect::<Vec<_>>(),
-                },
-                "parameters": {
-                    "autoTruncate": true
-                }
-            }))
-            .send()
-            .await
-            .map_err(|e| {
-                error!("VertexAI API request error: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+            );
+            debug!("Using Vertex AI for embeddings: {}", endpoint);
+            self.http_client
+                .post(&endpoint)
+                .bearer_auth(auth_token)
+                .json(&vertex_request_body)
+                .send()
+                .await
+        }
+        .map_err(|e| {
+            error!("VertexAI API request error: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         let status = response.status();
         debug!("Embeddings response status: {}", status);

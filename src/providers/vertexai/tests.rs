@@ -938,7 +938,7 @@ fn test_provider_new() {
 }
 
 #[test]
-#[should_panic(expected = "project_id is required")]
+#[should_panic(expected = "project_id and location are required")]
 fn test_provider_new_missing_project_id() {
     let config = ProviderConfig {
         key: "test-vertexai".to_string(),

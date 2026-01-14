@@ -241,14 +241,28 @@ providers:
 
 ### Google VertexAI
 
+Supports two authentication modes that route to different Google APIs:
+
 ```yaml
+# Option 1: API Key (uses Gemini Developer API)
+providers:
+  - key: vertexai
+    type: vertexai
+    api_key: your-gemini-api-key
+
+# Option 2: Service Account (uses Vertex AI)
 providers:
   - key: vertexai
     type: vertexai
     project_id: your-project
     location: us-central1
-    # Uses service account JSON or API key
+    credentials_path: /path/to/service-account.json
 ```
+
+| Auth Method | API Endpoint | Use Case |
+|-------------|--------------|----------|
+| API Key | `generativelanguage.googleapis.com` | Simple setup, development |
+| Service Account | `{location}-aiplatform.googleapis.com` | Enterprise, GCP-integrated |
 
 ## Deployment
 

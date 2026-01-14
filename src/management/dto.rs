@@ -87,9 +87,10 @@ pub struct BedrockProviderConfig {
 
 /// Configuration specific to Google VertexAI providers.
 #[derive(Serialize, Deserialize, Debug, ToSchema, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct VertexAIProviderConfig {
-    pub project_id: String,
-    pub location: String,
+    pub project_id: Option<String>,
+    pub location: Option<String>,
     pub credentials_path: Option<String>,
     pub api_key: Option<SecretObject>,
 }
