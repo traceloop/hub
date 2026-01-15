@@ -77,7 +77,7 @@ impl ConfigProviderService {
             .provider_service
             .list_providers()
             .await
-            .map_err(|e| anyhow!("Failed to fetch providers from DB: {:?}", e))?;
+            .map_err(|e| anyhow!("Failed to fetch providers from DB: {e:?}"))?;
 
         // Maps Provider DTO Uuid to its key (String) for model linking
         let mut provider_dto_id_to_key_map: HashMap<Uuid, String> = HashMap::new();
@@ -101,7 +101,7 @@ impl ConfigProviderService {
             .model_definition_service
             .list_model_definitions()
             .await
-            .map_err(|e| anyhow!("Failed to fetch model definitions from DB: {:?}", e))?;
+            .map_err(|e| anyhow!("Failed to fetch model definitions from DB: {e:?}"))?;
         for m_dto in db_models.into_iter().filter(|m| m.enabled) {
             // Use the provider_id from the model DTO (which is a Uuid) to lookup in the map
             match Self::transform_model_dto(m_dto, &provider_dto_id_to_key_map) {
@@ -114,7 +114,7 @@ impl ConfigProviderService {
             .pipeline_service
             .list_pipelines()
             .await
-            .map_err(|e| anyhow!("Failed to fetch pipelines from DB: {:?}", e))?;
+            .map_err(|e| anyhow!("Failed to fetch pipelines from DB: {e:?}"))?;
         for pl_dto in db_pipelines.into_iter().filter(|pl| pl.enabled) {
             match self.transform_pipeline_dto(pl_dto).await {
                 Ok(core_pipeline) => gateway_config.pipelines.push(core_pipeline),

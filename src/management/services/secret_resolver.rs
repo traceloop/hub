@@ -26,7 +26,7 @@ impl SecretResolver {
             SecretObject::Environment { variable_name } => {
                 debug!("Resolving environment variable: {}", variable_name);
                 env::var(variable_name)
-                    .map_err(|_| anyhow!("Environment variable '{}' not found", variable_name))
+                    .map_err(|_| anyhow!("Environment variable '{variable_name}' not found"))
             }
 
             SecretObject::Kubernetes {
@@ -40,9 +40,7 @@ impl SecretResolver {
                 );
                 // TODO: Implement Kubernetes secret resolution in future phase
                 Err(anyhow!(
-                    "Kubernetes secret resolution not yet implemented for secret '{}' key '{}'",
-                    secret_name,
-                    key
+                    "Kubernetes secret resolution not yet implemented for secret '{secret_name}' key '{key}'"
                 ))
             }
         }

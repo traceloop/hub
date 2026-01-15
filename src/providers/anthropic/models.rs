@@ -107,7 +107,7 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
         if let Some(reasoning_config) = &request.reasoning {
             if let Some(thinking_prompt) = reasoning_config.to_thinking_prompt() {
                 system = Some(match system {
-                    Some(existing) => format!("{}\n\n{}", existing, thinking_prompt),
+                    Some(existing) => format!("{existing}\n\n{thinking_prompt}"),
                     None => thinking_prompt,
                 });
             }

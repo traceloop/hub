@@ -54,7 +54,7 @@ fn substitute_env_vars(content: &str) -> Result<String, Box<dyn std::error::Erro
                     start_pos = actual_start + value.len();
                 }
                 Err(_) => {
-                    return Err(format!("Environment variable '{}' not found", var_name).into());
+                    return Err(format!("Environment variable '{var_name}' not found").into());
                 }
             }
         } else {

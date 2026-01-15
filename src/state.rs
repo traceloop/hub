@@ -130,7 +130,7 @@ impl AppState {
         );
 
         if let Err(val_errors) = crate::config::validation::validate_gateway_config(&new_config) {
-            return Err(anyhow::anyhow!("Invalid configuration: {:?}", val_errors));
+            return Err(anyhow::anyhow!("Invalid configuration: {val_errors:?}"));
         }
 
         let new_provider_registry = Arc::new(ProviderRegistry::new(&new_config.providers)?);
