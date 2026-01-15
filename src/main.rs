@@ -32,13 +32,13 @@ async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
         Ok("database") => {
             debug!("HUB_MODE=database detected. Initializing database mode.");
             let database_url = std::env::var("DATABASE_URL")
-                .map_err(|e| anyhow::anyhow!("DATABASE_URL not set for database mode: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("DATABASE_URL not set for database mode: {e}"))?;
 
             debug!("Connecting to database: {}", database_url);
 
             // Use connection pool with optimized settings
             let pool = PgPool::connect(&database_url).await.map_err(|e| {
-                anyhow::anyhow!("Failed to connect to database at {}: {}", database_url, e)
+                anyhow::anyhow!("Failed to connect to database at {database_url}: {e}")
             })?;
 
             info!("Database connection established successfully.");
@@ -55,7 +55,7 @@ async fn determine_config_mode() -> anyhow::Result<ConfigMode> {
                 "Invalid HUB_MODE '{}'. Valid options: 'yaml', 'database'",
                 invalid_mode
             );
-            Err(anyhow::anyhow!("Invalid HUB_MODE: {}", invalid_mode))
+            Err(anyhow::anyhow!("Invalid HUB_MODE: {invalid_mode}"))
         }
         Err(_) => {
             // HUB_MODE not set, fallback to yaml mode
@@ -90,8 +90,7 @@ async fn get_initial_config_and_services(
                             val_errors
                         );
                         return Err(anyhow::anyhow!(
-                            "Invalid initial database configuration: {:?}",
-                            val_errors
+                            "Invalid initial database configuration: {val_errors:?}"
                         ));
                     }
 
@@ -114,8 +113,7 @@ async fn get_initial_config_and_services(
                         e
                     );
                     Err(anyhow::anyhow!(
-                        "Failed to fetch initial database config: {}",
-                        e
+                        "Failed to fetch initial database config: {e}"
                     ))
                 }
             }
@@ -123,7 +121,7 @@ async fn get_initial_config_and_services(
         ConfigMode::Yaml { path } => {
             debug!("Loading configuration from YAML file: {}", path);
             let yaml_config = config::load_config(&path).map_err(|e| {
-                anyhow::anyhow!("Failed to load YAML configuration from {}: {}", path, e)
+                anyhow::anyhow!("Failed to load YAML configuration from {path}: {e}")
             })?;
 
             if let Err(val_errors) = config::validation::validate_gateway_config(&yaml_config) {
@@ -131,7 +129,7 @@ async fn get_initial_config_and_services(
                     "YAML configuration from {} is invalid: {:?}. Halting.",
                     path, val_errors
                 );
-                return Err(anyhow::anyhow!("Invalid YAML config: {:?}", val_errors));
+                return Err(anyhow::anyhow!("Invalid YAML config: {val_errors:?}"));
             }
             debug!("YAML configuration validated successfully.");
             Ok((yaml_config, None, None))
@@ -158,7 +156,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app_state = Arc::new(
         AppState::new(initial_config)
-            .map_err(|e| anyhow::anyhow!("Failed to create app state: {}", e))?,
+            .map_err(|e| anyhow::anyhow!("Failed to create app state: {e}"))?,
     );
 
     // Create LLM Gateway router
@@ -252,11 +250,7 @@ async fn main() -> anyhow::Result<()> {
     let gateway_listener = tokio::net::TcpListener::bind(&gateway_bind_address)
         .await
         .map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to bind LLM Gateway to {}: {}",
-                gateway_bind_address,
-                e
-            )
+            anyhow::anyhow!("Failed to bind LLM Gateway to {gateway_bind_address}: {e}")
         })?;
 
     // Start servers based on mode
@@ -275,9 +269,7 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 .map_err(|e| {
                     anyhow::anyhow!(
-                        "Failed to bind Management API to {}: {}",
-                        management_bind_address,
-                        e
+                        "Failed to bind Management API to {management_bind_address}: {e}"
                     )
                 })?;
 
@@ -305,7 +297,7 @@ async fn main() -> anyhow::Result<()> {
             let app = gateway_app;
             axum::serve(gateway_listener, app)
                 .await
-                .map_err(|e| anyhow::anyhow!("LLM Gateway server failed: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("LLM Gateway server failed: {e}"))?;
         }
     }
 
