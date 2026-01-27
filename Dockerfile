@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . .
 RUN cargo build --release --bin hub
 
-FROM gcr.io/distroless/cc-debian13:nonroot AS runtime
+FROM gcr.io/distroless/cc-debian13:debug-nonroot AS runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/hub /usr/local/bin/hub
 
