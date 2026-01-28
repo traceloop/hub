@@ -1,15 +1,9 @@
-FROM rust:1.88-bookworm AS builder
+FROM rust:1.88-trixie AS builder
 
 # Install sqlx-cli with version that's compatible with edition2021 and TLS support
 RUN cargo install sqlx-cli --version 0.8.6 --no-default-features --features postgres,native-tls --locked
 
-FROM debian:bookworm-slim AS runtime
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-  openssl \
-  ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+FROM gcr.io/distroless/cc-debian13:debug-nonroot AS runtime
 
 # Copy sqlx-cli from builder
 COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx

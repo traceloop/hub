@@ -10,7 +10,7 @@ on:
     branches: [main]
 
 jobs:
-  trivy:
+  trivy-hub:
     permissions:
       contents: read
       actions: read
@@ -19,6 +19,20 @@ jobs:
     uses: traceloop/.github/.github/workflows/reuse-trivy.yml@main
     with:
       image_name: hub
+      dockerfile: Dockerfile
+      docker_context: "."
+      platforms: "amd64,arm64"
+
+  trivy-migrations:
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+      pull-requests: write
+    uses: traceloop/.github/.github/workflows/reuse-trivy.yml@main
+    with:
+      image_name: hub-migrations
+      dockerfile: Dockerfile.db-based-migrations
       docker_context: "."
       platforms: "amd64,arm64"
 
