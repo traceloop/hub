@@ -2,7 +2,21 @@
 commitizen:
   changelog_file: CHANGELOG.md
   major_version_zero: true
-  name: cz_conventional_commits
+  customize:
+    bump_map:
+      break: MAJOR
+      build: PATCH
+      chore: PATCH
+      ci: PATCH
+      docs: ''
+      feat: MINOR
+      fix: PATCH
+      perf: PATCH
+      refactor: PATCH
+      style: PATCH
+      test: PATCH
+    bump_pattern: ^(break|feat|fix|chore|refactor|style|ci|build|perf|test|docs)
+  name: cz_customize
   tag_format: v$version
   update_changelog_on_bump: true
   version: 0.7.6
