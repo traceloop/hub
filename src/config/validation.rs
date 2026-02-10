@@ -57,6 +57,7 @@ mod tests {
     #[test]
     fn test_valid_config() {
         let config = GatewayConfig {
+            guardrails: None,
             general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
@@ -84,6 +85,7 @@ mod tests {
     #[test]
     fn test_invalid_model_provider_ref() {
         let config = GatewayConfig {
+            guardrails: None,
             general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),
@@ -109,6 +111,7 @@ mod tests {
     #[test]
     fn test_invalid_pipeline_model_ref() {
         let config = GatewayConfig {
+            guardrails: None,
             general: None,
             providers: vec![Provider {
                 key: "p1".to_string(),

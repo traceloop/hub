@@ -37,6 +37,7 @@ fn create_test_config_with_multiple_pipelines() -> GatewayConfig {
 
     GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![provider],
         models: vec![model],
         pipelines: vec![pipeline1, pipeline2],

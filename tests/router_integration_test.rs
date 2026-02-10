@@ -12,6 +12,7 @@ async fn test_router_integration_flow() {
         providers: vec![],
         models: vec![],
         pipelines: vec![],
+        guardrails: None,
     };
 
     let app_state = Arc::new(AppState::new(empty_config).expect("Failed to create app state"));
@@ -22,6 +23,7 @@ async fn test_router_integration_flow() {
     // Test 2: Valid configuration
     let valid_config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -63,6 +65,7 @@ async fn test_router_integration_flow() {
     // Test 6: Invalid configuration rejection
     let invalid_config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -95,6 +98,7 @@ async fn test_router_integration_flow() {
     // Test 7: Multiple pipeline configuration
     let multi_pipeline_config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -158,6 +162,7 @@ async fn test_router_integration_flow() {
 async fn test_concurrent_configuration_updates() {
     let initial_config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -189,6 +194,7 @@ async fn test_concurrent_configuration_updates() {
             // Create a slightly different configuration for each task
             let config = GatewayConfig {
                 general: None,
+                guardrails: None,
                 providers: vec![Provider {
                     key: format!("provider-{}", i),
                     r#type: ProviderType::OpenAI,

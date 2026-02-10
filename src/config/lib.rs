@@ -1,3 +1,4 @@
+use crate::guardrails::types::GuardrailsConfig;
 use crate::types::{GatewayConfig, ModelConfig, Pipeline, PipelineType, PluginConfig, Provider};
 use serde::Deserialize;
 use std::sync::OnceLock;
@@ -31,6 +32,8 @@ struct YamlRoot {
     models: Vec<ModelConfig>,
     #[serde(default)]
     pipelines: Vec<YamlCompatiblePipeline>,
+    #[serde(default)]
+    guardrails: Option<GuardrailsConfig>,
 }
 
 fn substitute_env_vars(content: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -88,6 +91,7 @@ pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Erro
             })
             .collect(),
         general: None,
+        guardrails: yaml_root.guardrails,
     };
     let _ = TRACE_CONTENT_ENABLED.set(
         gateway_config

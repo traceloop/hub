@@ -24,6 +24,10 @@ config.yaml
 .vscode/
 .DS_Store
 
+# Documentation
+docs/
+.claude/
+
 prd/
 memory-bank/
 .cursor/

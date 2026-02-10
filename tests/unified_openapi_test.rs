@@ -125,6 +125,7 @@ async fn test_router_creation_no_conflicts() {
     // Create a basic configuration for testing
     let config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,

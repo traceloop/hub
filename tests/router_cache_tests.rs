@@ -9,6 +9,7 @@ async fn test_router_always_available() {
     // Create a basic configuration
     let config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -43,6 +44,7 @@ async fn test_configuration_change_detection() {
     // Create initial configuration
     let initial_config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -87,6 +89,7 @@ async fn test_configuration_change_detection() {
 async fn test_invalid_configuration_rejected() {
     let initial_config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -102,6 +105,7 @@ async fn test_invalid_configuration_rejected() {
     // Create invalid configuration (model references non-existent provider)
     let invalid_config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -130,6 +134,7 @@ async fn test_invalid_configuration_rejected() {
 async fn test_concurrent_router_access() {
     let config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -181,6 +186,7 @@ async fn test_empty_configuration_fallback() {
         providers: vec![],
         models: vec![],
         pipelines: vec![],
+        guardrails: None,
     };
 
     let app_state = Arc::new(AppState::new(empty_config).expect("Failed to create app state"));
@@ -195,6 +201,7 @@ async fn test_pipeline_with_failing_tracing_endpoint() {
     // Create configuration with a pipeline that has a failing tracing endpoint
     let config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,
@@ -250,6 +257,7 @@ async fn test_tracing_isolation_between_pipelines() {
     // Create configuration with two pipelines - one with tracing, one without
     let config = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test-provider".to_string(),
             r#type: ProviderType::OpenAI,

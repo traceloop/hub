@@ -6,6 +6,7 @@ use std::collections::HashMap;
 fn test_identical_configs_have_same_hash() {
     let config1 = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test".to_string(),
             r#type: ProviderType::OpenAI,
@@ -29,6 +30,7 @@ fn test_identical_configs_have_same_hash() {
 fn test_different_configs_have_different_hashes() {
     let config1 = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test1".to_string(),
             r#type: ProviderType::OpenAI,
@@ -41,6 +43,7 @@ fn test_different_configs_have_different_hashes() {
 
     let config2 = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test2".to_string(), // Different key
             r#type: ProviderType::OpenAI,
@@ -70,6 +73,7 @@ fn test_params_order_independence() {
 
     let config1 = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test".to_string(),
             r#type: ProviderType::OpenAI,
@@ -82,6 +86,7 @@ fn test_params_order_independence() {
 
     let config2 = GatewayConfig {
         general: None,
+        guardrails: None,
         providers: vec![Provider {
             key: "test".to_string(),
             r#type: ProviderType::OpenAI,
