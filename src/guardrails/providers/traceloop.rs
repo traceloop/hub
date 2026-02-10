@@ -1,7 +1,9 @@
 use async_trait::async_trait;
+use serde_json::json;
 use std::time::Duration;
 
 use super::GuardrailClient;
+use crate::guardrails::response_parser::parse_evaluator_http_response;
 use crate::guardrails::types::{EvaluatorResponse, GuardConfig, GuardrailError};
 
 /// HTTP client for the Traceloop evaluator API service.
@@ -28,9 +30,48 @@ impl TraceloopClient {
 impl GuardrailClient for TraceloopClient {
     async fn evaluate(
         &self,
-        _guard: &GuardConfig,
-        _input: &str,
+        guard: &GuardConfig,
+        input: &str,
     ) -> Result<EvaluatorResponse, GuardrailError> {
-        todo!("Implement Traceloop evaluator API call")
+        let api_base = guard.api_base.as_deref().unwrap_or("http://localhost:8080");
+        let url = format!(
+            "{}/v2/guardrails/{}",
+            api_base.trim_end_matches('/'),
+            guard.evaluator_slug
+        );
+
+        let api_key = guard.api_key.as_deref().unwrap_or("");
+
+        // Build config from params (excluding evaluator_slug which is top-level)
+        let config: serde_json::Value = guard.params.clone().into_iter().collect();
+
+        let body = json!({
+            "inputs": [input],
+            "config": config,
+        });
+
+        let response = self
+            .http_client
+            .post(&url)
+            .header("Authorization", format!("Bearer {api_key}"))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    GuardrailError::Timeout(e.to_string())
+                } else {
+                    GuardrailError::Unavailable(e.to_string())
+                }
+            })?;
+
+        let status = response.status().as_u16();
+        let response_body = response
+            .text()
+            .await
+            .map_err(|e| GuardrailError::Unavailable(e.to_string()))?;
+
+        parse_evaluator_http_response(status, &response_body)
     }
 }

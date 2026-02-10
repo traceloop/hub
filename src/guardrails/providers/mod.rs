@@ -2,6 +2,7 @@ pub mod traceloop;
 
 use async_trait::async_trait;
 
+use self::traceloop::TraceloopClient;
 use super::types::{EvaluatorResponse, GuardConfig, GuardrailError};
 
 /// Trait for guardrail evaluator clients.
@@ -16,6 +17,9 @@ pub trait GuardrailClient: Send + Sync {
 }
 
 /// Create a guardrail client based on the guard's provider type.
-pub fn create_guardrail_client(_guard: &GuardConfig) -> Option<Box<dyn GuardrailClient>> {
-    todo!("Implement client factory based on guard.provider")
+pub fn create_guardrail_client(guard: &GuardConfig) -> Option<Box<dyn GuardrailClient>> {
+    match guard.provider.as_str() {
+        "traceloop" => Some(Box::new(TraceloopClient::new())),
+        _ => None,
+    }
 }

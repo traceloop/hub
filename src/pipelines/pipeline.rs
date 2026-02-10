@@ -1,4 +1,11 @@
 use crate::config::models::PipelineType;
+use crate::guardrails::api_control::split_guards_by_mode;
+use crate::guardrails::executor::execute_guards;
+use crate::guardrails::input_extractor::{
+    extract_post_call_input_from_completion, extract_pre_call_input,
+};
+use crate::guardrails::providers::GuardrailClient;
+use crate::guardrails::types::{GuardConfig, GuardrailsConfig, GuardrailsOutcome};
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
 use crate::models::embeddings::EmbeddingsRequest;
@@ -12,7 +19,7 @@ use crate::{
 };
 use async_stream::stream;
 use axum::response::sse::{Event, KeepAlive};
-use axum::response::{IntoResponse, Sse};
+use axum::response::{IntoResponse, Response, Sse};
 use axum::{
     Json, Router,
     extract::State,
@@ -22,9 +29,82 @@ use axum::{
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
 use reqwest_streams::error::StreamBodyError;
+use serde_json::json;
 use std::sync::Arc;
 
-pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> Router {
+/// Guardrails state attached to a pipeline, containing resolved guards and client.
+#[derive(Clone)]
+pub struct PipelineGuardrails {
+    pub pre_call: Vec<GuardConfig>,
+    pub post_call: Vec<GuardConfig>,
+    pub client: Arc<dyn GuardrailClient>,
+}
+
+/// Build a PipelineGuardrails from config, resolving provider defaults for api_base/api_key.
+pub fn build_pipeline_guardrails(config: &GuardrailsConfig) -> Option<Arc<PipelineGuardrails>> {
+    if config.guards.is_empty() {
+        return None;
+    }
+
+    let mut guards = config.guards.clone();
+    for guard in &mut guards {
+        if guard.api_base.is_none() || guard.api_key.is_none() {
+            if let Some(provider) = config.providers.iter().find(|p| p.name == guard.provider) {
+                if guard.api_base.is_none() {
+                    guard.api_base = Some(provider.api_base.clone());
+                }
+                if guard.api_key.is_none() {
+                    guard.api_key = Some(provider.api_key.clone());
+                }
+            }
+        }
+    }
+
+    let (pre_call, post_call) = split_guards_by_mode(&guards);
+    let client: Arc<dyn GuardrailClient> =
+        Arc::new(crate::guardrails::providers::traceloop::TraceloopClient::new());
+
+    Some(Arc::new(PipelineGuardrails {
+        pre_call,
+        post_call,
+        client,
+    }))
+}
+
+pub fn blocked_response(outcome: &GuardrailsOutcome) -> Response {
+    let guard_name = outcome.blocking_guard.as_deref().unwrap_or("unknown");
+    let body = json!({
+        "error": {
+            "type": "guardrail_blocked",
+            "guardrail": guard_name,
+            "message": format!("Request blocked by guardrail '{guard_name}'"),
+        }
+    });
+    (StatusCode::FORBIDDEN, Json(body)).into_response()
+}
+
+pub fn warning_header_value(outcome: &GuardrailsOutcome) -> String {
+    outcome
+        .warnings
+        .iter()
+        .map(|w| {
+            // Extract guard name from the warning string "Guard 'name' failed with warning"
+            let name = w
+                .strip_prefix("Guard '")
+                .and_then(|s| s.strip_suffix("' failed with warning"))
+                .unwrap_or("unknown");
+            format!("guardrail_name=\"{name}\", reason=\"failed\"")
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+pub fn create_pipeline(
+    pipeline: &Pipeline,
+    model_registry: &ModelRegistry,
+    guardrails_config: Option<&GuardrailsConfig>,
+) -> Router {
+    let guardrails = guardrails_config.and_then(build_pipeline_guardrails);
     let mut router = Router::new();
 
     let available_models: Vec<String> = pipeline
@@ -57,10 +137,13 @@ pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> R
                 router
             }
             PluginConfig::ModelRouter { models } => match pipeline.r#type {
-                PipelineType::Chat => router.route(
-                    "/chat/completions",
-                    post(move |state, payload| chat_completions(state, payload, models)),
-                ),
+                PipelineType::Chat => {
+                    let gr = guardrails.clone();
+                    router.route(
+                        "/chat/completions",
+                        post(move |state, payload| chat_completions(state, payload, models, gr)),
+                    )
+                }
                 PipelineType::Completion => router.route(
                     "/completions",
                     post(move |state, payload| completions(state, payload, models)),
@@ -104,8 +187,22 @@ pub async fn chat_completions(
     State(model_registry): State<Arc<ModelRegistry>>,
     Json(payload): Json<ChatCompletionRequest>,
     model_keys: Vec<String>,
-) -> Result<impl IntoResponse, StatusCode> {
+    guardrails: Option<Arc<PipelineGuardrails>>,
+) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("chat", &payload);
+
+    // Pre-call guardrails
+    let mut pre_warnings = Vec::new();
+    if let Some(ref gr) = guardrails {
+        if !gr.pre_call.is_empty() {
+            let input = extract_pre_call_input(&payload);
+            let outcome = execute_guards(&gr.pre_call, &input, gr.client.as_ref()).await;
+            if outcome.blocked {
+                return Ok(blocked_response(&outcome));
+            }
+            pre_warnings = outcome.warnings;
+        }
+    }
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
@@ -123,6 +220,52 @@ pub async fn chat_completions(
 
             if let ChatCompletionResponse::NonStream(completion) = response {
                 tracer.log_success(&completion);
+
+                // Post-call guardrails (non-streaming)
+                if let Some(ref gr) = guardrails {
+                    if !gr.post_call.is_empty() {
+                        let response_text = extract_post_call_input_from_completion(&completion);
+                        let outcome =
+                            execute_guards(&gr.post_call, &response_text, gr.client.as_ref()).await;
+                        if outcome.blocked {
+                            return Ok(blocked_response(&outcome));
+                        }
+                        if !outcome.warnings.is_empty() || !pre_warnings.is_empty() {
+                            let mut all_warnings = pre_warnings;
+                            all_warnings.extend(outcome.warnings);
+                            let combined = GuardrailsOutcome {
+                                results: vec![],
+                                blocked: false,
+                                blocking_guard: None,
+                                warnings: all_warnings,
+                            };
+                            let header_val = warning_header_value(&combined);
+                            let mut response = Json(completion).into_response();
+                            response.headers_mut().insert(
+                                "X-Traceloop-Guardrail-Warning",
+                                header_val.parse().unwrap(),
+                            );
+                            return Ok(response);
+                        }
+                    }
+                }
+
+                // Add pre-call warning headers if any
+                if !pre_warnings.is_empty() {
+                    let combined = GuardrailsOutcome {
+                        results: vec![],
+                        blocked: false,
+                        blocking_guard: None,
+                        warnings: pre_warnings,
+                    };
+                    let header_val = warning_header_value(&combined);
+                    let mut response = Json(completion).into_response();
+                    response
+                        .headers_mut()
+                        .insert("X-Traceloop-Guardrail-Warning", header_val.parse().unwrap());
+                    return Ok(response);
+                }
+
                 return Ok(Json(completion).into_response());
             }
 
@@ -322,7 +465,7 @@ mod tests {
         let model_configs = create_model_configs(vec!["test-model"]);
         let model_registry = ModelRegistry::new(&model_configs, provider_registry).unwrap();
         let pipeline = create_test_pipeline(vec!["test-model"]);
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 
@@ -371,7 +514,7 @@ mod tests {
         let model_registry =
             Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
         let pipeline = create_test_pipeline(vec!["test-model-1", "test-model-2"]);
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 
@@ -394,7 +537,7 @@ mod tests {
         let model_registry =
             Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
         let pipeline = create_test_pipeline(vec![]);
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 
@@ -412,7 +555,7 @@ mod tests {
         let model_registry =
             Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
         let pipeline = create_test_pipeline(vec!["test-model-1", "test-model-3"]); // Only include 2 of 3 models
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 

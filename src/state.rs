@@ -179,7 +179,8 @@ impl AppState {
                 "Adding default pipeline '{}' to router at index 0",
                 default_pipeline.name
             );
-            let pipeline_router = create_pipeline(default_pipeline, model_registry);
+            let pipeline_router =
+                create_pipeline(default_pipeline, model_registry, config.guardrails.as_ref());
             pipeline_routers.push(pipeline_router);
             pipeline_names.push(default_pipeline.name.clone());
         }
@@ -188,7 +189,8 @@ impl AppState {
             let name = &pipeline.name;
             debug!("Adding pipeline '{}' to router at index {}", name, idx + 1);
 
-            let pipeline_router = create_pipeline(pipeline, model_registry);
+            let pipeline_router =
+                create_pipeline(pipeline, model_registry, config.guardrails.as_ref());
             pipeline_routers.push(pipeline_router);
             pipeline_names.push(name.clone());
         }
