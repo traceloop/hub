@@ -9,6 +9,7 @@ use tracing::warn;
 
 use super::api_control::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
 use super::executor::execute_guards;
+use super::input_extractor::PreCallInput;
 use super::providers::GuardrailClient;
 use super::types::{Guard, GuardWarning, Guardrails};
 
@@ -18,16 +19,16 @@ pub struct GuardPhaseResult {
     pub warnings: Vec<GuardWarning>,
 }
 
-/// Orchestrates guardrail execution across pre-call and post-call phases.
+/// Runs guardrails across pre-call and post-call phases.
 /// Shared between chat_completions and completions handlers.
-pub struct GuardrailOrchestrator<'a> {
+pub struct GuardrailsRunner<'a> {
     pre_call: Vec<Guard>,
     post_call: Vec<Guard>,
     client: &'a dyn GuardrailClient,
 }
 
-impl<'a> GuardrailOrchestrator<'a> {
-    /// Create an orchestrator by resolving guards from pipeline config + request headers.
+impl<'a> GuardrailsRunner<'a> {
+    /// Create a runner by resolving guards from pipeline config + request headers.
     /// Returns None if no guards are active for this request.
     pub fn new(guardrails: Option<&'a Guardrails>, headers: &HeaderMap) -> Option<Self> {
         let gr = guardrails?;
@@ -42,15 +43,16 @@ impl<'a> GuardrailOrchestrator<'a> {
         })
     }
 
-    /// Run pre-call guards against the extracted input text.
-    pub async fn run_pre_call(&self, input: &str) -> GuardPhaseResult {
+    /// Run pre-call guards, extracting input from the request only if guards exist.
+    pub async fn run_pre_call(&self, request: &impl PreCallInput) -> GuardPhaseResult {
         if self.pre_call.is_empty() {
             return GuardPhaseResult {
                 blocked_response: None,
                 warnings: Vec::new(),
             };
         }
-        let outcome = execute_guards(&self.pre_call, input, self.client).await;
+        let input = request.extract_pre_call_input();
+        let outcome = execute_guards(&self.pre_call, &input, self.client).await;
         if outcome.blocked {
             return GuardPhaseResult {
                 blocked_response: Some(blocked_response(&outcome.blocking_guard)),

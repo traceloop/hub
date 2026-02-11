@@ -38,7 +38,7 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
     }
 
     // Check 3: Guardrails validation
-    if let Some(gr_config) = &config.guardrails {
+    if let Some(gr_config&config.guardrails {
         // Guard provider references must exist in guardrails.providers
         for guard in &gr_config.guards {
             if !gr_config.providers.contains_key(&guard.provider) {

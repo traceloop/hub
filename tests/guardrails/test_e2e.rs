@@ -1,6 +1,6 @@
 use hub_lib::guardrails::executor::execute_guards;
 use hub_lib::guardrails::input_extractor::{
-    extract_post_call_input_from_completion, extract_pre_call_input,
+    extract_post_call_input_from_completion, extract_prompt,
 };
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::stream_buffer::extract_text_from_chunks;
@@ -66,7 +66,7 @@ async fn test_e2e_pre_call_block_flow() {
     );
 
     let request = create_test_chat_request("Bad input");
-    let input = extract_pre_call_input(&request);
+    let input = extract_prompt(&request);
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &input, &client).await;
@@ -88,7 +88,7 @@ async fn test_e2e_pre_call_pass_flow() {
     );
 
     let request = create_test_chat_request("Safe input");
-    let input = extract_pre_call_input(&request);
+    let input = extract_prompt(&request);
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &input, &client).await;
@@ -169,7 +169,7 @@ async fn test_e2e_pre_and_post_both_pass() {
 
     // Pre-call
     let request = create_test_chat_request("Hello");
-    let input = extract_pre_call_input(&request);
+    let input = extract_prompt(&request);
     let pre_outcome = execute_guards(&[pre_guard], &input, &client).await;
     assert!(!pre_outcome.blocked);
 
@@ -211,7 +211,7 @@ async fn test_e2e_pre_blocks_post_never_runs() {
 
     let client = TraceloopClient::new();
     let request = create_test_chat_request("Bad input");
-    let input = extract_pre_call_input(&request);
+    let input = extract_prompt(&request);
 
     let pre_outcome = execute_guards(&[pre_guard], &input, &client).await;
     assert!(pre_outcome.blocked);

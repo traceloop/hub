@@ -2,31 +2,35 @@ use crate::models::chat::{ChatCompletion, ChatCompletionRequest};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::content::ChatMessageContent;
 
-/// Extract text from the request for pre_call guardrails.
-/// Returns the content of the last user message.
-pub fn extract_pre_call_input(request: &ChatCompletionRequest) -> String {
-    request
-        .messages
-        .iter()
-        .rev()
-        .find(|m| m.role == "user")
-        .and_then(|m| m.content.as_ref())
-        .map(|content| match content {
-            ChatMessageContent::String(s) => s.clone(),
-            ChatMessageContent::Array(parts) => parts
-                .iter()
-                .filter(|p| p.r#type == "text")
-                .map(|p| p.text.as_str())
-                .collect::<Vec<_>>()
-                .join(" "),
-        })
-        .unwrap_or_default()
+/// Trait for extracting pre-call guardrail input from a request.
+pub trait PreCallInput {
+    fn extract_pre_call_input(&self) -> String;
 }
 
-/// Extract text from a CompletionRequest for pre_call guardrails.
-/// Returns the prompt string.
-pub fn extract_pre_call_input_from_completion_request(request: &CompletionRequest) -> String {
-    request.prompt.clone()
+impl PreCallInput for ChatCompletionRequest {
+    fn extract_pre_call_input(&self) -> String {
+        self.messages
+            .iter()
+            .filter_map(|m| {
+                m.content.as_ref().map(|content| match content {
+                    ChatMessageContent::String(s) => s.clone(),
+                    ChatMessageContent::Array(parts) => parts
+                        .iter()
+                        .filter(|p| p.r#type == "text")
+                        .map(|p| p.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                })
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+impl PreCallInput for CompletionRequest {
+    fn extract_pre_call_input(&self) -> String {
+        self.prompt.clone()
+    }
 }
 
 /// Extract text from a CompletionResponse for post_call guardrails.

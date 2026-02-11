@@ -1,9 +1,8 @@
 use crate::config::models::PipelineType;
 use crate::guardrails::input_extractor::{
     extract_post_call_input_from_completion, extract_post_call_input_from_completion_response,
-    extract_pre_call_input, extract_pre_call_input_from_completion_request,
 };
-use crate::guardrails::guardrails_orchestrator::GuardrailOrchestrator;
+use crate::guardrails::guardrails_runner::GuardrailsRunner;
 use crate::guardrails::types::{GuardrailResources, Guardrails};
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
@@ -35,7 +34,7 @@ use std::sync::Arc;
 pub use crate::guardrails::builder::{
     build_guardrail_resources, build_pipeline_guardrails, resolve_guard_defaults,
 };
-pub use crate::guardrails::guardrails_orchestrator::{blocked_response, warning_header_value};
+pub use crate::guardrails::guardrails_runner::{blocked_response, warning_header_value};
 
 pub fn create_pipeline(
     pipeline: &Pipeline,
@@ -132,12 +131,12 @@ pub async fn chat_completions(
     guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("chat", &payload);
-    let orchestrator = GuardrailOrchestrator::new(guardrails.as_deref(), &headers);
+    let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers);
 
     // Pre-call guardrails
     let mut all_warnings = Vec::new();
     if let Some(orch) = &orchestrator {
-        let pre = orch.run_pre_call(&extract_pre_call_input(&payload)).await;
+        let pre = orch.run_pre_call(&payload).await;
         if let Some(resp) = pre.blocked_response {
             return Ok(resp);
         }
@@ -170,7 +169,7 @@ pub async fn chat_completions(
                     all_warnings.extend(post.warnings);
                 }
 
-                return Ok(GuardrailOrchestrator::finalize_response(
+                return Ok(GuardrailsRunner::finalize_response(
                     Json(completion).into_response(),
                     &all_warnings,
                 ));
@@ -197,13 +196,13 @@ pub async fn completions(
     guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("completion", &payload);
-    let orchestrator = GuardrailOrchestrator::new(guardrails.as_deref(), &headers);
+    let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers);
 
     // Pre-call guardrails
     let mut all_warnings = Vec::new();
     if let Some(orch) = &orchestrator {
         let pre = orch
-            .run_pre_call(&extract_pre_call_input_from_completion_request(&payload))
+            .run_pre_call(&payload)
             .await;
         if let Some(resp) = pre.blocked_response {
             return Ok(resp);
@@ -232,7 +231,7 @@ pub async fn completions(
                 all_warnings.extend(post.warnings);
             }
 
-            return Ok(GuardrailOrchestrator::finalize_response(
+            return Ok(GuardrailsRunner::finalize_response(
                 Json(response).into_response(),
                 &all_warnings,
             ));

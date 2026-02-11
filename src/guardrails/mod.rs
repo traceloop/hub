@@ -2,7 +2,7 @@ pub mod api_control;
 pub mod builder;
 pub mod executor;
 pub mod input_extractor;
-pub mod guardrails_orchestrator;
+pub mod guardrails_runner;
 pub mod providers;
 pub mod response_parser;
 pub mod stream_buffer;
