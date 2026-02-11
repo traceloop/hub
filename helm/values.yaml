@@ -64,6 +64,18 @@ tolerations: []
 
 affinity: {}
 
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  cpu:
+    enabled: true
+    targetCPUUtilizationPercentage: 70
+  memory:
+    enabled: false
+    targetMemoryUtilizationPercentage: 80
+  behavior: {}
+
 # Environment variables to pass to the hub container
 env: []
   # - name: DEBUG
