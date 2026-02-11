@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
+
+use super::providers::GuardrailClient;
 
 fn default_on_failure() -> OnFailure {
     OnFailure::Warn
@@ -32,7 +35,7 @@ pub struct ProviderConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct GuardConfig {
+pub struct Guard {
     pub name: String,
     pub provider: String,
     pub evaluator_slug: String,
@@ -49,7 +52,7 @@ pub struct GuardConfig {
     pub api_key: Option<String>,
 }
 
-impl Hash for GuardConfig {
+impl Hash for Guard {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.provider.hash(state);
@@ -74,7 +77,7 @@ pub struct GuardrailsConfig {
     #[serde(default)]
     pub providers: Vec<ProviderConfig>,
     #[serde(default)]
-    pub guards: Vec<GuardConfig>,
+    pub guards: Vec<Guard>,
 }
 
 impl Hash for GuardrailsConfig {
@@ -138,3 +141,11 @@ impl std::fmt::Display for GuardrailError {
 }
 
 impl std::error::Error for GuardrailError {}
+
+/// Guardrails state attached to a pipeline, containing resolved guards and client.
+#[derive(Clone)]
+pub struct Guardrails {
+    pub pre_call: Vec<Guard>,
+    pub post_call: Vec<Guard>,
+    pub client: Arc<dyn GuardrailClient>,
+}

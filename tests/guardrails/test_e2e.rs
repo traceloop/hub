@@ -39,8 +39,8 @@ fn guard_with_server(
     on_failure: OnFailure,
     server_uri: &str,
     slug: &str,
-) -> GuardConfig {
-    GuardConfig {
+) -> Guard {
+    Guard {
         name: name.to_string(),
         provider: "traceloop".to_string(),
         evaluator_slug: slug.to_string(),

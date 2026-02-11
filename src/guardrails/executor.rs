@@ -1,12 +1,12 @@
 use futures::future::join_all;
 
 use super::providers::GuardrailClient;
-use super::types::{GuardConfig, GuardResult, GuardrailsOutcome, OnFailure};
+use super::types::{Guard, GuardResult, GuardrailsOutcome, OnFailure};
 
 /// Execute a set of guardrails against the given input text.
 /// Guards are run concurrently. Returns a GuardrailsOutcome with results, blocked status, and warnings.
 pub async fn execute_guards(
-    guards: &[GuardConfig],
+    guards: &[Guard],
     input: &str,
     client: &dyn GuardrailClient,
 ) -> GuardrailsOutcome {

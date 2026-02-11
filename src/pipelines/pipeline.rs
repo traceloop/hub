@@ -2,10 +2,11 @@ use crate::config::models::PipelineType;
 use crate::guardrails::api_control::split_guards_by_mode;
 use crate::guardrails::executor::execute_guards;
 use crate::guardrails::input_extractor::{
-    extract_post_call_input_from_completion, extract_pre_call_input,
+    extract_post_call_input_from_completion, extract_post_call_input_from_completion_response,
+    extract_pre_call_input, extract_pre_call_input_from_completion_request,
 };
 use crate::guardrails::providers::GuardrailClient;
-use crate::guardrails::types::{GuardConfig, GuardrailsConfig, GuardrailsOutcome};
+use crate::guardrails::types::{GuardrailsConfig, GuardrailsOutcome, Guardrails};
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
 use crate::models::embeddings::EmbeddingsRequest;
@@ -32,16 +33,8 @@ use reqwest_streams::error::StreamBodyError;
 use serde_json::json;
 use std::sync::Arc;
 
-/// Guardrails state attached to a pipeline, containing resolved guards and client.
-#[derive(Clone)]
-pub struct PipelineGuardrails {
-    pub pre_call: Vec<GuardConfig>,
-    pub post_call: Vec<GuardConfig>,
-    pub client: Arc<dyn GuardrailClient>,
-}
-
 /// Build a PipelineGuardrails from config, resolving provider defaults for api_base/api_key.
-pub fn build_pipeline_guardrails(config: &GuardrailsConfig) -> Option<Arc<PipelineGuardrails>> {
+pub fn build_pipeline_guardrails(config: &GuardrailsConfig) -> Option<Arc<Guardrails>> {
     if config.guards.is_empty() {
         return None;
     }
@@ -64,7 +57,7 @@ pub fn build_pipeline_guardrails(config: &GuardrailsConfig) -> Option<Arc<Pipeli
     let client: Arc<dyn GuardrailClient> =
         Arc::new(crate::guardrails::providers::traceloop::TraceloopClient::new());
 
-    Some(Arc::new(PipelineGuardrails {
+    Some(Arc::new(Guardrails {
         pre_call,
         post_call,
         client,
@@ -144,10 +137,13 @@ pub fn create_pipeline(
                         post(move |state, payload| chat_completions(state, payload, models, gr)),
                     )
                 }
-                PipelineType::Completion => router.route(
-                    "/completions",
-                    post(move |state, payload| completions(state, payload, models)),
-                ),
+                PipelineType::Completion => {
+                    let gr = guardrails.clone();
+                    router.route(
+                        "/completions",
+                        post(move |state, payload| completions(state, payload, models, gr)),
+                    )
+                }
                 PipelineType::Embeddings => router.route(
                     "/embeddings",
                     post(move |state, payload| embeddings(state, payload, models)),
@@ -187,7 +183,7 @@ pub async fn chat_completions(
     State(model_registry): State<Arc<ModelRegistry>>,
     Json(payload): Json<ChatCompletionRequest>,
     model_keys: Vec<String>,
-    guardrails: Option<Arc<PipelineGuardrails>>,
+    guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("chat", &payload);
 
@@ -286,8 +282,22 @@ pub async fn completions(
     State(model_registry): State<Arc<ModelRegistry>>,
     Json(payload): Json<CompletionRequest>,
     model_keys: Vec<String>,
-) -> impl IntoResponse {
+    guardrails: Option<Arc<Guardrails>>,
+) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("completion", &payload);
+
+    // Pre-call guardrails
+    let mut pre_warnings = Vec::new();
+    if let Some(ref gr) = guardrails {
+        if !gr.pre_call.is_empty() {
+            let input = extract_pre_call_input_from_completion_request(&payload);
+            let outcome = execute_guards(&gr.pre_call, &input, gr.client.as_ref()).await;
+            if outcome.blocked {
+                return Ok(blocked_response(&outcome));
+            }
+            pre_warnings = outcome.warnings;
+        }
+    }
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
@@ -300,7 +310,52 @@ pub async fn completions(
                 eprintln!("Completion error for model {model_key}: {e:?}");
             })?;
             tracer.log_success(&response);
-            return Ok(Json(response));
+
+            // Post-call guardrails
+            if let Some(ref gr) = guardrails {
+                if !gr.post_call.is_empty() {
+                    let response_text = extract_post_call_input_from_completion_response(&response);
+                    let outcome =
+                        execute_guards(&gr.post_call, &response_text, gr.client.as_ref()).await;
+                    if outcome.blocked {
+                        return Ok(blocked_response(&outcome));
+                    }
+                    if !outcome.warnings.is_empty() || !pre_warnings.is_empty() {
+                        let mut all_warnings = pre_warnings;
+                        all_warnings.extend(outcome.warnings);
+                        let combined = GuardrailsOutcome {
+                            results: vec![],
+                            blocked: false,
+                            blocking_guard: None,
+                            warnings: all_warnings,
+                        };
+                        let header_val = warning_header_value(&combined);
+                        let mut resp = Json(response).into_response();
+                        resp.headers_mut().insert(
+                            "X-Traceloop-Guardrail-Warning",
+                            header_val.parse().unwrap(),
+                        );
+                        return Ok(resp);
+                    }
+                }
+            }
+
+            // Add pre-call warning headers if any
+            if !pre_warnings.is_empty() {
+                let combined = GuardrailsOutcome {
+                    results: vec![],
+                    blocked: false,
+                    blocking_guard: None,
+                    warnings: pre_warnings,
+                };
+                let header_val = warning_header_value(&combined);
+                let mut resp = Json(response).into_response();
+                resp.headers_mut()
+                    .insert("X-Traceloop-Guardrail-Warning", header_val.parse().unwrap());
+                return Ok(resp);
+            }
+
+            return Ok(Json(response).into_response());
         }
     }
 

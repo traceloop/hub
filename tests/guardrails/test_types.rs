@@ -27,7 +27,7 @@ fn test_on_failure_defaults_to_warn() {
         "evaluator_slug": "toxicity",
         "mode": "pre_call"
     });
-    let guard: GuardConfig = serde_json::from_value(json).unwrap();
+    let guard: Guard = serde_json::from_value(json).unwrap();
     assert_eq!(guard.on_failure, OnFailure::Warn);
 }
 
@@ -39,7 +39,7 @@ fn test_required_defaults_to_true() {
         "evaluator_slug": "toxicity",
         "mode": "pre_call"
     });
-    let guard: GuardConfig = serde_json::from_value(json).unwrap();
+    let guard: Guard = serde_json::from_value(json).unwrap();
     assert!(guard.required);
 }
 
@@ -58,7 +58,7 @@ fn test_guard_config_full_deserialization() {
         "api_base": "https://api.traceloop.com",
         "api_key": "tl-key-123"
     });
-    let guard: GuardConfig = serde_json::from_value(json).unwrap();
+    let guard: Guard = serde_json::from_value(json).unwrap();
     assert_eq!(guard.name, "toxicity-check");
     assert_eq!(guard.provider, "traceloop");
     assert_eq!(guard.evaluator_slug, "toxicity");
@@ -231,7 +231,7 @@ fn test_guard_without_api_base_deserializes() {
         "evaluator_slug": "toxicity",
         "mode": "pre_call"
     });
-    let guard: GuardConfig = serde_json::from_value(json).unwrap();
+    let guard: Guard = serde_json::from_value(json).unwrap();
     assert!(guard.api_base.is_none());
     assert!(guard.api_key.is_none());
 }
@@ -245,7 +245,7 @@ fn test_guard_config_evaluator_slug_not_in_params() {
         "params": {"threshold": 0.5},
         "mode": "pre_call"
     });
-    let guard: GuardConfig = serde_json::from_value(json).unwrap();
+    let guard: Guard = serde_json::from_value(json).unwrap();
     assert_eq!(guard.evaluator_slug, "toxicity");
     assert!(!guard.params.contains_key("evaluator_slug"));
     assert_eq!(guard.params.get("threshold").unwrap(), 0.5);

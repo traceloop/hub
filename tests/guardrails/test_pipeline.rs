@@ -33,7 +33,7 @@ async fn test_pre_call_guardrails_block_before_llm() {
         .mount(&eval_server)
         .await;
 
-    let guard = GuardConfig {
+    let guard = Guard {
         name: "toxicity-check".to_string(),
         provider: "traceloop".to_string(),
         evaluator_slug: "toxicity".to_string(),
@@ -64,7 +64,7 @@ async fn test_pre_call_guardrails_warn_and_continue() {
         .mount(&eval_server)
         .await;
 
-    let guard = GuardConfig {
+    let guard = Guard {
         name: "tone-check".to_string(),
         provider: "traceloop".to_string(),
         evaluator_slug: "tone".to_string(),
@@ -96,7 +96,7 @@ async fn test_post_call_guardrails_block_response() {
         .mount(&eval_server)
         .await;
 
-    let guard = GuardConfig {
+    let guard = Guard {
         name: "pii-check".to_string(),
         provider: "traceloop".to_string(),
         evaluator_slug: "pii".to_string(),
@@ -128,7 +128,7 @@ async fn test_post_call_guardrails_warn_and_add_header() {
         .mount(&eval_server)
         .await;
 
-    let guard = GuardConfig {
+    let guard = Guard {
         name: "safety-check".to_string(),
         provider: "traceloop".to_string(),
         evaluator_slug: "safety".to_string(),

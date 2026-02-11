@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use hub_lib::guardrails::providers::GuardrailClient;
 use hub_lib::guardrails::types::{
-    EvaluatorResponse, GuardConfig, GuardMode, GuardrailError, OnFailure,
+    EvaluatorResponse, Guard, GuardMode, GuardrailError, OnFailure,
 };
 use hub_lib::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent};
@@ -15,8 +15,8 @@ use serde_json::json;
 // Guard config builders
 // ---------------------------------------------------------------------------
 
-pub fn create_test_guard(name: &str, mode: GuardMode) -> GuardConfig {
-    GuardConfig {
+pub fn create_test_guard(name: &str, mode: GuardMode) -> Guard {
+    Guard {
         name: name.to_string(),
         provider: "traceloop".to_string(),
         evaluator_slug: "test-evaluator".to_string(),
@@ -33,20 +33,20 @@ pub fn create_test_guard_with_failure_action(
     name: &str,
     mode: GuardMode,
     on_failure: OnFailure,
-) -> GuardConfig {
+) -> Guard {
     let mut guard = create_test_guard(name, mode);
     guard.on_failure = on_failure;
     guard
 }
 
-pub fn create_test_guard_with_required(name: &str, mode: GuardMode, required: bool) -> GuardConfig {
+pub fn create_test_guard_with_required(name: &str, mode: GuardMode, required: bool) -> Guard {
     let mut guard = create_test_guard(name, mode);
     guard.required = required;
     guard
 }
 
 #[allow(dead_code)]
-pub fn create_test_guard_with_api_base(name: &str, mode: GuardMode, api_base: &str) -> GuardConfig {
+pub fn create_test_guard_with_api_base(name: &str, mode: GuardMode, api_base: &str) -> Guard {
     let mut guard = create_test_guard(name, mode);
     guard.api_base = Some(api_base.to_string());
     guard
@@ -217,7 +217,7 @@ impl MockGuardrailClient {
 impl GuardrailClient for MockGuardrailClient {
     async fn evaluate(
         &self,
-        guard: &GuardConfig,
+        guard: &Guard,
         _input: &str,
     ) -> Result<EvaluatorResponse, GuardrailError> {
         self.responses

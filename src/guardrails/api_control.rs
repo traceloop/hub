@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::types::{GuardConfig, GuardMode};
+use super::types::{Guard, GuardMode};
 
 /// Parse guard names from the X-Traceloop-Guardrails header value.
 /// Names are comma-separated and trimmed.
@@ -28,11 +28,11 @@ pub fn parse_guardrails_from_payload(payload: &serde_json::Value) -> Vec<String>
 /// Resolve the final set of guards to execute by merging pipeline, header, and payload sources.
 /// Guards are additive and deduplicated by name.
 pub fn resolve_guards_by_name(
-    all_guards: &[GuardConfig],
+    all_guards: &[Guard],
     pipeline_names: &[&str],
     header_names: &[&str],
     payload_names: &[&str],
-) -> Vec<GuardConfig> {
+) -> Vec<Guard> {
     let mut seen = HashSet::new();
     let mut resolved = Vec::new();
 
@@ -58,13 +58,13 @@ pub fn resolve_guards_by_name(
 }
 
 /// Split guards into (pre_call, post_call) lists by mode.
-pub fn split_guards_by_mode(guards: &[GuardConfig]) -> (Vec<GuardConfig>, Vec<GuardConfig>) {
-    let pre_call: Vec<GuardConfig> = guards
+pub fn split_guards_by_mode(guards: &[Guard]) -> (Vec<Guard>, Vec<Guard>) {
+    let pre_call: Vec<Guard> = guards
         .iter()
         .filter(|g| g.mode == GuardMode::PreCall)
         .cloned()
         .collect();
-    let post_call: Vec<GuardConfig> = guards
+    let post_call: Vec<Guard> = guards
         .iter()
         .filter(|g| g.mode == GuardMode::PostCall)
         .cloned()

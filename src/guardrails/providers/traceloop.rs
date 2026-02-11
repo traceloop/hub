@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use super::GuardrailClient;
 use crate::guardrails::response_parser::parse_evaluator_http_response;
-use crate::guardrails::types::{EvaluatorResponse, GuardConfig, GuardrailError};
+use crate::guardrails::types::{EvaluatorResponse, Guard, GuardrailError};
 
 /// HTTP client for the Traceloop evaluator API service.
 /// Calls `POST {api_base}/v2/guardrails/{evaluator_slug}`.
@@ -30,7 +30,7 @@ impl TraceloopClient {
 impl GuardrailClient for TraceloopClient {
     async fn evaluate(
         &self,
-        guard: &GuardConfig,
+        guard: &Guard,
         input: &str,
     ) -> Result<EvaluatorResponse, GuardrailError> {
         let api_base = guard.api_base.as_deref().unwrap_or("http://localhost:8080");
