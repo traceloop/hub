@@ -77,6 +77,7 @@ mod tests {
                 plugins: vec![PluginConfig::ModelRouter {
                     models: vec!["m1".to_string()],
                 }],
+                guards: vec![],
             }],
         };
         assert!(validate_gateway_config(&config).is_ok());
@@ -130,7 +131,8 @@ mod tests {
                 r#type: PipelineType::Chat,
                 plugins: vec![PluginConfig::ModelRouter {
                     models: vec!["m2_non_existent".to_string()],
-                }], // Invalid model ref
+                }],
+                guards: vec![],
             }],
         };
         let result = validate_gateway_config(&config);

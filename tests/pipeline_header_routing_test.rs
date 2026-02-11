@@ -25,6 +25,7 @@ fn create_test_config_with_multiple_pipelines() -> GatewayConfig {
         plugins: vec![PluginConfig::ModelRouter {
             models: vec!["test-model".to_string()],
         }],
+        guards: vec![],
     };
 
     let pipeline2 = Pipeline {
@@ -33,6 +34,7 @@ fn create_test_config_with_multiple_pipelines() -> GatewayConfig {
         plugins: vec![PluginConfig::ModelRouter {
             models: vec!["test-model".to_string()],
         }],
+        guards: vec![],
     };
 
     GatewayConfig {
@@ -76,6 +78,7 @@ async fn test_pipeline_header_routing_configuration_updates() {
         plugins: vec![PluginConfig::ModelRouter {
             models: vec!["test-model".to_string()],
         }],
+        guards: vec![],
     };
     updated_config.pipelines.push(pipeline3);
 

@@ -1,12 +1,12 @@
 use crate::config::models::PipelineType;
-use crate::guardrails::api_control::split_guards_by_mode;
+use crate::guardrails::api_control::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
 use crate::guardrails::executor::execute_guards;
 use crate::guardrails::input_extractor::{
     extract_post_call_input_from_completion, extract_post_call_input_from_completion_response,
     extract_pre_call_input, extract_pre_call_input_from_completion_request,
 };
 use crate::guardrails::providers::GuardrailClient;
-use crate::guardrails::types::{GuardrailsConfig, GuardrailsOutcome, Guardrails};
+use crate::guardrails::types::{Guard, GuardrailsConfig, GuardrailsOutcome, Guardrails};
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
 use crate::models::embeddings::EmbeddingsRequest;
@@ -19,6 +19,7 @@ use crate::{
     models::chat::ChatCompletionRequest,
 };
 use async_stream::stream;
+use axum::http::HeaderMap;
 use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Response, Sse};
 use axum::{
@@ -33,12 +34,8 @@ use reqwest_streams::error::StreamBodyError;
 use serde_json::json;
 use std::sync::Arc;
 
-/// Build a PipelineGuardrails from config, resolving provider defaults for api_base/api_key.
-pub fn build_pipeline_guardrails(config: &GuardrailsConfig) -> Option<Arc<Guardrails>> {
-    if config.guards.is_empty() {
-        return None;
-    }
-
+/// Resolve provider defaults (api_base/api_key) for all guards in the config.
+pub fn resolve_guard_defaults(config: &GuardrailsConfig) -> Vec<Guard> {
     let mut guards = config.guards.clone();
     for guard in &mut guards {
         if guard.api_base.is_none() || guard.api_key.is_none() {
@@ -52,16 +49,35 @@ pub fn build_pipeline_guardrails(config: &GuardrailsConfig) -> Option<Arc<Guardr
             }
         }
     }
+    guards
+}
 
-    let (pre_call, post_call) = split_guards_by_mode(&guards);
+/// Build the shared guardrail resources (resolved guards + client).
+/// Returns None if the config has no guards.
+/// Called once per router build; the result is shared across all pipelines.
+pub fn build_guardrail_resources(
+    config: &GuardrailsConfig,
+) -> Option<(Arc<Vec<Guard>>, Arc<dyn GuardrailClient>)> {
+    if config.guards.is_empty() {
+        return None;
+    }
+    let all_guards = Arc::new(resolve_guard_defaults(config));
     let client: Arc<dyn GuardrailClient> =
         Arc::new(crate::guardrails::providers::traceloop::TraceloopClient::new());
+    Some((all_guards, client))
+}
 
-    Some(Arc::new(Guardrails {
-        pre_call,
-        post_call,
-        client,
-    }))
+/// Build per-pipeline Guardrails from shared resources.
+/// `shared` contains the Arc-wrapped guards and client built once by `build_guardrail_resources`.
+pub fn build_pipeline_guardrails(
+    shared: &(Arc<Vec<Guard>>, Arc<dyn GuardrailClient>),
+    pipeline_guard_names: &[String],
+) -> Arc<Guardrails> {
+    Arc::new(Guardrails {
+        all_guards: shared.0.clone(),
+        pipeline_guard_names: pipeline_guard_names.to_vec(),
+        client: shared.1.clone(),
+    })
 }
 
 pub fn blocked_response(outcome: &GuardrailsOutcome) -> Response {
@@ -95,9 +111,10 @@ pub fn warning_header_value(outcome: &GuardrailsOutcome) -> String {
 pub fn create_pipeline(
     pipeline: &Pipeline,
     model_registry: &ModelRegistry,
-    guardrails_config: Option<&GuardrailsConfig>,
+    guardrail_resources: Option<&(Arc<Vec<Guard>>, Arc<dyn GuardrailClient>)>,
 ) -> Router {
-    let guardrails = guardrails_config.and_then(build_pipeline_guardrails);
+    let guardrails: Option<Arc<Guardrails>> = guardrail_resources
+        .map(|shared| build_pipeline_guardrails(shared, &pipeline.guards));
     let mut router = Router::new();
 
     let available_models: Vec<String> = pipeline
@@ -134,14 +151,14 @@ pub fn create_pipeline(
                     let gr = guardrails.clone();
                     router.route(
                         "/chat/completions",
-                        post(move |state, payload| chat_completions(state, payload, models, gr)),
+                        post(move |state, headers, payload| chat_completions(state, headers, payload, models, gr)),
                     )
                 }
                 PipelineType::Completion => {
                     let gr = guardrails.clone();
                     router.route(
                         "/completions",
-                        post(move |state, payload| completions(state, payload, models, gr)),
+                        post(move |state, headers, payload| completions(state, headers, payload, models, gr)),
                     )
                 }
                 PipelineType::Embeddings => router.route(
@@ -179,25 +196,48 @@ fn trace_and_stream(
     }
 }
 
+/// Resolve guards for this request by merging pipeline guards with header-specified guards.
+fn resolve_request_guards(
+    gr: &Guardrails,
+    headers: &HeaderMap,
+) -> (Vec<Guard>, Vec<Guard>) {
+    let header_guard_names = headers
+        .get("x-traceloop-guardrails")
+        .and_then(|v| v.to_str().ok())
+        .map(parse_guardrails_header)
+        .unwrap_or_default();
+
+    let pipeline_names: Vec<&str> = gr.pipeline_guard_names.iter().map(|s| s.as_str()).collect();
+    let header_names: Vec<&str> = header_guard_names.iter().map(|s| s.as_str()).collect();
+    let resolved = resolve_guards_by_name(&gr.all_guards, &pipeline_names, &header_names, &[]);
+    split_guards_by_mode(&resolved)
+}
+
 pub async fn chat_completions(
     State(model_registry): State<Arc<ModelRegistry>>,
+    headers: HeaderMap,
     Json(payload): Json<ChatCompletionRequest>,
     model_keys: Vec<String>,
     guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("chat", &payload);
 
+    // Resolve guards for this request (pipeline + header)
+    let (pre_call, post_call) = match guardrails.as_ref() {
+        Some(gr) => resolve_request_guards(gr, &headers),
+        None => (vec![], vec![]),
+    };
+
     // Pre-call guardrails
     let mut pre_warnings = Vec::new();
-    if let Some(ref gr) = guardrails {
-        if !gr.pre_call.is_empty() {
-            let input = extract_pre_call_input(&payload);
-            let outcome = execute_guards(&gr.pre_call, &input, gr.client.as_ref()).await;
-            if outcome.blocked {
-                return Ok(blocked_response(&outcome));
-            }
-            pre_warnings = outcome.warnings;
+    if !pre_call.is_empty() {
+        let gr = guardrails.as_ref().unwrap();
+        let input = extract_pre_call_input(&payload);
+        let outcome = execute_guards(&pre_call, &input, gr.client.as_ref()).await;
+        if outcome.blocked {
+            return Ok(blocked_response(&outcome));
         }
+        pre_warnings = outcome.warnings;
     }
 
     for model_key in model_keys {
@@ -218,31 +258,30 @@ pub async fn chat_completions(
                 tracer.log_success(&completion);
 
                 // Post-call guardrails (non-streaming)
-                if let Some(ref gr) = guardrails {
-                    if !gr.post_call.is_empty() {
-                        let response_text = extract_post_call_input_from_completion(&completion);
-                        let outcome =
-                            execute_guards(&gr.post_call, &response_text, gr.client.as_ref()).await;
-                        if outcome.blocked {
-                            return Ok(blocked_response(&outcome));
-                        }
-                        if !outcome.warnings.is_empty() || !pre_warnings.is_empty() {
-                            let mut all_warnings = pre_warnings;
-                            all_warnings.extend(outcome.warnings);
-                            let combined = GuardrailsOutcome {
-                                results: vec![],
-                                blocked: false,
-                                blocking_guard: None,
-                                warnings: all_warnings,
-                            };
-                            let header_val = warning_header_value(&combined);
-                            let mut response = Json(completion).into_response();
-                            response.headers_mut().insert(
-                                "X-Traceloop-Guardrail-Warning",
-                                header_val.parse().unwrap(),
-                            );
-                            return Ok(response);
-                        }
+                if !post_call.is_empty() {
+                    let gr = guardrails.as_ref().unwrap();
+                    let response_text = extract_post_call_input_from_completion(&completion);
+                    let outcome =
+                        execute_guards(&post_call, &response_text, gr.client.as_ref()).await;
+                    if outcome.blocked {
+                        return Ok(blocked_response(&outcome));
+                    }
+                    if !outcome.warnings.is_empty() || !pre_warnings.is_empty() {
+                        let mut all_warnings = pre_warnings;
+                        all_warnings.extend(outcome.warnings);
+                        let combined = GuardrailsOutcome {
+                            results: vec![],
+                            blocked: false,
+                            blocking_guard: None,
+                            warnings: all_warnings,
+                        };
+                        let header_val = warning_header_value(&combined);
+                        let mut response = Json(completion).into_response();
+                        response.headers_mut().insert(
+                            "X-Traceloop-Guardrail-Warning",
+                            header_val.parse().unwrap(),
+                        );
+                        return Ok(response);
                     }
                 }
 
@@ -280,23 +319,29 @@ pub async fn chat_completions(
 
 pub async fn completions(
     State(model_registry): State<Arc<ModelRegistry>>,
+    headers: HeaderMap,
     Json(payload): Json<CompletionRequest>,
     model_keys: Vec<String>,
     guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("completion", &payload);
 
+    // Resolve guards for this request (pipeline + header)
+    let (pre_call, post_call) = match guardrails.as_ref() {
+        Some(gr) => resolve_request_guards(gr, &headers),
+        None => (vec![], vec![]),
+    };
+
     // Pre-call guardrails
     let mut pre_warnings = Vec::new();
-    if let Some(ref gr) = guardrails {
-        if !gr.pre_call.is_empty() {
-            let input = extract_pre_call_input_from_completion_request(&payload);
-            let outcome = execute_guards(&gr.pre_call, &input, gr.client.as_ref()).await;
-            if outcome.blocked {
-                return Ok(blocked_response(&outcome));
-            }
-            pre_warnings = outcome.warnings;
+    if !pre_call.is_empty() {
+        let gr = guardrails.as_ref().unwrap();
+        let input = extract_pre_call_input_from_completion_request(&payload);
+        let outcome = execute_guards(&pre_call, &input, gr.client.as_ref()).await;
+        if outcome.blocked {
+            return Ok(blocked_response(&outcome));
         }
+        pre_warnings = outcome.warnings;
     }
 
     for model_key in model_keys {
@@ -312,31 +357,30 @@ pub async fn completions(
             tracer.log_success(&response);
 
             // Post-call guardrails
-            if let Some(ref gr) = guardrails {
-                if !gr.post_call.is_empty() {
-                    let response_text = extract_post_call_input_from_completion_response(&response);
-                    let outcome =
-                        execute_guards(&gr.post_call, &response_text, gr.client.as_ref()).await;
-                    if outcome.blocked {
-                        return Ok(blocked_response(&outcome));
-                    }
-                    if !outcome.warnings.is_empty() || !pre_warnings.is_empty() {
-                        let mut all_warnings = pre_warnings;
-                        all_warnings.extend(outcome.warnings);
-                        let combined = GuardrailsOutcome {
-                            results: vec![],
-                            blocked: false,
-                            blocking_guard: None,
-                            warnings: all_warnings,
-                        };
-                        let header_val = warning_header_value(&combined);
-                        let mut resp = Json(response).into_response();
-                        resp.headers_mut().insert(
-                            "X-Traceloop-Guardrail-Warning",
-                            header_val.parse().unwrap(),
-                        );
-                        return Ok(resp);
-                    }
+            if !post_call.is_empty() {
+                let gr = guardrails.as_ref().unwrap();
+                let response_text = extract_post_call_input_from_completion_response(&response);
+                let outcome =
+                    execute_guards(&post_call, &response_text, gr.client.as_ref()).await;
+                if outcome.blocked {
+                    return Ok(blocked_response(&outcome));
+                }
+                if !outcome.warnings.is_empty() || !pre_warnings.is_empty() {
+                    let mut all_warnings = pre_warnings;
+                    all_warnings.extend(outcome.warnings);
+                    let combined = GuardrailsOutcome {
+                        results: vec![],
+                        blocked: false,
+                        blocking_guard: None,
+                        warnings: all_warnings,
+                    };
+                    let header_val = warning_header_value(&combined);
+                    let mut resp = Json(response).into_response();
+                    resp.headers_mut().insert(
+                        "X-Traceloop-Guardrail-Warning",
+                        header_val.parse().unwrap(),
+                    );
+                    return Ok(resp);
                 }
             }
 
@@ -491,6 +535,7 @@ mod tests {
             plugins: vec![PluginConfig::ModelRouter {
                 models: model_keys.into_iter().map(|s| s.to_string()).collect(),
             }],
+            guards: vec![],
         }
     }
 

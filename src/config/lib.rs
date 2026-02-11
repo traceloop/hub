@@ -12,6 +12,8 @@ struct YamlCompatiblePipeline {
     r#type: PipelineType,
     #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     plugins: Vec<PluginConfig>,
+    #[serde(default)]
+    guards: Vec<String>,
     #[serde(default = "default_enabled_true_lib")]
     #[allow(dead_code)]
     enabled: bool, // Keep for YAML parsing, but won't be mapped to core Pipeline
@@ -86,7 +88,7 @@ pub fn load_config(path: &str) -> Result<GatewayConfig, Box<dyn std::error::Erro
                     name: p_yaml.name,
                     r#type: p_yaml.r#type,
                     plugins: p_yaml.plugins,
-                    // p_yaml.enabled is parsed from YAML but not stored in core Pipeline struct
+                    guards: p_yaml.guards,
                 }
             })
             .collect(),

@@ -5,7 +5,7 @@ use hub_lib::guardrails::input_extractor::{
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::stream_buffer::extract_text_from_chunks;
 use hub_lib::guardrails::types::*;
-use hub_lib::pipelines::pipeline::build_pipeline_guardrails;
+use hub_lib::pipelines::pipeline::{build_guardrail_resources, build_pipeline_guardrails};
 
 use serde_json::json;
 use wiremock::matchers;
@@ -375,21 +375,25 @@ guardrails:
     assert_eq!(gr.guards[1].api_key.as_deref(), Some("override-key"));
 
     // Build pipeline guardrails - should resolve provider defaults
-    let pipeline_gr = build_pipeline_guardrails(&gr).unwrap();
-    assert_eq!(pipeline_gr.pre_call.len(), 1);
-    assert_eq!(pipeline_gr.post_call.len(), 1);
+    let shared = build_guardrail_resources(&gr).unwrap();
+    let guard_names: Vec<String> = gr.guards.iter().map(|g| g.name.clone()).collect();
+    let pipeline_gr = build_pipeline_guardrails(&shared, &guard_names);
+    assert_eq!(pipeline_gr.all_guards.len(), 2);
+    assert_eq!(pipeline_gr.pipeline_guard_names.len(), 2);
     // Provider api_base should be resolved for guards that don't override
+    let pre_guard = pipeline_gr.all_guards.iter().find(|g| g.mode == GuardMode::PreCall).unwrap();
+    let post_guard = pipeline_gr.all_guards.iter().find(|g| g.mode == GuardMode::PostCall).unwrap();
     assert_eq!(
-        pipeline_gr.pre_call[0].api_base.as_deref(),
+        pre_guard.api_base.as_deref(),
         Some("https://api.traceloop.com")
     );
     assert_eq!(
-        pipeline_gr.pre_call[0].api_key.as_deref(),
+        pre_guard.api_key.as_deref(),
         Some("resolved-key-123")
     );
     // Guard with override keeps its own api_key
     assert_eq!(
-        pipeline_gr.post_call[0].api_key.as_deref(),
+        post_guard.api_key.as_deref(),
         Some("override-key")
     );
 
@@ -533,10 +537,10 @@ pipelines:
     let config = hub_lib::config::load_config(temp_file.path().to_str().unwrap()).unwrap();
     assert!(config.guardrails.is_none());
 
-    // build_pipeline_guardrails with None returns None
-    let gr = config
+    // build_guardrail_resources with None guardrails returns None
+    let shared = config
         .guardrails
         .as_ref()
-        .and_then(build_pipeline_guardrails);
-    assert!(gr.is_none());
+        .and_then(build_guardrail_resources);
+    assert!(shared.is_none());
 }

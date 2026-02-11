@@ -149,8 +149,12 @@ pub struct Pipeline {
     // #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<PluginConfig>,
-    // ee_id: Option<Uuid>, // Removed
-    // enabled: bool, // Removed
+
+    /// Guard names associated with this pipeline. Guards listed here
+    /// are always executed for every request to this pipeline. Additional
+    /// guards can be added per-request via the `X-Traceloop-Guardrails` header.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guards: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Hash)]

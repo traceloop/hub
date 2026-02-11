@@ -28,6 +28,7 @@ async fn test_router_always_available() {
             plugins: vec![PluginConfig::ModelRouter {
                 models: vec!["gpt-4".to_string()],
             }],
+            guards: vec![],
         }],
     };
 
@@ -63,6 +64,7 @@ async fn test_configuration_change_detection() {
             plugins: vec![PluginConfig::ModelRouter {
                 models: vec!["gpt-4".to_string()],
             }],
+            guards: vec![],
         }],
     };
 
@@ -153,6 +155,7 @@ async fn test_concurrent_router_access() {
             plugins: vec![PluginConfig::ModelRouter {
                 models: vec!["gpt-4".to_string()],
             }],
+            guards: vec![],
         }],
     };
 
@@ -226,6 +229,7 @@ async fn test_pipeline_with_failing_tracing_endpoint() {
                     models: vec!["gpt-4".to_string()],
                 },
             ],
+            guards: vec![],
         }],
     };
 
@@ -284,6 +288,7 @@ async fn test_tracing_isolation_between_pipelines() {
                         models: vec!["gpt-4".to_string()],
                     },
                 ],
+                guards: vec![],
             },
             // Pipeline without tracing
             Pipeline {
@@ -292,6 +297,7 @@ async fn test_tracing_isolation_between_pipelines() {
                 plugins: vec![PluginConfig::ModelRouter {
                     models: vec!["gpt-4".to_string()],
                 }],
+                guards: vec![],
             },
         ],
     };

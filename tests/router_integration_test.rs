@@ -42,6 +42,7 @@ async fn test_router_integration_flow() {
             plugins: vec![PluginConfig::ModelRouter {
                 models: vec!["gpt-4".to_string()],
             }],
+            guards: vec![],
         }],
     };
 
@@ -84,6 +85,7 @@ async fn test_router_integration_flow() {
             plugins: vec![PluginConfig::ModelRouter {
                 models: vec!["gpt-4".to_string()],
             }],
+            guards: vec![],
         }],
     };
 
@@ -126,6 +128,7 @@ async fn test_router_integration_flow() {
                 plugins: vec![PluginConfig::ModelRouter {
                     models: vec!["gpt-4".to_string()],
                 }],
+                guards: vec![],
             },
             Pipeline {
                 name: "fast".to_string(),
@@ -133,6 +136,7 @@ async fn test_router_integration_flow() {
                 plugins: vec![PluginConfig::ModelRouter {
                     models: vec!["gpt-3.5-turbo".to_string()],
                 }],
+                guards: vec![],
             },
         ],
     };
@@ -181,6 +185,7 @@ async fn test_concurrent_configuration_updates() {
             plugins: vec![PluginConfig::ModelRouter {
                 models: vec!["gpt-4".to_string()],
             }],
+            guards: vec![],
         }],
     };
 
@@ -213,6 +218,7 @@ async fn test_concurrent_configuration_updates() {
                     plugins: vec![PluginConfig::ModelRouter {
                         models: vec![format!("model-{}", i)],
                     }],
+                    guards: vec![],
                 }],
             };
 

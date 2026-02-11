@@ -143,9 +143,14 @@ impl std::fmt::Display for GuardrailError {
 impl std::error::Error for GuardrailError {}
 
 /// Guardrails state attached to a pipeline, containing resolved guards and client.
+///
+/// `all_guards` and `client` are shared across all pipelines via `Arc` (built once).
+/// `pipeline_guard_names` holds the guard names declared by this specific pipeline.
+/// At request time, guards are resolved by merging pipeline guards with any
+/// additional guards specified via the `X-Traceloop-Guardrails` header.
 #[derive(Clone)]
 pub struct Guardrails {
-    pub pre_call: Vec<Guard>,
-    pub post_call: Vec<Guard>,
+    pub all_guards: Arc<Vec<Guard>>,
+    pub pipeline_guard_names: Vec<String>,
     pub client: Arc<dyn GuardrailClient>,
 }

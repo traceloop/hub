@@ -144,6 +144,7 @@ async fn test_router_creation_no_conflicts() {
             plugins: vec![PluginConfig::ModelRouter {
                 models: vec!["gpt-4".to_string()],
             }],
+            guards: vec![],
         }],
     };
 
