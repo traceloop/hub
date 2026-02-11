@@ -36,7 +36,7 @@ async fn test_execute_single_pre_call_guard_fails_warn() {
     let outcome = execute_guards(&[guard], "borderline input", &mock_client).await;
     assert!(!outcome.blocked);
     assert_eq!(outcome.warnings.len(), 1);
-    assert!(outcome.warnings[0].contains("check"));
+    assert_eq!(outcome.warnings[0].guard_name, "check");
 }
 
 #[tokio::test]
@@ -179,5 +179,5 @@ async fn test_executor_returns_correct_guardrails_outcome() {
     let outcome = execute_guards(&guards, "input", &mock_client).await;
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard, Some("blocker".to_string()));
-    assert!(outcome.warnings.iter().any(|w| w.contains("warner")));
+    assert!(outcome.warnings.iter().any(|w| w.guard_name == "warner"));
 }

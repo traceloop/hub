@@ -37,10 +37,41 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
         }
     }
 
-    // Add more validation checks as needed:
-    // - Duplicate keys for providers, models, pipelines?
-    // - Empty names/keys?
-    // - Specific validation for provider params based on type (more complex, might be out of scope for basic validation)
+    // Check 3: Guardrails validation
+    if let Some(gr_config) = &config.guardrails {
+        // Guard provider references must exist in guardrails.providers
+        let gr_provider_names: HashSet<&String> =
+            gr_config.providers.iter().map(|p| &p.name).collect();
+        for guard in &gr_config.guards {
+            if !gr_provider_names.contains(&guard.provider) {
+                errors.push(format!(
+                    "Guard '{}' references non-existent guardrail provider '{}'.",
+                    guard.name, guard.provider
+                ));
+            }
+        }
+
+        // Pipeline guard references must exist in guardrails.guards
+        let guard_names: HashSet<&String> = gr_config.guards.iter().map(|g| &g.name).collect();
+        for pipeline in &config.pipelines {
+            for guard_name in &pipeline.guards {
+                if !guard_names.contains(guard_name) {
+                    errors.push(format!(
+                        "Pipeline '{}' references non-existent guard '{}'.",
+                        pipeline.name, guard_name
+                    ));
+                }
+            }
+        }
+
+        // Guard names must be unique
+        let mut seen_guard_names = HashSet::new();
+        for guard in &gr_config.guards {
+            if !seen_guard_names.insert(&guard.name) {
+                errors.push(format!("Duplicate guard name: '{}'.", guard.name));
+            }
+        }
+    }
 
     if errors.is_empty() {
         Ok(())

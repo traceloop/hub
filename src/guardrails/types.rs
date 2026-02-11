@@ -2,8 +2,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use thiserror::Error;
 
 use super::providers::GuardrailClient;
+
+/// Shared guardrail resources: resolved guards + client.
+/// Built once per router build and shared across all pipelines.
+pub type GuardrailResources = (Arc<Vec<Guard>>, Arc<dyn GuardrailClient>);
 
 fn default_on_failure() -> OnFailure {
     OnFailure::Warn
@@ -51,6 +56,8 @@ pub struct Guard {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
 }
+
+impl Eq for Guard {}
 
 impl Hash for Guard {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -112,35 +119,43 @@ pub enum GuardResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct GuardWarning {
+    pub guard_name: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct GuardrailsOutcome {
     pub results: Vec<GuardResult>,
     pub blocked: bool,
     pub blocking_guard: Option<String>,
-    pub warnings: Vec<String>,
+    pub warnings: Vec<GuardWarning>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum GuardrailError {
+    #[error("Evaluator unavailable: {0}")]
     Unavailable(String),
+
+    #[error("HTTP error {status}: {body}")]
     HttpError { status: u16, body: String },
+
+    #[error("Timeout: {0}")]
     Timeout(String),
+
+    #[error("Parse error: {0}")]
     ParseError(String),
 }
 
-impl std::fmt::Display for GuardrailError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GuardrailError::Unavailable(msg) => write!(f, "Evaluator unavailable: {msg}"),
-            GuardrailError::HttpError { status, body } => {
-                write!(f, "HTTP error {status}: {body}")
-            }
-            GuardrailError::Timeout(msg) => write!(f, "Timeout: {msg}"),
-            GuardrailError::ParseError(msg) => write!(f, "Parse error: {msg}"),
+impl From<reqwest::Error> for GuardrailError {
+    fn from(e: reqwest::Error) -> Self {
+        if e.is_timeout() {
+            GuardrailError::Timeout(e.to_string())
+        } else {
+            GuardrailError::Unavailable(e.to_string())
         }
     }
 }
-
-impl std::error::Error for GuardrailError {}
 
 /// Guardrails state attached to a pipeline, containing resolved guards and client.
 ///

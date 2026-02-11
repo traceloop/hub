@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use super::types::{Guard, GuardMode};
 
@@ -26,31 +26,30 @@ pub fn parse_guardrails_from_payload(payload: &serde_json::Value) -> Vec<String>
 }
 
 /// Resolve the final set of guards to execute by merging pipeline, header, and payload sources.
-/// Guards are additive and deduplicated by name.
+/// Guards are additive and deduplicated by name. Uses HashMap for O(1) guard lookup.
 pub fn resolve_guards_by_name(
     all_guards: &[Guard],
     pipeline_names: &[&str],
     header_names: &[&str],
     payload_names: &[&str],
 ) -> Vec<Guard> {
+    let guard_map: HashMap<&str, &Guard> =
+        all_guards.iter().map(|g| (g.name.as_str(), g)).collect();
+
     let mut seen = HashSet::new();
     let mut resolved = Vec::new();
 
-    // Collect all requested names, pipeline first, then header, then payload
-    let all_names: Vec<&str> = pipeline_names
+    let all_names = pipeline_names
         .iter()
         .chain(header_names.iter())
         .chain(payload_names.iter())
-        .copied()
-        .collect();
+        .copied();
 
     for name in all_names {
-        if seen.contains(name) {
-            continue;
-        }
-        if let Some(guard) = all_guards.iter().find(|g| g.name == name) {
-            seen.insert(name);
-            resolved.push(guard.clone());
+        if seen.insert(name) {
+            if let Some(guard) = guard_map.get(name) {
+                resolved.push((*guard).clone());
+            }
         }
     }
 

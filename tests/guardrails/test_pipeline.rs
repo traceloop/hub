@@ -82,7 +82,7 @@ async fn test_pre_call_guardrails_warn_and_continue() {
 
     assert!(!outcome.blocked);
     assert_eq!(outcome.warnings.len(), 1);
-    assert!(outcome.warnings[0].contains("tone-check"));
+    assert_eq!(outcome.warnings[0].guard_name, "tone-check");
 }
 
 #[tokio::test]
@@ -148,32 +148,25 @@ async fn test_post_call_guardrails_warn_and_add_header() {
     assert!(!outcome.warnings.is_empty());
 
     // Verify warning header would be generated correctly
-    let header = warning_header_value(&outcome);
+    let header = warning_header_value(&outcome.warnings);
     assert!(header.contains("guardrail_name="));
     assert!(header.contains("safety-check"));
 }
 
 #[tokio::test]
 async fn test_warning_header_format() {
-    let outcome = GuardrailsOutcome {
-        results: vec![],
-        blocked: false,
-        blocking_guard: None,
-        warnings: vec!["Guard 'my-guard' failed with warning".to_string()],
-    };
-    let header = warning_header_value(&outcome);
+    let warnings = vec![GuardWarning {
+        guard_name: "my-guard".to_string(),
+        reason: "failed".to_string(),
+    }];
+    let header = warning_header_value(&warnings);
     assert_eq!(header, "guardrail_name=\"my-guard\", reason=\"failed\"");
 }
 
 #[tokio::test]
 async fn test_blocked_response_403_format() {
-    let outcome = GuardrailsOutcome {
-        results: vec![],
-        blocked: true,
-        blocking_guard: Some("toxicity-check".to_string()),
-        warnings: vec![],
-    };
-    let response = blocked_response(&outcome);
+    let blocking_guard = Some("toxicity-check".to_string());
+    let response = blocked_response(&blocking_guard);
     assert_eq!(response.status(), 403);
 
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();

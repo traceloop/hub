@@ -58,6 +58,7 @@ utoipa = { version = "5.0.0", features = ["axum_extras", "chrono", "uuid", "open
 utoipa-swagger-ui = { version = "8", features = ["axum"] }
 utoipa-scalar = { version = "0.3.0", features = ["axum"] }
 log = "0.4"
+thiserror = "2"
 
 [lib]
 name = "hub_lib"

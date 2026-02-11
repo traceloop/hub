@@ -141,7 +141,7 @@ async fn test_e2e_post_call_warn_flow() {
 
     assert!(!outcome.blocked);
     assert_eq!(outcome.warnings.len(), 1);
-    assert!(outcome.warnings[0].contains("tone-check"));
+    assert_eq!(outcome.warnings[0].guard_name, "tone-check");
 }
 
 #[tokio::test]
@@ -257,7 +257,7 @@ async fn test_e2e_mixed_block_and_warn() {
 
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard.as_deref(), Some("blocker"));
-    assert!(outcome.warnings.iter().any(|w| w.contains("warner")));
+    assert!(outcome.warnings.iter().any(|w| w.guard_name == "warner"));
 }
 
 #[tokio::test]

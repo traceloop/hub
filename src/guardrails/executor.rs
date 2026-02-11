@@ -1,7 +1,8 @@
 use futures::future::join_all;
+use tracing::{debug, warn};
 
 use super::providers::GuardrailClient;
-use super::types::{Guard, GuardResult, GuardrailsOutcome, OnFailure};
+use super::types::{Guard, GuardResult, GuardWarning, GuardrailsOutcome, OnFailure};
 
 /// Execute a set of guardrails against the given input text.
 /// Guards are run concurrently. Returns a GuardrailsOutcome with results, blocked status, and warnings.
@@ -10,10 +11,29 @@ pub async fn execute_guards(
     input: &str,
     client: &dyn GuardrailClient,
 ) -> GuardrailsOutcome {
+    debug!(guard_count = guards.len(), "Executing guardrails");
+
     let futures: Vec<_> = guards
         .iter()
         .map(|guard| async move {
+            let start = std::time::Instant::now();
             let result = client.evaluate(guard, input).await;
+            let elapsed = start.elapsed();
+            match &result {
+                Ok(resp) => debug!(
+                    guard = %guard.name,
+                    pass = resp.pass,
+                    elapsed_ms = elapsed.as_millis(),
+                    "Guard evaluation complete"
+                ),
+                Err(err) => warn!(
+                    guard = %guard.name,
+                    error = %err,
+                    required = guard.required,
+                    elapsed_ms = elapsed.as_millis(),
+                    "Guard evaluation failed"
+                ),
+            }
             (guard, result)
         })
         .collect();
@@ -47,7 +67,10 @@ pub async fn execute_guards(
                             }
                         }
                         OnFailure::Warn => {
-                            warnings.push(format!("Guard '{}' failed with warning", guard.name));
+                            warnings.push(GuardWarning {
+                                guard_name: guard.name.clone(),
+                                reason: "failed".to_string(),
+                            });
                         }
                     }
                 }
@@ -67,6 +90,10 @@ pub async fn execute_guards(
                 }
             }
         }
+    }
+
+    if blocked {
+        warn!(blocking_guard = ?blocking_guard, "Request blocked by guardrail");
     }
 
     GuardrailsOutcome {

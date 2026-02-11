@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use serde_json::json;
 use std::time::Duration;
+use tracing::debug;
 
 use super::GuardrailClient;
 use crate::guardrails::response_parser::parse_evaluator_http_response;
@@ -10,6 +11,12 @@ use crate::guardrails::types::{EvaluatorResponse, Guard, GuardrailError};
 /// Calls `POST {api_base}/v2/guardrails/{evaluator_slug}`.
 pub struct TraceloopClient {
     http_client: reqwest::Client,
+}
+
+impl Default for TraceloopClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TraceloopClient {
@@ -50,6 +57,8 @@ impl GuardrailClient for TraceloopClient {
             "config": config,
         });
 
+        debug!(guard = %guard.name, slug = %guard.evaluator_slug, %url, "Calling evaluator API");
+
         let response = self
             .http_client
             .post(&url)
@@ -57,20 +66,10 @@ impl GuardrailClient for TraceloopClient {
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    GuardrailError::Timeout(e.to_string())
-                } else {
-                    GuardrailError::Unavailable(e.to_string())
-                }
-            })?;
+            .await?;
 
         let status = response.status().as_u16();
-        let response_body = response
-            .text()
-            .await
-            .map_err(|e| GuardrailError::Unavailable(e.to_string()))?;
+        let response_body = response.text().await?;
 
         parse_evaluator_http_response(status, &response_body)
     }
