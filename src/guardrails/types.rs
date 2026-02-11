@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -81,15 +81,43 @@ impl Hash for Guard {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct GuardrailsConfig {
-    #[serde(default)]
-    pub providers: Vec<ProviderConfig>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_providers",
+        serialize_with = "serialize_providers"
+    )]
+    pub providers: HashMap<String, ProviderConfig>,
     #[serde(default)]
     pub guards: Vec<Guard>,
 }
 
+fn deserialize_providers<'de, D>(deserializer: D) -> Result<HashMap<String, ProviderConfig>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let list: Vec<ProviderConfig> = Vec::deserialize(deserializer)?;
+    Ok(list.into_iter().map(|p| (p.name.clone(), p)).collect())
+}
+
+fn serialize_providers<S>(
+    providers: &HashMap<String, ProviderConfig>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let list: Vec<&ProviderConfig> = providers.values().collect();
+    list.serialize(serializer)
+}
+
 impl Hash for GuardrailsConfig {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.providers.hash(state);
+        let mut entries: Vec<_> = self.providers.iter().collect();
+        entries.sort_by_key(|(k, _)| (*k).clone());
+        for (k, v) in entries {
+            k.hash(state);
+            v.hash(state);
+        }
         self.guards.hash(state);
     }
 }

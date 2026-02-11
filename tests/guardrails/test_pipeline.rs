@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use hub_lib::guardrails::api_control::{resolve_guards_by_name, split_guards_by_mode};
 use hub_lib::guardrails::executor::execute_guards;
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
@@ -185,7 +186,7 @@ async fn test_blocked_response_403_format() {
 async fn test_no_guardrails_passthrough() {
     // Empty guardrails config -> build_guardrail_resources returns None
     let config = GuardrailsConfig {
-        providers: vec![],
+        providers: Default::default(),
         guards: vec![],
     };
     let result = build_guardrail_resources(&config);
@@ -193,11 +194,11 @@ async fn test_no_guardrails_passthrough() {
 
     // Config with no guards -> passthrough
     let config_with_providers = GuardrailsConfig {
-        providers: vec![ProviderConfig {
+        providers: HashMap::from([("traceloop".to_string(), ProviderConfig {
             name: "traceloop".to_string(),
             api_base: "http://localhost".to_string(),
             api_key: "key".to_string(),
-        }],
+        })]),
         guards: vec![],
     };
     let result = build_guardrail_resources(&config_with_providers);
@@ -210,11 +211,11 @@ async fn test_no_guardrails_passthrough() {
 
 fn test_guardrails_config() -> GuardrailsConfig {
     GuardrailsConfig {
-        providers: vec![ProviderConfig {
+        providers: HashMap::from([("traceloop".to_string(), ProviderConfig {
             name: "traceloop".to_string(),
             api_base: "https://api.traceloop.com".to_string(),
             api_key: "test-key".to_string(),
-        }],
+        })]),
         guards: vec![
             Guard {
                 name: "pii-check".to_string(),
@@ -305,11 +306,11 @@ fn test_build_pipeline_guardrails_resolves_provider_defaults() {
 #[test]
 fn test_resolve_guard_defaults_preserves_guard_overrides() {
     let config = GuardrailsConfig {
-        providers: vec![ProviderConfig {
+        providers: HashMap::from([("traceloop".to_string(), ProviderConfig {
             name: "traceloop".to_string(),
             api_base: "https://default.api.com".to_string(),
             api_key: "default-key".to_string(),
-        }],
+        })]),
         guards: vec![Guard {
             name: "custom-guard".to_string(),
             provider: "traceloop".to_string(),

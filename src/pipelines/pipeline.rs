@@ -69,6 +69,7 @@ pub fn create_pipeline(
     );
 
     for plugin in pipeline.plugins.clone() {
+        let gr = guardrails.clone();
         router = match plugin {
             PluginConfig::Tracing { endpoint, api_key } => {
                 tracing::info!("Initializing OtelTracer for pipeline {}", pipeline.name);
@@ -77,14 +78,12 @@ pub fn create_pipeline(
             }
             PluginConfig::ModelRouter { models } => match pipeline.r#type {
                 PipelineType::Chat => {
-                    let gr = guardrails.clone();
                     router.route(
                         "/chat/completions",
                         post(move |state, headers, payload| chat_completions(state, headers, payload, models, gr)),
                     )
                 }
                 PipelineType::Completion => {
-                    let gr = guardrails.clone();
                     router.route(
                         "/completions",
                         post(move |state, headers, payload| completions(state, headers, payload, models, gr)),

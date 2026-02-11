@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use super::types::{Guard, GuardrailResources, GuardrailsConfig, Guardrails};
+use super::types::{GuardrailResources, GuardrailsConfig, Guardrails};
 
 /// Resolve provider defaults (api_base/api_key) for all guards in the config.
-pub fn resolve_guard_defaults(config: &GuardrailsConfig) -> Vec<Guard> {
+pub fn resolve_guard_defaults(config: &GuardrailsConfig) -> Vec<super::types::Guard> {
     let mut guards = config.guards.clone();
     for guard in &mut guards {
         if guard.api_base.is_none() || guard.api_key.is_none() {
-            if let Some(provider) = config.providers.iter().find(|p| p.name == guard.provider) {
+            if let Some(provider) = config.providers.get(&guard.provider) {
                 if guard.api_base.is_none() {
                     guard.api_base = Some(provider.api_base.clone());
                 }

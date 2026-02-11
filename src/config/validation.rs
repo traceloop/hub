@@ -40,10 +40,8 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
     // Check 3: Guardrails validation
     if let Some(gr_config) = &config.guardrails {
         // Guard provider references must exist in guardrails.providers
-        let gr_provider_names: HashSet<&String> =
-            gr_config.providers.iter().map(|p| &p.name).collect();
         for guard in &gr_config.guards {
-            if !gr_provider_names.contains(&guard.provider) {
+            if !gr_config.providers.contains_key(&guard.provider) {
                 errors.push(format!(
                     "Guard '{}' references non-existent guardrail provider '{}'.",
                     guard.name, guard.provider
@@ -83,6 +81,7 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
 #[cfg(test)]
 mod tests {
     use super::*; // To import validate_gateway_config
+    use std::collections::HashMap;
     use crate::guardrails::types::{Guard, GuardMode, GuardrailsConfig, OnFailure, ProviderConfig as GrProviderConfig};
     use crate::types::{ModelConfig, Pipeline, PipelineType, PluginConfig, Provider, ProviderType}; // For test data
 
@@ -178,11 +177,11 @@ mod tests {
     fn test_guard_references_non_existent_guardrail_provider() {
         let config = GatewayConfig {
             guardrails: Some(GuardrailsConfig {
-                providers: vec![GrProviderConfig {
+                providers: HashMap::from([("gr_p1".to_string(), GrProviderConfig {
                     name: "gr_p1".to_string(),
                     api_base: "http://localhost".to_string(),
                     api_key: "key".to_string(),
-                }],
+                })]),
                 guards: vec![Guard {
                     name: "g1".to_string(),
                     provider: "gr_p2_non_existent".to_string(),
@@ -211,11 +210,11 @@ mod tests {
     fn test_pipeline_references_non_existent_guard() {
         let config = GatewayConfig {
             guardrails: Some(GuardrailsConfig {
-                providers: vec![GrProviderConfig {
+                providers: HashMap::from([("gr_p1".to_string(), GrProviderConfig {
                     name: "gr_p1".to_string(),
                     api_base: "http://localhost".to_string(),
                     api_key: "key".to_string(),
-                }],
+                })]),
                 guards: vec![Guard {
                     name: "g1".to_string(),
                     provider: "gr_p1".to_string(),
@@ -249,11 +248,11 @@ mod tests {
     fn test_duplicate_guard_names() {
         let config = GatewayConfig {
             guardrails: Some(GuardrailsConfig {
-                providers: vec![GrProviderConfig {
+                providers: HashMap::from([("gr_p1".to_string(), GrProviderConfig {
                     name: "gr_p1".to_string(),
                     api_base: "http://localhost".to_string(),
                     api_key: "key".to_string(),
-                }],
+                })]),
                 guards: vec![
                     Guard {
                         name: "g1".to_string(),

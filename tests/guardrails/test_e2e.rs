@@ -363,7 +363,7 @@ guardrails:
     let gr = config.guardrails.unwrap();
 
     assert_eq!(gr.providers.len(), 1);
-    assert_eq!(gr.providers[0].api_key, "resolved-key-123");
+    assert_eq!(gr.providers["traceloop"].api_key, "resolved-key-123");
 
     // Guards should have evaluator_slug at top level
     assert_eq!(gr.guards[0].evaluator_slug, "toxicity");
