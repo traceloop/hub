@@ -83,6 +83,7 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
 #[cfg(test)]
 mod tests {
     use super::*; // To import validate_gateway_config
+    use crate::guardrails::types::{Guard, GuardMode, GuardrailsConfig, OnFailure, ProviderConfig as GrProviderConfig};
     use crate::types::{ModelConfig, Pipeline, PipelineType, PluginConfig, Provider, ProviderType}; // For test data
 
     #[test]
@@ -171,5 +172,122 @@ mod tests {
         let errors = result.unwrap_err();
         assert_eq!(errors.len(), 1);
         assert!(errors[0].contains("references non-existent model 'm2_non_existent'"));
+    }
+
+    #[test]
+    fn test_guard_references_non_existent_guardrail_provider() {
+        let config = GatewayConfig {
+            guardrails: Some(GuardrailsConfig {
+                providers: vec![GrProviderConfig {
+                    name: "gr_p1".to_string(),
+                    api_base: "http://localhost".to_string(),
+                    api_key: "key".to_string(),
+                }],
+                guards: vec![Guard {
+                    name: "g1".to_string(),
+                    provider: "gr_p2_non_existent".to_string(),
+                    evaluator_slug: "slug".to_string(),
+                    params: Default::default(),
+                    mode: GuardMode::PreCall,
+                    on_failure: OnFailure::Block,
+                    required: true,
+                    api_base: None,
+                    api_key: None,
+                }],
+            }),
+            general: None,
+            providers: vec![],
+            models: vec![],
+            pipelines: vec![],
+        };
+        let result = validate_gateway_config(&config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("references non-existent guardrail provider 'gr_p2_non_existent'"));
+    }
+
+    #[test]
+    fn test_pipeline_references_non_existent_guard() {
+        let config = GatewayConfig {
+            guardrails: Some(GuardrailsConfig {
+                providers: vec![GrProviderConfig {
+                    name: "gr_p1".to_string(),
+                    api_base: "http://localhost".to_string(),
+                    api_key: "key".to_string(),
+                }],
+                guards: vec![Guard {
+                    name: "g1".to_string(),
+                    provider: "gr_p1".to_string(),
+                    evaluator_slug: "slug".to_string(),
+                    params: Default::default(),
+                    mode: GuardMode::PreCall,
+                    on_failure: OnFailure::Block,
+                    required: true,
+                    api_base: None,
+                    api_key: None,
+                }],
+            }),
+            general: None,
+            providers: vec![],
+            models: vec![],
+            pipelines: vec![Pipeline {
+                name: "pipe1".to_string(),
+                r#type: PipelineType::Chat,
+                plugins: vec![],
+                guards: vec!["g_non_existent".to_string()],
+            }],
+        };
+        let result = validate_gateway_config(&config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("references non-existent guard 'g_non_existent'"));
+    }
+
+    #[test]
+    fn test_duplicate_guard_names() {
+        let config = GatewayConfig {
+            guardrails: Some(GuardrailsConfig {
+                providers: vec![GrProviderConfig {
+                    name: "gr_p1".to_string(),
+                    api_base: "http://localhost".to_string(),
+                    api_key: "key".to_string(),
+                }],
+                guards: vec![
+                    Guard {
+                        name: "g1".to_string(),
+                        provider: "gr_p1".to_string(),
+                        evaluator_slug: "slug".to_string(),
+                        params: Default::default(),
+                        mode: GuardMode::PreCall,
+                        on_failure: OnFailure::Block,
+                        required: true,
+                        api_base: None,
+                        api_key: None,
+                    },
+                    Guard {
+                        name: "g1".to_string(),
+                        provider: "gr_p1".to_string(),
+                        evaluator_slug: "slug2".to_string(),
+                        params: Default::default(),
+                        mode: GuardMode::PostCall,
+                        on_failure: OnFailure::Warn,
+                        required: true,
+                        api_base: None,
+                        api_key: None,
+                    },
+                ],
+            }),
+            general: None,
+            providers: vec![],
+            models: vec![],
+            pipelines: vec![],
+        };
+        let result = validate_gateway_config(&config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("Duplicate guard name: 'g1'"));
     }
 }
