@@ -10,8 +10,7 @@ use tracing::warn;
 use super::api_control::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
 use super::executor::execute_guards;
 use super::input_extractor::PreCallInput;
-use super::providers::GuardrailClient;
-use super::types::{Guard, GuardWarning, Guardrails};
+use super::types::{Guard, GuardWarning, GuardrailClient, Guardrails};
 
 /// Result of running pre-call or post-call guards.
 pub struct GuardPhaseResult {

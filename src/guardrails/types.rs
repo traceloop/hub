@@ -1,10 +1,9 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use thiserror::Error;
-
-use super::providers::GuardrailClient;
 
 /// Shared guardrail resources: resolved guards + client.
 /// Built once per router build and shared across all pipelines.
@@ -185,6 +184,17 @@ impl From<reqwest::Error> for GuardrailError {
             GuardrailError::Unavailable(e.to_string())
         }
     }
+}
+
+/// Trait for guardrail evaluator clients.
+/// Each provider (traceloop, etc.) implements this to call its evaluator API.
+#[async_trait]
+pub trait GuardrailClient: Send + Sync {
+    async fn evaluate(
+        &self,
+        guard: &Guard,
+        input: &str,
+    ) -> Result<EvaluatorResponse, GuardrailError>;
 }
 
 /// Guardrails state attached to a pipeline, containing resolved guards and client.

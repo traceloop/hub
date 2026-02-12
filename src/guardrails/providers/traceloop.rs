@@ -61,10 +61,10 @@ impl GuardrailClient for TraceloopClient {
         })?;
         let body = evaluator.build_body(input, &guard.params)?;
 
-        debug!(guard = %guard.name, slug = %guard.evaluator_slug, %url, "Calling evaluator API");
+        debug!(guard = %guard.name, slug = %guard.evaluator_slug, %url, %body, "Calling evaluator API");
 
         let response = self
-            .http_client
+            .http_client    
             .post(&url)
             .header("Authorization", format!("Bearer {api_key}"))
             .header("Content-Type", "application/json")
@@ -74,6 +74,8 @@ impl GuardrailClient for TraceloopClient {
 
         let status = response.status().as_u16();
         let response_body = response.text().await?;
+
+        debug!(guard = %guard.name, %status, %response_body, "Evaluator API response");
 
         parse_evaluator_http_response(status, &response_body)
     }

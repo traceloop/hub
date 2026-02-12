@@ -1,8 +1,7 @@
 use futures::future::join_all;
 use tracing::{debug, warn};
 
-use super::providers::GuardrailClient;
-use super::types::{Guard, GuardResult, GuardWarning, GuardrailsOutcome, OnFailure};
+use super::types::{Guard, GuardResult, GuardWarning, GuardrailClient, GuardrailsOutcome, OnFailure};
 
 /// Execute a set of guardrails against the given input text.
 /// Guards are run concurrently. Returns a GuardrailsOutcome with results, blocked status, and warnings.

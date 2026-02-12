@@ -30,7 +30,7 @@ pub fn build_guardrail_resources(
         return None;
     }
     let all_guards = Arc::new(resolve_guard_defaults(config));
-    let client: Arc<dyn super::providers::GuardrailClient> =
+    let client: Arc<dyn super::types::GuardrailClient> =
         Arc::new(super::providers::traceloop::TraceloopClient::new());
     Some((all_guards, client))
 }
