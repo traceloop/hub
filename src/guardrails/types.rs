@@ -133,7 +133,6 @@ pub struct EvaluatorResponse {
 pub enum GuardResult {
     Passed {
         name: String,
-        result: serde_json::Value,
     },
     Failed {
         name: String,

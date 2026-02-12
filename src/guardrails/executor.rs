@@ -50,7 +50,6 @@ pub async fn execute_guards(
                 if response.pass {
                     results.push(GuardResult::Passed {
                         name: guard.name.clone(),
-                        result: response.result,
                     });
                 } else {
                     results.push(GuardResult::Failed {
