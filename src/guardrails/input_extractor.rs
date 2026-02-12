@@ -3,12 +3,17 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::content::ChatMessageContent;
 
 /// Trait for extracting pre-call guardrail input from a request.
-pub trait PreCallInput {
-    fn extract_pre_call_input(&self) -> String;
+pub trait PromptExtractor {
+    fn extract_pompt(&self) -> String;
 }
 
-impl PreCallInput for ChatCompletionRequest {
-    fn extract_pre_call_input(&self) -> String {
+/// Trait for extracting post-call guardrail input from a response.
+pub trait CompletionExtractor {
+    fn extract_completion(&self) -> String;
+}
+
+impl PromptExtractor for ChatCompletionRequest {
+    fn extract_pompt(&self) -> String {
         self.messages
             .iter()
             .filter_map(|m| {
@@ -27,37 +32,35 @@ impl PreCallInput for ChatCompletionRequest {
     }
 }
 
-impl PreCallInput for CompletionRequest {
-    fn extract_pre_call_input(&self) -> String {
+impl PromptExtractor for CompletionRequest {
+    fn extract_pompt(&self) -> String {
         self.prompt.clone()
     }
 }
 
-/// Extract text from a CompletionResponse for post_call guardrails.
-/// Returns the text of the first choice.
-pub fn extract_post_call_input_from_completion_response(response: &CompletionResponse) -> String {
-    response
-        .choices
-        .first()
-        .map(|choice| choice.text.clone())
-        .unwrap_or_default()
+impl CompletionExtractor for ChatCompletion {
+    fn extract_completion(&self) -> String {
+        self.choices
+            .first()
+            .and_then(|choice| choice.message.content.as_ref())
+            .map(|content| match content {
+                ChatMessageContent::String(s) => s.clone(),
+                ChatMessageContent::Array(parts) => parts
+                    .iter()
+                    .filter(|p| p.r#type == "text")
+                    .map(|p| p.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            })
+            .unwrap_or_default()
+    }
 }
 
-/// Extract text from a non-streaming ChatCompletion for post_call guardrails.
-/// Returns the content of the first assistant choice.
-pub fn extract_post_call_input_from_completion(completion: &ChatCompletion) -> String {
-    completion
-        .choices
-        .first()
-        .and_then(|choice| choice.message.content.as_ref())
-        .map(|content| match content {
-            ChatMessageContent::String(s) => s.clone(),
-            ChatMessageContent::Array(parts) => parts
-                .iter()
-                .filter(|p| p.r#type == "text")
-                .map(|p| p.text.as_str())
-                .collect::<Vec<_>>()
-                .join(" "),
-        })
-        .unwrap_or_default()
+impl CompletionExtractor for CompletionResponse {
+    fn extract_completion(&self) -> String {
+        self.choices
+            .first()
+            .map(|choice| choice.text.clone())
+            .unwrap_or_default()
+    }
 }

@@ -1,7 +1,4 @@
 use crate::config::models::PipelineType;
-use crate::guardrails::input_extractor::{
-    extract_post_call_input_from_completion, extract_post_call_input_from_completion_response,
-};
 use crate::guardrails::guardrails_runner::GuardrailsRunner;
 use crate::guardrails::types::{GuardrailResources, Guardrails};
 use crate::models::chat::ChatCompletionResponse;
@@ -161,8 +158,7 @@ pub async fn chat_completions(
 
                 // Post-call guardrails (non-streaming)
                 if let Some(orch) = &orchestrator {
-                    let response_text = extract_post_call_input_from_completion(&completion);
-                    let post = orch.run_post_call(&response_text).await;
+                    let post = orch.run_post_call(&completion).await;
                     if let Some(resp) = post.blocked_response {
                         return Ok(resp);
                     }
@@ -223,8 +219,7 @@ pub async fn completions(
 
             // Post-call guardrails
             if let Some(orch) = &orchestrator {
-                let response_text = extract_post_call_input_from_completion_response(&response);
-                let post = orch.run_post_call(&response_text).await;
+                let post = orch.run_post_call(&response).await;
                 if let Some(resp) = post.blocked_response {
                     return Ok(resp);
                 }

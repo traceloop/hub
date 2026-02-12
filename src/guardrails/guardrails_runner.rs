@@ -9,7 +9,7 @@ use tracing::warn;
 
 use super::api_control::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
 use super::executor::execute_guards;
-use super::input_extractor::PreCallInput;
+use super::input_extractor::{PromptExtractor, CompletionExtractor};
 use super::types::{Guard, GuardWarning, GuardrailClient, Guardrails};
 
 /// Result of running pre-call or post-call guards.
@@ -43,18 +43,18 @@ impl<'a> GuardrailsRunner<'a> {
     }
 
     /// Run pre-call guards, extracting input from the request only if guards exist.
-    pub async fn run_pre_call(&self, request: &impl PreCallInput) -> GuardPhaseResult {
+    pub async fn run_pre_call(&self, request: &impl PromptExtractor) -> GuardPhaseResult {
         if self.pre_call.is_empty() {
             return GuardPhaseResult {
                 blocked_response: None,
                 warnings: Vec::new(),
             };
         }
-        let input = request.extract_pre_call_input();
+        let input = request.extract_pompt();
         let outcome = execute_guards(&self.pre_call, &input, self.client).await;
         if outcome.blocked {
             return GuardPhaseResult {
-                blocked_response: Some(blocked_response(&outcome.blocking_guard)),
+                blocked_response: Some(blocked_response(&outcome)),
                 warnings: Vec::new(),
             };
         }
@@ -64,18 +64,19 @@ impl<'a> GuardrailsRunner<'a> {
         }
     }
 
-    /// Run post-call guards against the LLM response text.
-    pub async fn run_post_call(&self, response_text: &str) -> GuardPhaseResult {
+    /// Run post-call guards, extracting input from the response only if guards exist.
+    pub async fn run_post_call(&self, response: &impl CompletionExtractor) -> GuardPhaseResult {
         if self.post_call.is_empty() {
             return GuardPhaseResult {
                 blocked_response: None,
                 warnings: Vec::new(),
             };
         }
-        let outcome = execute_guards(&self.post_call, response_text, self.client).await;
+        let input = response.extract_completion();
+        let outcome = execute_guards(&self.post_call, &input, self.client).await;
         if outcome.blocked {
             return GuardPhaseResult {
-                blocked_response: Some(blocked_response(&outcome.blocking_guard)),
+                blocked_response: Some(blocked_response(&outcome)),
                 warnings: Vec::new(),
             };
         }
@@ -83,11 +84,6 @@ impl<'a> GuardrailsRunner<'a> {
             blocked_response: None,
             warnings: outcome.warnings,
         }
-    }
-
-    /// Returns true if post-call guards are configured for this request.
-    pub fn has_post_call_guards(&self) -> bool {
-        !self.post_call.is_empty()
     }
 
     /// Attach warning headers to a response if there are any warnings.
@@ -107,15 +103,45 @@ impl<'a> GuardrailsRunner<'a> {
 }
 
 /// Build a 403 blocked response with the guard name.
-pub fn blocked_response(blocking_guard: &Option<String>) -> Response {
-    let guard_name = blocking_guard.as_deref().unwrap_or("unknown");
-    let body = json!({
-        "error": {
-            "type": "guardrail_blocked",
-            "guardrail": guard_name,
-            "message": format!("Request blocked by guardrail '{guard_name}'"),
-        }
+pub fn blocked_response(outcome: &super::types::GuardrailsOutcome) -> Response {
+    use super::types::GuardResult;
+
+    let guard_name = outcome.blocking_guard.as_deref().unwrap_or("unknown");
+
+    // Find the blocking guard result to get details
+    let details = outcome.results.iter()
+        .find(|r| match r {
+            GuardResult::Failed { name, .. } => name == guard_name,
+            GuardResult::Error { name, .. } => name == guard_name,
+            _ => false,
+        })
+        .and_then(|r| match r {
+            GuardResult::Failed { result, .. } => Some(json!({
+                "evaluation_result": result,
+                "reason": "evaluation_failed"
+            })),
+            GuardResult::Error { error, .. } => Some(json!({
+                "error_details": error,
+                "reason": "evaluator_error"
+            })),
+            _ => None,
+        });
+
+    let mut error_obj = json!({
+        "type": "guardrail_blocked",
+        "guardrail": guard_name,
+        "message": format!("Request blocked by guardrail '{guard_name}'"),
     });
+
+    if let Some(details) = details {
+        if let Some(obj) = error_obj.as_object_mut() {
+            if let Some(details_obj) = details.as_object() {
+                obj.extend(details_obj.clone());
+            }
+        }
+    }
+
+    let body = json!({ "error": error_obj });
     (StatusCode::FORBIDDEN, Json(body)).into_response()
 }
 
