@@ -8,10 +8,10 @@ pub fn resolve_guard_defaults(config: &GuardrailsConfig) -> Vec<super::types::Gu
     for guard in &mut guards {
         if guard.api_base.is_none() || guard.api_key.is_none() {
             if let Some(provider) = config.providers.get(&guard.provider) {
-                if guard.api_base.is_none() {
+                if guard.api_base.is_none() && !provider.api_base.is_empty() {
                     guard.api_base = Some(provider.api_base.clone());
                 }
-                if guard.api_key.is_none() {
+                if guard.api_key.is_none() && !provider.api_key.is_empty() {
                     guard.api_key = Some(provider.api_key.clone());
                 }
             }

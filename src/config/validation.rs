@@ -38,8 +38,8 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
     }
 
     // Check 3: Guardrails validation
-    if let Some(gr_config&config.guardrails {
-        // Guard provider references must exist in guardrails.providers
+    if let Some(gr_config) = &config.guardrails {
+       // Guard provider references must exist in guardrails.providers
         for guard in &gr_config.guards {
             if !gr_config.providers.contains_key(&guard.provider) {
                 errors.push(format!(
@@ -59,6 +59,29 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
                         pipeline.name, guard_name
                     ));
                 }
+            }
+        }
+
+        // Guards must have api_base and api_key (either directly or via provider)
+        for guard in &gr_config.guards {
+            let has_api_base = guard.api_base.as_ref().is_some_and(|s| !s.is_empty())
+                || gr_config.providers.get(&guard.provider)
+                    .is_some_and(|p| !p.api_base.is_empty());
+            let has_api_key = guard.api_key.as_ref().is_some_and(|s| !s.is_empty())
+                || gr_config.providers.get(&guard.provider)
+                    .is_some_and(|p| !p.api_key.is_empty());
+
+            if !has_api_base {
+                errors.push(format!(
+                    "Guard '{}' has no api_base configured (neither on the guard nor on provider '{}').",
+                    guard.name, guard.provider
+                ));
+            }
+            if !has_api_key {
+                errors.push(format!(
+                    "Guard '{}' has no api_key configured (neither on the guard nor on provider '{}').",
+                    guard.name, guard.provider
+                ));
             }
         }
 
@@ -202,8 +225,9 @@ mod tests {
         let result = validate_gateway_config(&config);
         assert!(result.is_err());
         let errors = result.unwrap_err();
-        assert_eq!(errors.len(), 1);
-        assert!(errors[0].contains("references non-existent guardrail provider 'gr_p2_non_existent'"));
+        assert!(errors.iter().any(|e| e.contains("references non-existent guardrail provider 'gr_p2_non_existent'")));
+        assert!(errors.iter().any(|e| e.contains("no api_base configured")));
+        assert!(errors.iter().any(|e| e.contains("no api_key configured")));
     }
 
     #[test]
@@ -288,5 +312,68 @@ mod tests {
         let errors = result.unwrap_err();
         assert_eq!(errors.len(), 1);
         assert!(errors[0].contains("Duplicate guard name: 'g1'"));
+    }
+
+    #[test]
+    fn test_guard_missing_api_base_and_api_key() {
+        let config = GatewayConfig {
+            guardrails: Some(GuardrailsConfig {
+                providers: HashMap::from([("gr_p1".to_string(), GrProviderConfig {
+                    name: "gr_p1".to_string(),
+                    api_base: "".to_string(),
+                    api_key: "".to_string(),
+                })]),
+                guards: vec![Guard {
+                    name: "g1".to_string(),
+                    provider: "gr_p1".to_string(),
+                    evaluator_slug: "slug".to_string(),
+                    params: Default::default(),
+                    mode: GuardMode::PreCall,
+                    on_failure: OnFailure::Block,
+                    required: true,
+                    api_base: None,
+                    api_key: None,
+                }],
+            }),
+            general: None,
+            providers: vec![],
+            models: vec![],
+            pipelines: vec![],
+        };
+        let result = validate_gateway_config(&config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 2);
+        assert!(errors[0].contains("no api_base configured"));
+        assert!(errors[1].contains("no api_key configured"));
+    }
+
+    #[test]
+    fn test_guard_inherits_api_base_from_provider() {
+        let config = GatewayConfig {
+            guardrails: Some(GuardrailsConfig {
+                providers: HashMap::from([("gr_p1".to_string(), GrProviderConfig {
+                    name: "gr_p1".to_string(),
+                    api_base: "http://localhost".to_string(),
+                    api_key: "key".to_string(),
+                })]),
+                guards: vec![Guard {
+                    name: "g1".to_string(),
+                    provider: "gr_p1".to_string(),
+                    evaluator_slug: "slug".to_string(),
+                    params: Default::default(),
+                    mode: GuardMode::PreCall,
+                    on_failure: OnFailure::Block,
+                    required: true,
+                    api_base: None,
+                    api_key: None,
+                }],
+            }),
+            general: None,
+            providers: vec![],
+            models: vec![],
+            pipelines: vec![],
+        };
+        assert!(validate_gateway_config(&config).is_ok());
     }
 }

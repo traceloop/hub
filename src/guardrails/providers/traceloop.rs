@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 use serde_json::json;
-use std::time::Duration;
 use tracing::debug;
 
 use super::GuardrailClient;
 use crate::guardrails::response_parser::parse_evaluator_http_response;
 use crate::guardrails::types::{EvaluatorResponse, Guard, GuardrailError};
 
+
+const DEFAULT_TRACELOOP_API: &str = "https://api.traceloop.com";
 /// HTTP client for the Traceloop evaluator API service.
 /// Calls `POST {api_base}/v2/guardrails/{evaluator_slug}`.
 pub struct TraceloopClient {
@@ -25,12 +26,6 @@ impl TraceloopClient {
             http_client: reqwest::Client::new(),
         }
     }
-
-    pub fn with_timeout(timeout: Duration) -> Self {
-        Self {
-            http_client: reqwest::Client::builder().timeout(timeout).build().unwrap(),
-        }
-    }
 }
 
 #[async_trait]
@@ -40,10 +35,12 @@ impl GuardrailClient for TraceloopClient {
         guard: &Guard,
         input: &str,
     ) -> Result<EvaluatorResponse, GuardrailError> {
-        let api_base = guard.api_base.as_deref().unwrap_or("http://localhost:8080");
+        let api_base = guard.api_base.as_deref()
+            .filter(|s| !s.is_empty())
+            .unwrap_or(DEFAULT_TRACELOOP_API);
         let url = format!(
-            "{}/v2/guardrails/{}",
-            api_base.trim_end_matches('/'),
+            "{}/v2/guardrails/execute/{}",
+            api_base,
             guard.evaluator_slug
         );
 
