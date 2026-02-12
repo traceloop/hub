@@ -91,7 +91,9 @@ pub struct GuardrailsConfig {
     pub guards: Vec<Guard>,
 }
 
-fn deserialize_providers<'de, D>(deserializer: D) -> Result<HashMap<String, ProviderConfig>, D::Error>
+fn deserialize_providers<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, ProviderConfig>, D::Error>
 where
     D: Deserializer<'de>,
 {

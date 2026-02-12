@@ -85,6 +85,16 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
             }
         }
 
+        // Evaluator slugs must be recognised
+        for guard in &gr_config.guards {
+            if crate::guardrails::evaluator_types::get_evaluator(&guard.evaluator_slug).is_none() {
+                errors.push(format!(
+                    "Guard '{}' has unknown evaluator_slug '{}'.",
+                    guard.name, guard.evaluator_slug
+                ));
+            }
+        }
+
         // Guard names must be unique
         let mut seen_guard_names = HashSet::new();
         for guard in &gr_config.guards {
@@ -208,7 +218,7 @@ mod tests {
                 guards: vec![Guard {
                     name: "g1".to_string(),
                     provider: "gr_p2_non_existent".to_string(),
-                    evaluator_slug: "slug".to_string(),
+                    evaluator_slug: "pii-detector".to_string(),
                     params: Default::default(),
                     mode: GuardMode::PreCall,
                     on_failure: OnFailure::Block,
@@ -242,7 +252,7 @@ mod tests {
                 guards: vec![Guard {
                     name: "g1".to_string(),
                     provider: "gr_p1".to_string(),
-                    evaluator_slug: "slug".to_string(),
+                    evaluator_slug: "pii-detector".to_string(),
                     params: Default::default(),
                     mode: GuardMode::PreCall,
                     on_failure: OnFailure::Block,
@@ -281,7 +291,7 @@ mod tests {
                     Guard {
                         name: "g1".to_string(),
                         provider: "gr_p1".to_string(),
-                        evaluator_slug: "slug".to_string(),
+                        evaluator_slug: "pii-detector".to_string(),
                         params: Default::default(),
                         mode: GuardMode::PreCall,
                         on_failure: OnFailure::Block,
@@ -292,7 +302,7 @@ mod tests {
                     Guard {
                         name: "g1".to_string(),
                         provider: "gr_p1".to_string(),
-                        evaluator_slug: "slug2".to_string(),
+                        evaluator_slug: "toxicity-detector".to_string(),
                         params: Default::default(),
                         mode: GuardMode::PostCall,
                         on_failure: OnFailure::Warn,
@@ -326,7 +336,7 @@ mod tests {
                 guards: vec![Guard {
                     name: "g1".to_string(),
                     provider: "gr_p1".to_string(),
-                    evaluator_slug: "slug".to_string(),
+                    evaluator_slug: "pii-detector".to_string(),
                     params: Default::default(),
                     mode: GuardMode::PreCall,
                     on_failure: OnFailure::Block,
@@ -360,7 +370,7 @@ mod tests {
                 guards: vec![Guard {
                     name: "g1".to_string(),
                     provider: "gr_p1".to_string(),
-                    evaluator_slug: "slug".to_string(),
+                    evaluator_slug: "pii-detector".to_string(),
                     params: Default::default(),
                     mode: GuardMode::PreCall,
                     on_failure: OnFailure::Block,
@@ -375,5 +385,37 @@ mod tests {
             pipelines: vec![],
         };
         assert!(validate_gateway_config(&config).is_ok());
+    }
+
+    #[test]
+    fn test_guard_unknown_evaluator_slug() {
+        let config = GatewayConfig {
+            guardrails: Some(GuardrailsConfig {
+                providers: HashMap::from([("gr_p1".to_string(), GrProviderConfig {
+                    name: "gr_p1".to_string(),
+                    api_base: "http://localhost".to_string(),
+                    api_key: "key".to_string(),
+                })]),
+                guards: vec![Guard {
+                    name: "g1".to_string(),
+                    provider: "gr_p1".to_string(),
+                    evaluator_slug: "made-up-slug".to_string(),
+                    params: Default::default(),
+                    mode: GuardMode::PreCall,
+                    on_failure: OnFailure::Block,
+                    required: true,
+                    api_base: None,
+                    api_key: None,
+                }],
+            }),
+            general: None,
+            providers: vec![],
+            models: vec![],
+            pipelines: vec![],
+        };
+        let result = validate_gateway_config(&config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("unknown evaluator_slug 'made-up-slug'")));
     }
 }

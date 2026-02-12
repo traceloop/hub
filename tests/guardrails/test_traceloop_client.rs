@@ -15,14 +15,14 @@ use super::helpers::*;
 async fn test_traceloop_client_constructs_correct_url() {
     let mock_server = MockServer::start().await;
     Mock::given(matchers::method("POST"))
-        .and(matchers::path("/v2/guardrails/toxicity"))
+        .and(matchers::path("/v2/guardrails/execute/toxicity-detector"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"result": {}, "pass": true})))
         .expect(1)
         .mount(&mock_server)
         .await;
 
     let mut guard = create_test_guard_with_api_base("test", GuardMode::PreCall, &mock_server.uri());
-    guard.evaluator_slug = "toxicity".to_string();
+    guard.evaluator_slug = "toxicity-detector".to_string();
 
     let client = TraceloopClient::new();
     let result = client.evaluate(&guard, "test input").await;
@@ -51,7 +51,7 @@ async fn test_traceloop_client_sends_correct_body() {
     let mock_server = MockServer::start().await;
     Mock::given(matchers::method("POST"))
         .and(matchers::body_json(json!({
-            "inputs": ["test input text"],
+            "input": {"text": "test input text"},
             "config": {"threshold": 0.5}
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"result": {}, "pass": true})))

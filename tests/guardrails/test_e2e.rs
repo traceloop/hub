@@ -62,7 +62,7 @@ async fn test_e2e_pre_call_block_flow() {
         GuardMode::PreCall,
         OnFailure::Block,
         &eval.uri(),
-        "toxicity",
+        "toxicity-detector",
     );
 
     let request = create_test_chat_request("Bad input");
@@ -84,7 +84,7 @@ async fn test_e2e_pre_call_pass_flow() {
         GuardMode::PreCall,
         OnFailure::Block,
         &eval.uri(),
-        "toxicity",
+        "toxicity-detector",
     );
 
     let request = create_test_chat_request("Safe input");
@@ -107,7 +107,7 @@ async fn test_e2e_post_call_block_flow() {
         GuardMode::PostCall,
         OnFailure::Block,
         &eval.uri(),
-        "pii",
+        "pii-detector",
     );
 
     // Simulate LLM response
@@ -130,7 +130,7 @@ async fn test_e2e_post_call_warn_flow() {
         GuardMode::PostCall,
         OnFailure::Warn,
         &eval.uri(),
-        "tone",
+        "tone-detection",
     );
 
     let completion = create_test_chat_completion("Mildly concerning response");
@@ -155,14 +155,14 @@ async fn test_e2e_pre_and_post_both_pass() {
         GuardMode::PreCall,
         OnFailure::Block,
         &pre_eval.uri(),
-        "safety",
+        "profanity-detector",
     );
     let post_guard = guard_with_server(
         "post-check",
         GuardMode::PostCall,
         OnFailure::Block,
         &post_eval.uri(),
-        "pii",
+        "pii-detector",
     );
 
     let client = TraceloopClient::new();
@@ -199,14 +199,14 @@ async fn test_e2e_pre_blocks_post_never_runs() {
         GuardMode::PreCall,
         OnFailure::Block,
         &pre_eval.uri(),
-        "toxicity",
+        "toxicity-detector",
     );
     let post_guard = guard_with_server(
         "post-check",
         GuardMode::PostCall,
         OnFailure::Block,
         &post_eval.uri(),
-        "pii",
+        "pii-detector",
     );
 
     let client = TraceloopClient::new();
@@ -234,21 +234,21 @@ async fn test_e2e_mixed_block_and_warn() {
             GuardMode::PreCall,
             OnFailure::Block,
             &eval1.uri(),
-            "safety",
+            "profanity-detector",
         ),
         guard_with_server(
             "warner",
             GuardMode::PreCall,
             OnFailure::Warn,
             &eval2.uri(),
-            "tone",
+            "tone-detection",
         ),
         guard_with_server(
             "blocker",
             GuardMode::PreCall,
             OnFailure::Block,
             &eval3.uri(),
-            "toxicity",
+            "toxicity-detector",
         ),
     ];
 
@@ -269,7 +269,7 @@ async fn test_e2e_streaming_post_call_buffer_pass() {
         GuardMode::PostCall,
         OnFailure::Block,
         &eval.uri(),
-        "safety",
+        "profanity-detector",
     );
 
     // Simulate accumulated streaming chunks
@@ -296,7 +296,7 @@ async fn test_e2e_streaming_post_call_buffer_block() {
         GuardMode::PostCall,
         OnFailure::Block,
         &eval.uri(),
-        "pii",
+        "pii-detector",
     );
 
     let chunks = vec![
@@ -345,12 +345,12 @@ guardrails:
   guards:
     - name: toxicity-check
       provider: traceloop
-      evaluator_slug: toxicity
+      evaluator_slug: toxicity-detector
       mode: pre_call
       on_failure: block
     - name: pii-check
       provider: traceloop
-      evaluator_slug: pii
+      evaluator_slug: pii-detector
       mode: post_call
       on_failure: warn
       api_key: "override-key"
@@ -366,7 +366,7 @@ guardrails:
     assert_eq!(gr.providers["traceloop"].api_key, "resolved-key-123");
 
     // Guards should have evaluator_slug at top level
-    assert_eq!(gr.guards[0].evaluator_slug, "toxicity");
+    assert_eq!(gr.guards[0].evaluator_slug, "toxicity-detector");
     assert_eq!(gr.guards[0].mode, GuardMode::PreCall);
     assert!(gr.guards[0].api_base.is_none()); // inherits from provider
     assert!(gr.guards[0].api_key.is_none()); // inherits from provider
@@ -408,14 +408,14 @@ async fn test_e2e_multiple_guards_different_evaluators() {
     let server = MockServer::start().await;
 
     Mock::given(matchers::method("POST"))
-        .and(matchers::path("/v2/guardrails/toxicity"))
+        .and(matchers::path("/v2/guardrails/execute/toxicity-detector"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"result": {}, "pass": true})))
         .expect(1)
         .mount(&server)
         .await;
 
     Mock::given(matchers::method("POST"))
-        .and(matchers::path("/v2/guardrails/pii"))
+        .and(matchers::path("/v2/guardrails/execute/pii-detector"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"result": {}, "pass": true})))
         .expect(1)
         .mount(&server)
@@ -427,14 +427,14 @@ async fn test_e2e_multiple_guards_different_evaluators() {
             GuardMode::PreCall,
             OnFailure::Block,
             &server.uri(),
-            "toxicity",
+            "toxicity-detector",
         ),
         guard_with_server(
             "pii-guard",
             GuardMode::PreCall,
             OnFailure::Block,
             &server.uri(),
-            "pii",
+            "pii-detector",
         ),
     ];
 
@@ -460,7 +460,7 @@ async fn test_e2e_fail_open_evaluator_down() {
         GuardMode::PreCall,
         OnFailure::Block,
         &server.uri(),
-        "safety",
+        "profanity-detector",
     );
     guard.required = false; // fail-open
 
@@ -484,7 +484,7 @@ async fn test_e2e_fail_closed_evaluator_down() {
         GuardMode::PreCall,
         OnFailure::Block,
         &server.uri(),
-        "safety",
+        "profanity-detector",
     );
     guard.required = true; // fail-closed
 

@@ -1,5 +1,6 @@
 pub mod api_control;
 pub mod builder;
+pub mod evaluator_types;
 pub mod executor;
 pub mod input_extractor;
 pub mod guardrails_runner;

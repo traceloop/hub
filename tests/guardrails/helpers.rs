@@ -19,7 +19,7 @@ pub fn create_test_guard(name: &str, mode: GuardMode) -> Guard {
     Guard {
         name: name.to_string(),
         provider: "traceloop".to_string(),
-        evaluator_slug: "test-evaluator".to_string(),
+        evaluator_slug: "pii-detector".to_string(),
         params: HashMap::new(),
         mode,
         on_failure: OnFailure::Block,

@@ -1,8 +1,9 @@
 use async_trait::async_trait;
-use serde_json::json;
+use std::collections::HashMap;
 use tracing::debug;
 
 use super::GuardrailClient;
+use crate::guardrails::evaluator_types::get_evaluator;
 use crate::guardrails::response_parser::parse_evaluator_http_response;
 use crate::guardrails::types::{EvaluatorResponse, Guard, GuardrailError};
 
@@ -26,6 +27,15 @@ impl TraceloopClient {
             http_client: reqwest::Client::new(),
         }
     }
+
+    pub fn with_timeout(timeout: std::time::Duration) -> Self {
+        Self {
+            http_client: reqwest::Client::builder()
+                .timeout(timeout)
+                .build()
+                .unwrap_or_default(),
+        }
+    }
 }
 
 #[async_trait]
@@ -46,13 +56,10 @@ impl GuardrailClient for TraceloopClient {
 
         let api_key = guard.api_key.as_deref().unwrap_or("");
 
-        // Build config from params (excluding evaluator_slug which is top-level)
-        let config: serde_json::Value = guard.params.clone().into_iter().collect();
-
-        let body = json!({
-            "inputs": [input],
-            "config": config,
-        });
+        let evaluator = get_evaluator(&guard.evaluator_slug).ok_or_else(|| {
+            GuardrailError::Unavailable(format!("Unknown evaluator slug '{}'", guard.evaluator_slug))
+        })?;
+        let body = evaluator.build_body(input, &guard.params)?;
 
         debug!(guard = %guard.name, slug = %guard.evaluator_slug, %url, "Calling evaluator API");
 
@@ -69,5 +76,56 @@ impl GuardrailClient for TraceloopClient {
         let response_body = response.text().await?;
 
         parse_evaluator_http_response(status, &response_body)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_build_body_text_slug() {
+        let params = HashMap::new();
+        let body = get_evaluator("pii-detector").unwrap().build_body("hello world", &params).unwrap();
+        assert_eq!(body, json!({"input": {"text": "hello world"}}));
+    }
+
+    #[test]
+    fn test_build_body_prompt_slug() {
+        let params = HashMap::new();
+        let body = get_evaluator("prompt-injection").unwrap().build_body("hello world", &params).unwrap();
+        assert_eq!(body, json!({"input": {"prompt": "hello world"}}));
+    }
+
+    #[test]
+    fn test_build_body_with_config() {
+        let mut params = HashMap::new();
+        params.insert("threshold".to_string(), json!(0.8));
+        let body = get_evaluator("toxicity-detector").unwrap().build_body("test", &params).unwrap();
+        assert_eq!(
+            body,
+            json!({"input": {"text": "test"}, "config": {"threshold": 0.8}})
+        );
+    }
+
+    #[test]
+    fn test_build_body_no_config_when_params_empty() {
+        let params = HashMap::new();
+        let body = get_evaluator("secrets-detector").unwrap().build_body("test", &params).unwrap();
+        assert!(body.get("config").is_none());
+    }
+
+    #[test]
+    fn test_get_evaluator_unknown_slug() {
+        assert!(get_evaluator("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_build_body_rejects_invalid_config_type() {
+        let mut params = HashMap::new();
+        params.insert("threshold".to_string(), json!("not-a-number"));
+        let result = get_evaluator("toxicity-detector").unwrap().build_body("test", &params);
+        assert!(result.is_err());
     }
 }
