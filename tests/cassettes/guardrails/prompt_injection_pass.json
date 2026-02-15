@@ -1,10 +1,15 @@
 {
   "evaluator_slug": "prompt-injection",
   "input_text": "What is the capital of France?",
-  "params": {},
+  "params": {
+    "threshold": 0.8
+  },
   "request_body": {
     "input": {
       "prompt": "What is the capital of France?"
+    },
+    "config": {
+      "threshold": 0.8
     }
   },
   "response_status": 200,

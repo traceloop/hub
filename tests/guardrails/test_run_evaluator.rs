@@ -100,7 +100,6 @@ async fn test_cassette_pii_detector() {
 // 2. Secrets Detector (text body, no config)
 // ---------------------------------------------------------------------------
 
-#[ignore = "secrets-detector returns HTTP 500 on current API"]
 #[tokio::test]
 async fn test_cassette_secrets_detector() {
     run_evaluator_test(&EvaluatorTestCase {
@@ -181,7 +180,6 @@ async fn test_cassette_toxicity_detector() {
 // 7. Regex Validator (text body, regex config)
 // ---------------------------------------------------------------------------
 
-#[ignore = "regex-validator returns HTTP 500 on current API"]
 #[tokio::test]
 async fn test_cassette_regex_validator() {
     run_evaluator_test(&EvaluatorTestCase {
@@ -201,7 +199,6 @@ async fn test_cassette_regex_validator() {
 // 8. JSON Validator (text body, optional schema config)
 // ---------------------------------------------------------------------------
 
-#[ignore = "json-validator returns HTTP 500 on current API"]
 #[tokio::test]
 async fn test_cassette_json_validator() {
     run_evaluator_test(&EvaluatorTestCase {
@@ -218,7 +215,6 @@ async fn test_cassette_json_validator() {
 // 9. SQL Validator (text body, no config)
 // ---------------------------------------------------------------------------
 
-#[ignore = "sql-validator returns HTTP 500 on current API"]
 #[tokio::test]
 async fn test_cassette_sql_validator() {
     run_evaluator_test(&EvaluatorTestCase {
@@ -251,7 +247,6 @@ async fn test_cassette_tone_detection() {
 // 11. Prompt Perplexity (prompt body, no config)
 // ---------------------------------------------------------------------------
 
-#[ignore = "prompt-perplexity returns HTTP 500 on current API"]
 #[tokio::test]
 async fn test_cassette_prompt_perplexity() {
     run_evaluator_test(&EvaluatorTestCase {

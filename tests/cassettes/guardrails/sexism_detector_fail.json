@@ -2,14 +2,14 @@
   "evaluator_slug": "sexism-detector",
   "input_text": "Women should not be in leadership positions because they are too emotional.",
   "params": {
-    "threshold": 0.5
+    "threshold": 0.7
   },
   "request_body": {
     "input": {
       "text": "Women should not be in leadership positions because they are too emotional."
     },
     "config": {
-      "threshold": 0.5
+      "threshold": 0.7
     }
   },
   "response_status": 200,
