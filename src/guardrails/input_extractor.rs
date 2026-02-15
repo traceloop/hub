@@ -1,5 +1,4 @@
 use crate::models::chat::{ChatCompletion, ChatCompletionRequest};
-use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::content::ChatMessageContent;
 
 /// Trait for extracting pre-call guardrail input from a request.
@@ -32,12 +31,6 @@ impl PromptExtractor for ChatCompletionRequest {
     }
 }
 
-impl PromptExtractor for CompletionRequest {
-    fn extract_pompt(&self) -> String {
-        self.prompt.clone()
-    }
-}
-
 impl CompletionExtractor for ChatCompletion {
     fn extract_completion(&self) -> String {
         self.choices
@@ -56,11 +49,3 @@ impl CompletionExtractor for ChatCompletion {
     }
 }
 
-impl CompletionExtractor for CompletionResponse {
-    fn extract_completion(&self) -> String {
-        self.choices
-            .first()
-            .map(|choice| choice.text.clone())
-            .unwrap_or_default()
-    }
-}

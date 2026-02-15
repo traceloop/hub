@@ -82,7 +82,7 @@ pub fn create_pipeline(
                 PipelineType::Completion => {
                     router.route(
                         "/completions",
-                        post(move |state, headers, payload| completions(state, headers, payload, models, gr)),
+                        post(move |state, payload| completions(state, payload, models)),
                     )
                 }
                 PipelineType::Embeddings => router.route(
@@ -186,25 +186,10 @@ pub async fn chat_completions(
 
 pub async fn completions(
     State(model_registry): State<Arc<ModelRegistry>>,
-    headers: HeaderMap,
     Json(payload): Json<CompletionRequest>,
     model_keys: Vec<String>,
-    guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("completion", &payload);
-    let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers);
-
-    // Pre-call guardrails
-    let mut all_warnings = Vec::new();
-    if let Some(orch) = &orchestrator {
-        let pre = orch
-            .run_pre_call(&payload)
-            .await;
-        if let Some(resp) = pre.blocked_response {
-            return Ok(resp);
-        }
-        all_warnings = pre.warnings;
-    }
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
@@ -217,19 +202,7 @@ pub async fn completions(
             })?;
             tracer.log_success(&response);
 
-            // Post-call guardrails
-            if let Some(orch) = &orchestrator {
-                let post = orch.run_post_call(&response).await;
-                if let Some(resp) = post.blocked_response {
-                    return Ok(resp);
-                }
-                all_warnings.extend(post.warnings);
-            }
-
-            return Ok(GuardrailsRunner::finalize_response(
-                Json(response).into_response(),
-                &all_warnings,
-            ));
+            return Ok(Json(response).into_response());
         }
     }
 
