@@ -1,3 +1,9 @@
+## v0.7.7 (2026-02-08)
+
+### Fix
+
+- distroless base image reducing CVEs from 89 to 10 (#96)
+
 ## v0.7.6 (2026-01-18)
 
 ### Fix
