@@ -14,7 +14,7 @@ fn default_on_failure() -> OnFailure {
 }
 
 fn default_required() -> bool {
-    true
+    false
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]

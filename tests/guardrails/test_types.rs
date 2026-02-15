@@ -32,7 +32,7 @@ fn test_on_failure_defaults_to_warn() {
 }
 
 #[test]
-fn test_required_defaults_to_true() {
+fn test_required_defaults_to_false() {
     let json = serde_json::json!({
         "name": "test-guard",
         "provider": "traceloop",
@@ -40,7 +40,7 @@ fn test_required_defaults_to_true() {
         "mode": "pre_call"
     });
     let guard: Guard = serde_json::from_value(json).unwrap();
-    assert!(guard.required);
+    assert!(!guard.required);
 }
 
 #[test]

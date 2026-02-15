@@ -170,8 +170,20 @@ impl<'a> GuardrailsRunner<'a> {
                 warnings: Vec::new(),
             };
         }
-        let input = response.extract_completion();
-        let outcome = execute_guards(&self.post_call, &input, self.client).await;
+        let completion = response.extract_completion();
+
+        if completion.is_empty() {
+            warn!("Skipping post-call guardrails: LLM response content is empty");
+            return GuardPhaseResult {
+                blocked_response: None,
+                warnings: vec![GuardWarning {
+                    guard_name: "all post_call guards".to_string(),
+                    reason: "skipped due to empty response content".to_string(),
+                }],
+            };
+        }
+
+        let outcome = execute_guards(&self.post_call, &completion, self.client).await;
         if outcome.blocked {
             return GuardPhaseResult {
                 blocked_response: Some(blocked_response(&outcome)),

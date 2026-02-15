@@ -1,12 +1,16 @@
 use hub_lib::guardrails::parsing::{CompletionExtractor, PromptExtractor};
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
-use hub_lib::guardrails::runner::{blocked_response, execute_guards, warning_header_value};
+use hub_lib::guardrails::runner::{
+    blocked_response, execute_guards, warning_header_value, GuardrailsRunner,
+};
 use hub_lib::guardrails::setup::{build_guardrail_resources, build_pipeline_guardrails};
 use hub_lib::guardrails::types::*;
 
 use axum::body::to_bytes;
+use axum::http::HeaderMap;
 
 use serde_json::json;
+use std::sync::Arc;
 use wiremock::matchers;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -46,7 +50,7 @@ fn guard_with_server(
         params: Default::default(),
         mode,
         on_failure,
-        required: true,
+        required: false,
         api_base: Some(server_uri.to_string()),
         api_key: Some("test-key".to_string()),
     }
@@ -634,4 +638,73 @@ async fn test_blocked_response_403_format() {
             .unwrap()
             .contains("toxicity-check")
     );
+}
+
+#[tokio::test]
+async fn test_post_call_skipped_on_empty_response() {
+    // When the LLM returns empty content (e.g. max_tokens too low),
+    // post-call guards should be skipped and a warning returned.
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::any())
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"result": {}, "pass": true})),
+        )
+        .expect(0) // evaluator should never be called
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "toxicity-filter",
+        GuardMode::PostCall,
+        OnFailure::Block,
+        &eval_server.uri(),
+        "toxicity-detector",
+    );
+
+    let guardrails = Guardrails {
+        all_guards: Arc::new(vec![guard]),
+        pipeline_guard_names: vec!["toxicity-filter".to_string()],
+        client: Arc::new(TraceloopClient::new()),
+    };
+
+    let headers = HeaderMap::new();
+    let runner = GuardrailsRunner::new(Some(&guardrails), &headers).unwrap();
+
+    // Completion with content: None (simulates empty LLM response)
+    let empty_completion = create_test_chat_completion("");
+    let result = runner.run_post_call(&empty_completion).await;
+
+    assert!(result.blocked_response.is_none());
+    assert_eq!(result.warnings.len(), 1);
+    assert!(result.warnings[0].reason.contains("empty response content"));
+
+    let header = warning_header_value(&result.warnings);
+    assert!(header.contains("skipped"));
+    // wiremock will verify expect(0) — evaluator was never called
+}
+
+#[tokio::test]
+async fn test_evaluator_error_not_blocked_by_default() {
+    // Guards default to required: false (fail-open), so an evaluator HTTP 500
+    // should NOT block the request.
+    let server = MockServer::start().await;
+    Mock::given(matchers::any())
+        .respond_with(ResponseTemplate::new(500).set_body_string("Internal Server Error"))
+        .mount(&server)
+        .await;
+
+    let guard = guard_with_server(
+        "warn-guard",
+        GuardMode::PreCall,
+        OnFailure::Warn,
+        &server.uri(),
+        "profanity-detector",
+    );
+    // guard.required is false by default
+
+    let client = TraceloopClient::new();
+    let outcome = execute_guards(&[guard], "test input", &client).await;
+
+    assert!(!outcome.blocked);
 }

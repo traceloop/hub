@@ -20,7 +20,7 @@ pub fn create_test_guard(name: &str, mode: GuardMode) -> Guard {
         params: HashMap::new(),
         mode,
         on_failure: OnFailure::Block,
-        required: true,
+        required: false,
         api_base: Some("http://localhost:8080".to_string()),
         api_key: Some("test-api-key".to_string()),
     }

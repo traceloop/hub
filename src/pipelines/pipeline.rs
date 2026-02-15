@@ -154,6 +154,11 @@ pub async fn chat_completions(
             if let ChatCompletionResponse::NonStream(completion) = response {
                 tracer.log_success(&completion);
 
+                tracing::debug!(
+                    completion = %serde_json::to_string(&completion).unwrap_or_default(),
+                    "AASA - LLM response before post-call guardrails"
+                );
+
                 // Post-call guardrails (non-streaming)
                 if let Some(orch) = &orchestrator {
                     let post = orch.run_post_call(&completion).await;
