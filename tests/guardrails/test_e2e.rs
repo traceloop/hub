@@ -369,21 +369,23 @@ guardrails:
     assert_eq!(pipeline_gr.all_guards.len(), 2);
     assert_eq!(pipeline_gr.pipeline_guard_names.len(), 2);
     // Provider api_base should be resolved for guards that don't override
-    let pre_guard = pipeline_gr.all_guards.iter().find(|g| g.mode == GuardMode::PreCall).unwrap();
-    let post_guard = pipeline_gr.all_guards.iter().find(|g| g.mode == GuardMode::PostCall).unwrap();
+    let pre_guard = pipeline_gr
+        .all_guards
+        .iter()
+        .find(|g| g.mode == GuardMode::PreCall)
+        .unwrap();
+    let post_guard = pipeline_gr
+        .all_guards
+        .iter()
+        .find(|g| g.mode == GuardMode::PostCall)
+        .unwrap();
     assert_eq!(
         pre_guard.api_base.as_deref(),
         Some("https://api.traceloop.com")
     );
-    assert_eq!(
-        pre_guard.api_key.as_deref(),
-        Some("resolved-key-123")
-    );
+    assert_eq!(pre_guard.api_key.as_deref(), Some("resolved-key-123"));
     // Guard with override keeps its own api_key
-    assert_eq!(
-        post_guard.api_key.as_deref(),
-        Some("override-key")
-    );
+    assert_eq!(post_guard.api_key.as_deref(), Some("override-key"));
 
     unsafe {
         std::env::remove_var("E2E_TEST_API_KEY");

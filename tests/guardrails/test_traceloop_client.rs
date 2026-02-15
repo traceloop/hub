@@ -1,7 +1,7 @@
-use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::providers::create_guardrail_client;
-use hub_lib::guardrails::types::GuardrailClient;
+use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::types::GuardMode;
+use hub_lib::guardrails::types::GuardrailClient;
 use serde_json::json;
 use wiremock::matchers;
 use wiremock::{Mock, MockServer, ResponseTemplate};

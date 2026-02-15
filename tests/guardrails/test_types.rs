@@ -210,7 +210,10 @@ guards:
     let config: GuardrailsConfig = serde_yaml::from_str(yaml).unwrap();
     assert_eq!(config.providers.len(), 1);
     assert_eq!(config.providers["traceloop"].name, "traceloop");
-    assert_eq!(config.providers["traceloop"].api_base, "https://api.traceloop.com");
+    assert_eq!(
+        config.providers["traceloop"].api_base,
+        "https://api.traceloop.com"
+    );
     assert_eq!(config.guards.len(), 2);
     // First guard has no api_base/api_key (inherits from provider)
     assert!(config.guards[0].api_base.is_none());
@@ -306,7 +309,10 @@ guardrails:
     let config = hub_lib::config::load_config(temp_file.path().to_str().unwrap()).unwrap();
 
     // Default pipeline should have guards
-    assert_eq!(config.pipelines[0].guards, vec!["pii-check", "injection-check"]);
+    assert_eq!(
+        config.pipelines[0].guards,
+        vec!["pii-check", "injection-check"]
+    );
     // Embeddings pipeline should have no guards
     assert!(config.pipelines[1].guards.is_empty());
 }

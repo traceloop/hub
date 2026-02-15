@@ -28,18 +28,18 @@ use reqwest_streams::error::StreamBodyError;
 use std::sync::Arc;
 
 // Re-export builder and orchestrator functions for backward compatibility with tests
+pub use crate::guardrails::runner::{blocked_response, warning_header_value};
 pub use crate::guardrails::setup::{
     build_guardrail_resources, build_pipeline_guardrails, resolve_guard_defaults,
 };
-pub use crate::guardrails::runner::{blocked_response, warning_header_value};
 
 pub fn create_pipeline(
     pipeline: &Pipeline,
     model_registry: &ModelRegistry,
     guardrail_resources: Option<&GuardrailResources>,
 ) -> Router {
-    let guardrails: Option<Arc<Guardrails>> = guardrail_resources
-        .map(|shared| build_pipeline_guardrails(shared, &pipeline.guards));
+    let guardrails: Option<Arc<Guardrails>> =
+        guardrail_resources.map(|shared| build_pipeline_guardrails(shared, &pipeline.guards));
     let mut router = Router::new();
 
     let available_models: Vec<String> = pipeline
@@ -73,18 +73,16 @@ pub fn create_pipeline(
                 router
             }
             PluginConfig::ModelRouter { models } => match pipeline.r#type {
-                PipelineType::Chat => {
-                    router.route(
-                        "/chat/completions",
-                        post(move |state, headers, payload| chat_completions(state, headers, payload, models, gr)),
-                    )
-                }
-                PipelineType::Completion => {
-                    router.route(
-                        "/completions",
-                        post(move |state, payload| completions(state, payload, models)),
-                    )
-                }
+                PipelineType::Chat => router.route(
+                    "/chat/completions",
+                    post(move |state, headers, payload| {
+                        chat_completions(state, headers, payload, models, gr)
+                    }),
+                ),
+                PipelineType::Completion => router.route(
+                    "/completions",
+                    post(move |state, payload| completions(state, payload, models)),
+                ),
                 PipelineType::Embeddings => router.route(
                     "/embeddings",
                     post(move |state, payload| embeddings(state, payload, models)),

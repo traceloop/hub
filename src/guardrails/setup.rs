@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use super::types::{Guard, GuardMode, GuardrailClient, GuardrailResources, GuardrailsConfig, Guardrails};
+use super::types::{
+    Guard, GuardMode, GuardrailClient, GuardrailResources, Guardrails, GuardrailsConfig,
+};
 
 /// Parse guard names from the X-Traceloop-Guardrails header value.
 /// Names are comma-separated and trimmed.
@@ -25,10 +27,7 @@ pub fn resolve_guards_by_name(
     let mut seen = HashSet::new();
     let mut resolved = Vec::new();
 
-    let all_names = pipeline_names
-        .iter()
-        .chain(header_names.iter())
-        .copied();
+    let all_names = pipeline_names.iter().chain(header_names.iter()).copied();
 
     for name in all_names {
         if seen.insert(name) {
@@ -77,9 +76,7 @@ pub fn resolve_guard_defaults(config: &GuardrailsConfig) -> Vec<Guard> {
 /// Build the shared guardrail resources (resolved guards + client).
 /// Returns None if the config has no guards.
 /// Called once per router build; the result is shared across all pipelines.
-pub fn build_guardrail_resources(
-    config: &GuardrailsConfig,
-) -> Option<GuardrailResources> {
+pub fn build_guardrail_resources(config: &GuardrailsConfig) -> Option<GuardrailResources> {
     if config.guards.is_empty() {
         return None;
     }

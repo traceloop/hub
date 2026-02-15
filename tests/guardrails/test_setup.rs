@@ -123,11 +123,14 @@ fn test_complete_resolution_merged() {
 
 fn test_guardrails_config() -> GuardrailsConfig {
     GuardrailsConfig {
-        providers: HashMap::from([("traceloop".to_string(), ProviderConfig {
-            name: "traceloop".to_string(),
-            api_base: "https://api.traceloop.com".to_string(),
-            api_key: "test-key".to_string(),
-        })]),
+        providers: HashMap::from([(
+            "traceloop".to_string(),
+            ProviderConfig {
+                name: "traceloop".to_string(),
+                api_base: "https://api.traceloop.com".to_string(),
+                api_key: "test-key".to_string(),
+            },
+        )]),
         guards: vec![
             Guard {
                 name: "pii-check".to_string(),
@@ -189,11 +192,14 @@ fn test_no_guardrails_passthrough() {
 
     // Config with no guards -> passthrough
     let config_with_providers = GuardrailsConfig {
-        providers: HashMap::from([("traceloop".to_string(), ProviderConfig {
-            name: "traceloop".to_string(),
-            api_base: "http://localhost".to_string(),
-            api_key: "key".to_string(),
-        })]),
+        providers: HashMap::from([(
+            "traceloop".to_string(),
+            ProviderConfig {
+                name: "traceloop".to_string(),
+                api_base: "http://localhost".to_string(),
+                api_key: "key".to_string(),
+            },
+        )]),
         guards: vec![],
     };
     let result = build_guardrail_resources(&config_with_providers);
@@ -210,7 +216,10 @@ fn test_build_pipeline_guardrails_with_specific_guards() {
     // all_guards should contain ALL guards from config, resolved with provider defaults
     assert_eq!(gr.all_guards.len(), 4);
     // pipeline_guard_names should only contain the ones specified
-    assert_eq!(gr.pipeline_guard_names, vec!["pii-check", "toxicity-filter"]);
+    assert_eq!(
+        gr.pipeline_guard_names,
+        vec!["pii-check", "toxicity-filter"]
+    );
 }
 
 #[test]
@@ -242,11 +251,14 @@ fn test_build_pipeline_guardrails_resolves_provider_defaults() {
 #[test]
 fn test_resolve_guard_defaults_preserves_guard_overrides() {
     let config = GuardrailsConfig {
-        providers: HashMap::from([("traceloop".to_string(), ProviderConfig {
-            name: "traceloop".to_string(),
-            api_base: "https://default.api.com".to_string(),
-            api_key: "default-key".to_string(),
-        })]),
+        providers: HashMap::from([(
+            "traceloop".to_string(),
+            ProviderConfig {
+                name: "traceloop".to_string(),
+                api_base: "https://default.api.com".to_string(),
+                api_key: "default-key".to_string(),
+            },
+        )]),
         guards: vec![Guard {
             name: "custom-guard".to_string(),
             provider: "traceloop".to_string(),
@@ -261,7 +273,10 @@ fn test_resolve_guard_defaults_preserves_guard_overrides() {
     };
 
     let resolved = resolve_guard_defaults(&config);
-    assert_eq!(resolved[0].api_base.as_deref(), Some("https://custom.api.com"));
+    assert_eq!(
+        resolved[0].api_base.as_deref(),
+        Some("https://custom.api.com")
+    );
     assert_eq!(resolved[0].api_key.as_deref(), Some("custom-key"));
 }
 
@@ -276,11 +291,7 @@ fn test_pipeline_guards_resolved_at_request_time() {
     // Header adds injection-check
     let header_names = vec!["injection-check"];
 
-    let resolved = resolve_guards_by_name(
-        &all_guards,
-        &pipeline_names,
-        &header_names,
-    );
+    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names);
     assert_eq!(resolved.len(), 2);
     assert_eq!(resolved[0].name, "pii-check");
     assert_eq!(resolved[1].name, "injection-check");

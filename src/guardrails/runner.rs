@@ -1,16 +1,18 @@
 use std::collections::HashSet;
 
-use axum::http::HeaderMap;
-use axum::response::{IntoResponse, Response};
-use axum::http::StatusCode;
 use axum::Json;
+use axum::http::HeaderMap;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use futures::future::join_all;
 use serde_json::json;
 use tracing::{debug, warn};
 
+use super::parsing::{CompletionExtractor, PromptExtractor};
 use super::setup::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
-use super::parsing::{PromptExtractor, CompletionExtractor};
-use super::types::{Guard, GuardResult, GuardWarning, GuardrailClient, GuardrailsOutcome, Guardrails, OnFailure};
+use super::types::{
+    Guard, GuardResult, GuardWarning, GuardrailClient, Guardrails, GuardrailsOutcome, OnFailure,
+};
 
 /// Execute a set of guardrails against the given input text.
 /// Guards are run concurrently. Returns a GuardrailsOutcome with results, blocked status, and warnings.
@@ -190,10 +192,9 @@ impl<'a> GuardrailsRunner<'a> {
         }
         let header_val = warning_header_value(warnings);
         let mut response = response;
-        response.headers_mut().insert(
-            "X-Traceloop-Guardrail-Warning",
-            header_val.parse().unwrap(),
-        );
+        response
+            .headers_mut()
+            .insert("X-Traceloop-Guardrail-Warning", header_val.parse().unwrap());
         response
     }
 }
@@ -203,7 +204,9 @@ pub fn blocked_response(outcome: &GuardrailsOutcome) -> Response {
     let guard_name = outcome.blocking_guard.as_deref().unwrap_or("unknown");
 
     // Find the blocking guard result to get details
-    let details = outcome.results.iter()
+    let details = outcome
+        .results
+        .iter()
         .find(|r| match r {
             GuardResult::Failed { name, .. } => name == guard_name,
             GuardResult::Error { name, .. } => name == guard_name,
@@ -242,7 +245,12 @@ pub fn blocked_response(outcome: &GuardrailsOutcome) -> Response {
 pub fn warning_header_value(warnings: &[GuardWarning]) -> String {
     warnings
         .iter()
-        .map(|w| format!("guardrail_name=\"{}\", reason=\"{}\"", w.guard_name, w.reason))
+        .map(|w| {
+            format!(
+                "guardrail_name=\"{}\", reason=\"{}\"",
+                w.guard_name, w.reason
+            )
+        })
         .collect::<Vec<_>>()
         .join("; ")
 }

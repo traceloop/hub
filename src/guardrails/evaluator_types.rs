@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -84,8 +84,8 @@ fn attach_config<C: Default + DeserializeOwned + Serialize>(
     let params_value: serde_json::Value = params.clone().into_iter().collect();
     let config: C = serde_json::from_value(params_value)
         .map_err(|e| GuardrailError::ParseError(format!("{slug}: invalid config — {e}")))?;
-    let config_json = serde_json::to_value(config)
-        .map_err(|e| GuardrailError::ParseError(e.to_string()))?;
+    let config_json =
+        serde_json::to_value(config).map_err(|e| GuardrailError::ParseError(e.to_string()))?;
     if config_json.as_object().is_some_and(|m| !m.is_empty()) {
         body["config"] = config_json;
     }

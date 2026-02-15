@@ -1,6 +1,5 @@
 use hub_lib::guardrails::parsing::{
-    parse_evaluator_response, parse_evaluator_http_response,
-    CompletionExtractor, PromptExtractor,
+    CompletionExtractor, PromptExtractor, parse_evaluator_http_response, parse_evaluator_response,
 };
 use hub_lib::guardrails::types::GuardrailError;
 use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMessageContentPart};

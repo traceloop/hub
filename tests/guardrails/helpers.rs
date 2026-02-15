@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use hub_lib::guardrails::types::GuardrailClient;
-use hub_lib::guardrails::types::{
-    EvaluatorResponse, Guard, GuardMode, GuardrailError, OnFailure,
-};
+use hub_lib::guardrails::types::{EvaluatorResponse, Guard, GuardMode, GuardrailError, OnFailure};
 use hub_lib::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent};
 use hub_lib::models::usage::Usage;
