@@ -1,4 +1,4 @@
-use hub_lib::guardrails::api_control::*;
+use hub_lib::guardrails::setup::*;
 use hub_lib::guardrails::types::GuardMode;
 
 use super::helpers::*;

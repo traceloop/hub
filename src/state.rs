@@ -161,7 +161,7 @@ impl AppState {
         _provider_registry: &Arc<ProviderRegistry>,
         model_registry: &Arc<ModelRegistry>,
     ) -> axum::Router {
-        use crate::guardrails::builder::build_guardrail_resources;
+        use crate::guardrails::setup::build_guardrail_resources;
         use crate::pipelines::pipeline::create_pipeline;
 
         debug!("Building router with {} pipelines", config.pipelines.len());

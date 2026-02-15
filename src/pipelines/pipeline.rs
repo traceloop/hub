@@ -28,7 +28,7 @@ use reqwest_streams::error::StreamBodyError;
 use std::sync::Arc;
 
 // Re-export builder and orchestrator functions for backward compatibility with tests
-pub use crate::guardrails::builder::{
+pub use crate::guardrails::setup::{
     build_guardrail_resources, build_pipeline_guardrails, resolve_guard_defaults,
 };
 pub use crate::guardrails::runner::{blocked_response, warning_header_value};

@@ -8,7 +8,7 @@ use futures::future::join_all;
 use serde_json::json;
 use tracing::{debug, warn};
 
-use super::api_control::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
+use super::setup::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
 use super::parsing::{PromptExtractor, CompletionExtractor};
 use super::types::{Guard, GuardResult, GuardWarning, GuardrailClient, GuardrailsOutcome, Guardrails, OnFailure};
 
