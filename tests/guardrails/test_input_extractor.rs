@@ -1,4 +1,4 @@
-use hub_lib::guardrails::input_extractor::*;
+use hub_lib::guardrails::parsing::*;
 use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMessageContentPart};
 
 use super::helpers::*;

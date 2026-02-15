@@ -4,7 +4,7 @@ use tracing::debug;
 
 use super::GuardrailClient;
 use crate::guardrails::evaluator_types::get_evaluator;
-use crate::guardrails::response_parser::parse_evaluator_http_response;
+use crate::guardrails::parsing::parse_evaluator_http_response;
 use crate::guardrails::types::{EvaluatorResponse, Guard, GuardrailError};
 
 

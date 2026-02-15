@@ -1,5 +1,5 @@
-use hub_lib::guardrails::executor::execute_guards;
-use hub_lib::guardrails::input_extractor::{
+use hub_lib::guardrails::runner::execute_guards;
+use hub_lib::guardrails::parsing::{
     extract_post_call_input_from_completion, extract_prompt,
 };
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;

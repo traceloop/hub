@@ -1,4 +1,4 @@
-use hub_lib::guardrails::response_parser::*;
+use hub_lib::guardrails::parsing::*;
 use hub_lib::guardrails::types::GuardrailError;
 
 // ---------------------------------------------------------------------------

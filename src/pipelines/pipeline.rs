@@ -1,5 +1,5 @@
 use crate::config::models::PipelineType;
-use crate::guardrails::guardrails_runner::GuardrailsRunner;
+use crate::guardrails::runner::GuardrailsRunner;
 use crate::guardrails::types::{GuardrailResources, Guardrails};
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
@@ -31,7 +31,7 @@ use std::sync::Arc;
 pub use crate::guardrails::builder::{
     build_guardrail_resources, build_pipeline_guardrails, resolve_guard_defaults,
 };
-pub use crate::guardrails::guardrails_runner::{blocked_response, warning_header_value};
+pub use crate::guardrails::runner::{blocked_response, warning_header_value};
 
 pub fn create_pipeline(
     pipeline: &Pipeline,

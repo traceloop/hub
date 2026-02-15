@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use hub_lib::guardrails::api_control::{resolve_guards_by_name, split_guards_by_mode};
-use hub_lib::guardrails::executor::execute_guards;
+use hub_lib::guardrails::runner::execute_guards;
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::types::*;
 use hub_lib::pipelines::pipeline::{
