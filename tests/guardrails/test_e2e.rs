@@ -1,10 +1,10 @@
-use hub_lib::guardrails::runner::execute_guards;
-use hub_lib::guardrails::parsing::{
-    extract_post_call_input_from_completion, extract_prompt,
-};
+use hub_lib::guardrails::parsing::{CompletionExtractor, PromptExtractor};
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
+use hub_lib::guardrails::runner::{blocked_response, execute_guards, warning_header_value};
+use hub_lib::guardrails::setup::{build_guardrail_resources, build_pipeline_guardrails};
 use hub_lib::guardrails::types::*;
-use hub_lib::pipelines::pipeline::{build_guardrail_resources, build_pipeline_guardrails};
+
+use axum::body::to_bytes;
 
 use serde_json::json;
 use wiremock::matchers;
@@ -65,7 +65,7 @@ async fn test_e2e_pre_call_block_flow() {
     );
 
     let request = create_test_chat_request("Bad input");
-    let input = extract_prompt(&request);
+    let input = request.extract_pompt();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &input, &client).await;
@@ -87,7 +87,7 @@ async fn test_e2e_pre_call_pass_flow() {
     );
 
     let request = create_test_chat_request("Safe input");
-    let input = extract_prompt(&request);
+    let input = request.extract_pompt();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &input, &client).await;
@@ -111,7 +111,7 @@ async fn test_e2e_post_call_block_flow() {
 
     // Simulate LLM response
     let completion = create_test_chat_completion("Here is the SSN: 123-45-6789");
-    let response_text = extract_post_call_input_from_completion(&completion);
+    let response_text = completion.extract_completion();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &response_text, &client).await;
@@ -133,7 +133,7 @@ async fn test_e2e_post_call_warn_flow() {
     );
 
     let completion = create_test_chat_completion("Mildly concerning response");
-    let response_text = extract_post_call_input_from_completion(&completion);
+    let response_text = completion.extract_completion();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &response_text, &client).await;
@@ -168,13 +168,13 @@ async fn test_e2e_pre_and_post_both_pass() {
 
     // Pre-call
     let request = create_test_chat_request("Hello");
-    let input = extract_prompt(&request);
+    let input = request.extract_pompt();
     let pre_outcome = execute_guards(&[pre_guard], &input, &client).await;
     assert!(!pre_outcome.blocked);
 
     // Post-call
     let completion = create_test_chat_completion("Hi there!");
-    let response_text = extract_post_call_input_from_completion(&completion);
+    let response_text = completion.extract_completion();
     let post_outcome = execute_guards(&[post_guard], &response_text, &client).await;
     assert!(!post_outcome.blocked);
     assert!(post_outcome.warnings.is_empty());
@@ -210,7 +210,7 @@ async fn test_e2e_pre_blocks_post_never_runs() {
 
     let client = TraceloopClient::new();
     let request = create_test_chat_request("Bad input");
-    let input = extract_prompt(&request);
+    let input = request.extract_pompt();
 
     let pre_outcome = execute_guards(&[pre_guard], &input, &client).await;
     assert!(pre_outcome.blocked);
@@ -531,4 +531,105 @@ pipelines:
         .as_ref()
         .and_then(build_guardrail_resources);
     assert!(shared.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Integration (4 tests)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn test_pre_call_guardrails_warn_and_continue() {
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"result": {"reason": "borderline"}, "pass": false})),
+        )
+        .expect(1)
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "tone-check",
+        GuardMode::PreCall,
+        OnFailure::Warn,
+        &eval_server.uri(),
+        "tone",
+    );
+
+    let client = TraceloopClient::new();
+    let outcome = execute_guards(&[guard], "borderline input", &client).await;
+
+    assert!(!outcome.blocked);
+    assert_eq!(outcome.warnings.len(), 1);
+    assert_eq!(outcome.warnings[0].guard_name, "tone-check");
+}
+
+#[tokio::test]
+async fn test_post_call_guardrails_warn_and_add_header() {
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"result": {"reason": "mildly concerning"}, "pass": false})),
+        )
+        .expect(1)
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "safety-check",
+        GuardMode::PostCall,
+        OnFailure::Warn,
+        &eval_server.uri(),
+        "safety",
+    );
+
+    let client = TraceloopClient::new();
+    let outcome = execute_guards(&[guard], "Some LLM response", &client).await;
+
+    assert!(!outcome.blocked);
+    assert!(!outcome.warnings.is_empty());
+
+    // Verify warning header would be generated correctly
+    let header = warning_header_value(&outcome.warnings);
+    assert!(header.contains("guardrail_name="));
+    assert!(header.contains("safety-check"));
+}
+
+#[tokio::test]
+async fn test_warning_header_format() {
+    let warnings = vec![GuardWarning {
+        guard_name: "my-guard".to_string(),
+        reason: "failed".to_string(),
+    }];
+    let header = warning_header_value(&warnings);
+    assert_eq!(header, "guardrail_name=\"my-guard\", reason=\"failed\"");
+}
+
+#[tokio::test]
+async fn test_blocked_response_403_format() {
+    let outcome = GuardrailsOutcome {
+        results: vec![GuardResult::Failed {
+            name: "toxicity-check".to_string(),
+            result: json!({"reason": "toxic content"}),
+            on_failure: OnFailure::Block,
+        }],
+        blocked: true,
+        blocking_guard: Some("toxicity-check".to_string()),
+        warnings: vec![],
+    };
+    let response = blocked_response(&outcome);
+    assert_eq!(response.status(), 403);
+
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["error"]["type"], "guardrail_blocked");
+    assert_eq!(json["error"]["guardrail"], "toxicity-check");
+    assert!(
+        json["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("toxicity-check")
+    );
 }

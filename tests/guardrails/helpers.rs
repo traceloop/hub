@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use hub_lib::guardrails::providers::GuardrailClient;
+use hub_lib::guardrails::types::GuardrailClient;
 use hub_lib::guardrails::types::{
     EvaluatorResponse, Guard, GuardMode, GuardrailError, OnFailure,
 };

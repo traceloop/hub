@@ -1,9 +1,7 @@
 mod helpers;
-mod test_api_control;
 mod test_e2e;
-mod test_executor;
-mod test_input_extractor;
-mod test_pipeline;
-mod test_response_parser;
+mod test_parsing;
+mod test_runner;
+mod test_setup;
 mod test_traceloop_client;
 mod test_types;

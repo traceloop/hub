@@ -250,3 +250,90 @@ fn test_guard_config_evaluator_slug_not_in_params() {
     assert!(!guard.params.contains_key("evaluator_slug"));
     assert_eq!(guard.params.get("threshold").unwrap(), 0.5);
 }
+
+// ---------------------------------------------------------------------------
+// Pipeline config YAML parsing
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_pipeline_guards_field_in_yaml_config() {
+    let config_yaml = r#"
+providers:
+  - key: openai
+    type: openai
+    api_key: "sk-test"
+models:
+  - key: gpt-4
+    type: gpt-4
+    provider: openai
+pipelines:
+  - name: default
+    type: chat
+    guards:
+      - pii-check
+      - injection-check
+    plugins:
+      - model-router:
+          models:
+            - gpt-4
+  - name: embeddings
+    type: embeddings
+    plugins:
+      - model-router:
+          models:
+            - gpt-4
+guardrails:
+  providers:
+    - name: traceloop
+      api_base: "https://api.traceloop.com"
+      api_key: "test-key"
+  guards:
+    - name: pii-check
+      provider: traceloop
+      evaluator_slug: pii
+      mode: pre_call
+      on_failure: block
+    - name: injection-check
+      provider: traceloop
+      evaluator_slug: injection
+      mode: pre_call
+      on_failure: block
+"#;
+
+    let mut temp_file = NamedTempFile::new().unwrap();
+    temp_file.write_all(config_yaml.as_bytes()).unwrap();
+
+    let config = hub_lib::config::load_config(temp_file.path().to_str().unwrap()).unwrap();
+
+    // Default pipeline should have guards
+    assert_eq!(config.pipelines[0].guards, vec!["pii-check", "injection-check"]);
+    // Embeddings pipeline should have no guards
+    assert!(config.pipelines[1].guards.is_empty());
+}
+
+#[test]
+fn test_pipeline_guards_field_absent_defaults_to_empty() {
+    let config_yaml = r#"
+providers:
+  - key: openai
+    type: openai
+    api_key: "sk-test"
+models:
+  - key: gpt-4
+    type: gpt-4
+    provider: openai
+pipelines:
+  - name: default
+    type: chat
+    plugins:
+      - model-router:
+          models:
+            - gpt-4
+"#;
+
+    let mut temp_file = NamedTempFile::new().unwrap();
+    temp_file.write_all(config_yaml.as_bytes()).unwrap();
+
+    let config = hub_lib::config::load_config(temp_file.path().to_str().unwrap()).unwrap();
+    assert!(config.pipelines[0].guards.is_empty());
+}

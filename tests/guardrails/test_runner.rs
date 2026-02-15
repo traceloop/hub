@@ -1,11 +1,11 @@
+use hub_lib::guardrails::parsing::CompletionExtractor;
 use hub_lib::guardrails::runner::*;
-use hub_lib::guardrails::parsing::*;
 use hub_lib::guardrails::types::*;
 
 use super::helpers::*;
 
 // ---------------------------------------------------------------------------
-// Phase 5: Executor (12 tests)
+// Guard Execution (12 tests)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -130,7 +130,7 @@ async fn test_execute_post_call_guards_non_streaming() {
     let guard = create_test_guard("response-check", GuardMode::PostCall);
     let mock_client = MockGuardrailClient::with_response("response-check", Ok(passing_response()));
     let completion = create_test_chat_completion("Safe response text");
-    let response_text = extract_post_call_input_from_completion(&completion);
+    let response_text = completion.extract_completion();
     let outcome = execute_guards(&[guard], &response_text, &mock_client).await;
     assert!(!outcome.blocked);
 }
