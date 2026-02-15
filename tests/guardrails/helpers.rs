@@ -7,7 +7,6 @@ use hub_lib::guardrails::types::{
 };
 use hub_lib::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent};
-use hub_lib::models::streaming::{ChatCompletionChunk, Choice, ChoiceDelta};
 use hub_lib::models::usage::Usage;
 use serde_json::json;
 
@@ -164,28 +163,6 @@ pub fn create_test_chat_completion(response_text: &str) -> ChatCompletion {
         }],
         usage: Usage::default(),
         system_fingerprint: None,
-    }
-}
-
-pub fn create_test_chunk(content: &str) -> ChatCompletionChunk {
-    ChatCompletionChunk {
-        id: "chunk-1".to_string(),
-        choices: vec![Choice {
-            delta: ChoiceDelta {
-                content: Some(content.to_string()),
-                role: None,
-                tool_calls: None,
-                reasoning: None,
-            },
-            finish_reason: None,
-            index: 0,
-            logprobs: None,
-        }],
-        created: 1234567890,
-        model: "gpt-4".to_string(),
-        service_tier: None,
-        system_fingerprint: None,
-        usage: None,
     }
 }
 

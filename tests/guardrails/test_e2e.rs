@@ -3,7 +3,6 @@ use hub_lib::guardrails::input_extractor::{
     extract_post_call_input_from_completion, extract_prompt,
 };
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
-use hub_lib::guardrails::stream_buffer::extract_text_from_chunks;
 use hub_lib::guardrails::types::*;
 use hub_lib::pipelines::pipeline::{build_guardrail_resources, build_pipeline_guardrails};
 
@@ -272,14 +271,7 @@ async fn test_e2e_streaming_post_call_buffer_pass() {
         "profanity-detector",
     );
 
-    // Simulate accumulated streaming chunks
-    let chunks = vec![
-        create_test_chunk("Hello"),
-        create_test_chunk(" "),
-        create_test_chunk("world!"),
-    ];
-    let accumulated = extract_text_from_chunks(&chunks);
-    assert_eq!(accumulated, "Hello world!");
+    let accumulated = "Hello world!";
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &accumulated, &client).await;
@@ -299,11 +291,7 @@ async fn test_e2e_streaming_post_call_buffer_block() {
         "pii-detector",
     );
 
-    let chunks = vec![
-        create_test_chunk("Here is "),
-        create_test_chunk("SSN: 123-45-6789"),
-    ];
-    let accumulated = extract_text_from_chunks(&chunks);
+    let accumulated = "Here is SSN: 123-45-6789";
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &accumulated, &client).await;

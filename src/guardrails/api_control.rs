@@ -12,26 +12,11 @@ pub fn parse_guardrails_header(header: &str) -> Vec<String> {
         .collect()
 }
 
-/// Parse guard names from the request payload's `guardrails` field.
-pub fn parse_guardrails_from_payload(payload: &serde_json::Value) -> Vec<String> {
-    payload
-        .get("guardrails")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Resolve the final set of guards to execute by merging pipeline, header, and payload sources.
-/// Guards are additive and deduplicated by name. Uses HashMap for O(1) guard lookup.
+/// Resolve the final set of guards to execute by merging pipeline and header sources.
 pub fn resolve_guards_by_name(
     all_guards: &[Guard],
     pipeline_names: &[&str],
     header_names: &[&str],
-    payload_names: &[&str],
 ) -> Vec<Guard> {
     let guard_map: HashMap<&str, &Guard> =
         all_guards.iter().map(|g| (g.name.as_str(), g)).collect();
@@ -42,7 +27,6 @@ pub fn resolve_guards_by_name(
     let all_names = pipeline_names
         .iter()
         .chain(header_names.iter())
-        .chain(payload_names.iter())
         .copied();
 
     for name in all_names {

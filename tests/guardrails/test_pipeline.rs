@@ -284,7 +284,7 @@ fn test_build_pipeline_guardrails_empty_pipeline_guards() {
     let shared = build_guardrail_resources(&config).unwrap();
     // Pipeline with no guards specified - shared resources still exist
     // (header guards can still be used at request time)
-    let gr = build_pipeline_guardrails(&shared, &[]);
+    let gr = build_pipeline_guardrails(&shared);
 
     assert_eq!(gr.all_guards.len(), 4);
     assert!(gr.pipeline_guard_names.is_empty());
@@ -344,7 +344,6 @@ fn test_pipeline_guards_resolved_at_request_time() {
         &all_guards,
         &pipeline_names,
         &header_names,
-        &[],
     );
     assert_eq!(resolved.len(), 2);
     assert_eq!(resolved[0].name, "pii-check");
@@ -361,7 +360,7 @@ fn test_pipeline_guards_plus_header_guards_split_by_mode() {
     // Header adds injection-check (pre_call) and secrets-check (post_call)
     let header_names = vec!["injection-check", "secrets-check"];
 
-    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names, &[]);
+    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names);
     assert_eq!(resolved.len(), 4);
 
     let (pre_call, post_call) = split_guards_by_mode(&resolved);
@@ -381,7 +380,7 @@ fn test_header_guard_not_in_config_is_ignored() {
     let pipeline_names = vec!["pii-check"];
     let header_names = vec!["nonexistent-guard"];
 
-    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names, &[]);
+    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names);
     // Only pii-check should be resolved; nonexistent guard is silently ignored
     assert_eq!(resolved.len(), 1);
     assert_eq!(resolved[0].name, "pii-check");
@@ -396,7 +395,7 @@ fn test_duplicate_guard_in_header_and_pipeline_deduped() {
     // Header specifies same guard as pipeline
     let header_names = vec!["pii-check"];
 
-    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names, &[]);
+    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names);
     assert_eq!(resolved.len(), 2); // pii-check only appears once
 }
 
@@ -410,7 +409,7 @@ fn test_no_pipeline_guards_header_only() {
     // Header adds guards
     let header_names = vec!["injection-check", "secrets-check"];
 
-    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names, &[]);
+    let resolved = resolve_guards_by_name(&all_guards, &pipeline_names, &header_names);
     assert_eq!(resolved.len(), 2);
     assert_eq!(resolved[0].name, "injection-check");
     assert_eq!(resolved[1].name, "secrets-check");
@@ -421,7 +420,7 @@ fn test_no_pipeline_guards_no_header_no_guards_executed() {
     let config = test_guardrails_config();
     let all_guards = resolve_guard_defaults(&config);
 
-    let resolved = resolve_guards_by_name(&all_guards, &[], &[], &[]);
+    let resolved = resolve_guards_by_name(&all_guards, &[], &[]);
     assert!(resolved.is_empty());
 
     let (pre_call, post_call) = split_guards_by_mode(&resolved);

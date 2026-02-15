@@ -6,5 +6,4 @@ pub mod input_extractor;
 pub mod guardrails_runner;
 pub mod providers;
 pub mod response_parser;
-pub mod stream_buffer;
 pub mod types;

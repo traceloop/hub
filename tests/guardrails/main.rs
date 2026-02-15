@@ -5,6 +5,5 @@ mod test_executor;
 mod test_input_extractor;
 mod test_pipeline;
 mod test_response_parser;
-mod test_stream_buffer;
 mod test_traceloop_client;
 mod test_types;

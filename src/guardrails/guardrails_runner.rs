@@ -163,7 +163,7 @@ fn resolve_request_guards(gr: &Guardrails, headers: &HeaderMap) -> (Vec<Guard>, 
 
     let pipeline_names: Vec<&str> = gr.pipeline_guard_names.iter().map(|s| s.as_str()).collect();
     let header_names: Vec<&str> = header_guard_names.iter().map(|s| s.as_str()).collect();
-    let resolved = resolve_guards_by_name(&gr.all_guards, &pipeline_names, &header_names, &[]);
+    let resolved = resolve_guards_by_name(&gr.all_guards, &pipeline_names, &header_names);
 
     // Log unknown guard names from headers
     if !header_guard_names.is_empty() {
