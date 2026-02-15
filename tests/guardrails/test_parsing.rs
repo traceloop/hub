@@ -6,7 +6,6 @@ use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMe
 
 use super::helpers::*;
 
-
 #[test]
 fn test_extract_text_single_user_message() {
     let request = create_test_chat_request("Hello world");

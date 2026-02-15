@@ -16,7 +16,6 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::helpers::*;
 
-
 /// Helper: set up a wiremock evaluator that returns pass/fail
 async fn setup_evaluator(pass: bool) -> MockServer {
     let server = MockServer::start().await;

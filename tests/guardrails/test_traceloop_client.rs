@@ -8,7 +8,6 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::helpers::*;
 
-
 #[tokio::test]
 async fn test_traceloop_client_constructs_correct_url() {
     let mock_server = MockServer::start().await;

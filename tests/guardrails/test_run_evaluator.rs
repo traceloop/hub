@@ -2,7 +2,7 @@ use hub_lib::guardrails::evaluator_types::get_evaluator;
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::types::*;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -55,16 +55,13 @@ async fn run_evaluator_test(tc: &EvaluatorTestCase) {
         .and(matchers::header("Authorization", "Bearer test-api-key"))
         .and(matchers::header("Content-Type", "application/json"))
         .and(matchers::body_json(&expected_body))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(&cassette.response_body),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(&cassette.response_body))
         .expect(1)
         .mount(&server)
         .await;
 
     // Create guard pointing at the mock server and execute
-    let mut guard =
-        create_test_guard_with_api_base(tc.slug, GuardMode::PreCall, &server.uri());
+    let mut guard = create_test_guard_with_api_base(tc.slug, GuardMode::PreCall, &server.uri());
     guard.evaluator_slug = tc.slug.to_string();
     guard.params = tc.params.clone();
 
