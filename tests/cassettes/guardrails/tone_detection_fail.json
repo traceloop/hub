@@ -1,0 +1,19 @@
+{
+  "evaluator_slug": "tone-detection",
+  "input_text": "This is ABSOLUTELY UNACCEPTABLE. I DEMAND to speak to someone competent immediately!",
+  "params": {},
+  "request_body": {
+    "input": {
+      "text": "This is ABSOLUTELY UNACCEPTABLE. I DEMAND to speak to someone competent immediately!"
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "tone": "",
+      "score": 0
+    },
+    "pass": false
+  },
+  "expected_pass": false
+}

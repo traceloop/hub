@@ -1,0 +1,23 @@
+{
+  "evaluator_slug": "toxicity-detector",
+  "input_text": "You are a complete idiot and everyone hates you. You should be ashamed.",
+  "params": {
+    "threshold": 0.5
+  },
+  "request_body": {
+    "input": {
+      "text": "You are a complete idiot and everyone hates you. You should be ashamed."
+    },
+    "config": {
+      "threshold": 0.5
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "is_safe": false
+    },
+    "pass": false
+  },
+  "expected_pass": false
+}

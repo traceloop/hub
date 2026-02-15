@@ -1,0 +1,18 @@
+{
+  "evaluator_slug": "prompt-injection",
+  "input_text": "What is the capital of France?",
+  "params": {},
+  "request_body": {
+    "input": {
+      "prompt": "What is the capital of France?"
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "has_injection": false
+    },
+    "pass": true
+  },
+  "expected_pass": true
+}
