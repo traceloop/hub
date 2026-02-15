@@ -125,7 +125,7 @@ pub async fn chat_completions(
     model_keys: Vec<String>,
     guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
-    let mut tracer = OtelTracer::start("chat", &payload);
+    let mut tracer = OtelTracer::start();
     let parent_cx = tracer.parent_context();
     let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers, Some(parent_cx));
 
@@ -143,6 +143,7 @@ pub async fn chat_completions(
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
+            tracer.start_llm_span("chat", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
             let response = model
@@ -193,12 +194,13 @@ pub async fn completions(
     Json(payload): Json<CompletionRequest>,
     model_keys: Vec<String>,
 ) -> Result<Response, StatusCode> {
-    let mut tracer = OtelTracer::start("completion", &payload);
+    let mut tracer = OtelTracer::start();
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
+            tracer.start_llm_span("completion", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
             let response = model.completions(payload.clone()).await.inspect_err(|e| {
@@ -220,13 +222,13 @@ pub async fn embeddings(
     Json(payload): Json<EmbeddingsRequest>,
     model_keys: Vec<String>,
 ) -> impl IntoResponse {
-    let mut tracer = OtelTracer::start("embeddings", &payload);
+    let mut tracer = OtelTracer::start();
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            // Set vendor now that we know which model/provider we're using
+            tracer.start_llm_span("embeddings", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
             let response = model.embeddings(payload.clone()).await.inspect_err(|e| {

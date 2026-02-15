@@ -1,6 +1,11 @@
 use hub_lib::guardrails::parsing::CompletionExtractor;
 use hub_lib::guardrails::runner::*;
 use hub_lib::guardrails::types::*;
+use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
+use opentelemetry::Context;
+use opentelemetry_sdk::export::trace::SpanData;
+use opentelemetry_sdk::testing::trace::InMemorySpanExporter;
+use opentelemetry_sdk::trace::TracerProvider;
 
 use super::helpers::*;
 
@@ -180,4 +185,184 @@ async fn test_executor_returns_correct_guardrails_outcome() {
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard, Some("blocker".to_string()));
     assert!(outcome.warnings.iter().any(|w| w.guard_name == "warner"));
+}
+
+// ---------------------------------------------------------------------------
+// Guard Span Creation
+// ---------------------------------------------------------------------------
+
+use std::sync::LazyLock;
+
+/// Shared OTel exporter + provider, initialized once for all span tests.
+/// Each test creates a unique parent span with a unique trace_id, then filters
+/// exported spans by that trace_id — so tests are isolated despite sharing state.
+static TEST_EXPORTER: LazyLock<InMemorySpanExporter> = LazyLock::new(|| {
+    let exporter = InMemorySpanExporter::default();
+    let provider = TracerProvider::builder()
+        .with_simple_exporter(exporter.clone())
+        .build();
+    opentelemetry::global::set_tracer_provider(provider);
+    exporter
+});
+
+/// Helper: create a parent Context from the global tracer, returning
+/// the Context and the parent's SpanContext for later assertions.
+fn create_parent_context() -> (Context, opentelemetry::trace::SpanContext) {
+    let tracer = opentelemetry::global::tracer("traceloop_hub");
+    let parent_span = tracer.start("traceloop_hub");
+    let span_ctx = parent_span.span_context().clone();
+    let cx = Context::current().with_span(parent_span);
+    (cx, span_ctx)
+}
+
+/// Helper: collect guard spans from the shared exporter, filtering by trace_id.
+fn get_guard_spans(trace_id: opentelemetry::trace::TraceId) -> Vec<SpanData> {
+    TEST_EXPORTER
+        .get_finished_spans()
+        .unwrap()
+        .into_iter()
+        .filter(|s| s.span_context.trace_id() == trace_id)
+        .filter(|s| s.name.ends_with(".guard"))
+        .collect()
+}
+
+#[tokio::test]
+async fn test_guard_spans_created_with_parent_context() {
+    let _ = &*TEST_EXPORTER; // ensure global provider is set
+    let (parent_cx, parent_span_ctx) = create_parent_context();
+
+    let guards = vec![
+        create_test_guard("pii-check", GuardMode::PreCall),
+        create_test_guard("secrets-check", GuardMode::PostCall),
+    ];
+    let mock_client = MockGuardrailClient::with_responses(vec![
+        ("pii-check", Ok(passing_response())),
+        ("secrets-check", Ok(failing_response())),
+    ]);
+
+    let _outcome = execute_guards(&guards, "test input", &mock_client, Some(&parent_cx)).await;
+    drop(parent_cx);
+
+    let spans = get_guard_spans(parent_span_ctx.trace_id());
+    assert_eq!(spans.len(), 2, "Expected 2 guard spans, got {}", spans.len());
+
+    let span_names: Vec<&str> = spans.iter().map(|s| s.name.as_ref()).collect();
+    assert!(span_names.contains(&"pii-check.guard"));
+    assert!(span_names.contains(&"secrets-check.guard"));
+
+    // All guard spans should be children of the parent
+    for span in &spans {
+        assert_eq!(
+            span.parent_span_id, parent_span_ctx.span_id(),
+            "Guard span '{}' should be child of the parent span",
+            span.name
+        );
+        assert_eq!(span.span_context.trace_id(), parent_span_ctx.trace_id());
+        assert_eq!(span.span_kind, SpanKind::Internal);
+    }
+}
+
+#[tokio::test]
+async fn test_guard_span_attributes_on_pass() {
+    let _ = &*TEST_EXPORTER;
+    let (parent_cx, parent_span_ctx) = create_parent_context();
+
+    let guard = create_test_guard("pii-check", GuardMode::PreCall);
+    let mock_client = MockGuardrailClient::with_response("pii-check", Ok(passing_response()));
+
+    let _outcome = execute_guards(&[guard], "hello world", &mock_client, Some(&parent_cx)).await;
+    drop(parent_cx);
+
+    let spans = get_guard_spans(parent_span_ctx.trace_id());
+    assert_eq!(spans.len(), 1);
+
+    let span = &spans[0];
+    let attrs: std::collections::HashMap<String, String> = span
+        .attributes
+        .iter()
+        .map(|kv| (kv.key.to_string(), kv.value.to_string()))
+        .collect();
+
+    assert_eq!(attrs.get("gen_ai.guardrail.name").unwrap(), "pii-check");
+    assert_eq!(attrs.get("gen_ai.guardrail.status").unwrap(), "PASSED");
+    assert!(attrs.contains_key("gen_ai.guardrail.duration"));
+}
+
+#[tokio::test]
+async fn test_guard_span_attributes_on_fail() {
+    let _ = &*TEST_EXPORTER;
+    let (parent_cx, parent_span_ctx) = create_parent_context();
+
+    let guard =
+        create_test_guard_with_failure_action("toxicity", GuardMode::PreCall, OnFailure::Block);
+    let mock_client = MockGuardrailClient::with_response("toxicity", Ok(failing_response()));
+
+    let _outcome = execute_guards(&[guard], "bad input", &mock_client, Some(&parent_cx)).await;
+    drop(parent_cx);
+
+    let spans = get_guard_spans(parent_span_ctx.trace_id());
+    assert_eq!(spans.len(), 1);
+
+    let span = &spans[0];
+    let attrs: std::collections::HashMap<String, String> = span
+        .attributes
+        .iter()
+        .map(|kv| (kv.key.to_string(), kv.value.to_string()))
+        .collect();
+
+    assert_eq!(attrs.get("gen_ai.guardrail.name").unwrap(), "toxicity");
+    assert_eq!(attrs.get("gen_ai.guardrail.status").unwrap(), "FAILED");
+}
+
+#[tokio::test]
+async fn test_guard_span_attributes_on_error() {
+    let _ = &*TEST_EXPORTER;
+    let (parent_cx, parent_span_ctx) = create_parent_context();
+
+    let guard = create_test_guard_with_required("failing-guard", GuardMode::PreCall, true);
+    let mock_client = MockGuardrailClient::with_response(
+        "failing-guard",
+        Err(GuardrailError::Timeout("timed out".to_string())),
+    );
+
+    let _outcome =
+        execute_guards(&[guard], "test input", &mock_client, Some(&parent_cx)).await;
+    drop(parent_cx);
+
+    let spans = get_guard_spans(parent_span_ctx.trace_id());
+    assert_eq!(spans.len(), 1);
+
+    let span = &spans[0];
+    let attrs: std::collections::HashMap<String, String> = span
+        .attributes
+        .iter()
+        .map(|kv| (kv.key.to_string(), kv.value.to_string()))
+        .collect();
+
+    assert_eq!(attrs.get("gen_ai.guardrail.name").unwrap(), "failing-guard");
+    assert_eq!(attrs.get("gen_ai.guardrail.status").unwrap(), "ERROR");
+    assert_eq!(attrs.get("gen_ai.guardrail.error.type").unwrap(), "Timeout");
+    assert!(attrs.get("gen_ai.guardrail.error.message").unwrap().contains("timed out"));
+}
+
+#[tokio::test]
+async fn test_no_guard_spans_without_parent_context() {
+    let _ = &*TEST_EXPORTER;
+
+    // Create a unique trace to establish a "before" baseline
+    let (marker_cx, marker_span_ctx) = create_parent_context();
+    drop(marker_cx);
+
+    let guard = create_test_guard("pii-check", GuardMode::PreCall);
+    let mock_client = MockGuardrailClient::with_response("pii-check", Ok(passing_response()));
+
+    // Run with None parent — no guard spans should be created
+    let _outcome = execute_guards(&[guard], "test input", &mock_client, None).await;
+
+    // No guard spans should share the marker's trace_id (nothing was parented to it)
+    let guard_spans = get_guard_spans(marker_span_ctx.trace_id());
+    assert!(
+        guard_spans.is_empty(),
+        "No guard spans should be created when parent_cx is None"
+    );
 }

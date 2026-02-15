@@ -36,7 +36,6 @@ fn record_guard_span(
     result: &Result<EvaluatorResponse, GuardrailError>,
     elapsed: std::time::Duration,
     input: &str,
-    guard_count: usize,
 ) {
     span.set_attribute(KeyValue::new(GEN_AI_GUARDRAIL_NAME, guard.name.clone()));
     span.set_attribute(KeyValue::new(
@@ -79,7 +78,6 @@ pub async fn execute_guards(
 ) -> GuardrailsOutcome {
     debug!(guard_count = guards.len(), "Executing guardrails");
 
-    let guard_count = guards.len();
     let parent_cx = parent_cx.cloned();
 
     let futures: Vec<_> = guards
@@ -87,21 +85,22 @@ pub async fn execute_guards(
         .map(|guard| {
             let parent_cx = parent_cx.clone();
             async move {
+                // Create child span BEFORE evaluation so its start time is correct
+                let mut span = parent_cx.as_ref().map(|cx| {
+                    let tracer = global::tracer("traceloop_hub");
+                    tracer
+                        .span_builder(format!("{}.guard", guard.name))
+                        .with_kind(SpanKind::Internal)
+                        .start_with_context(&tracer, cx)
+                });
+
                 let start = std::time::Instant::now();
                 let result = client.evaluate(guard, input).await;
                 let elapsed = start.elapsed();
 
-                // Create child span if tracing context is available
-                let span = parent_cx.as_ref().map(|cx| {
-                    let tracer = global::tracer("traceloop_hub");
-                    let mut span = tracer
-                        .span_builder(format!("{}.guard", guard.name))
-                        .with_kind(SpanKind::Internal)
-                        .start_with_context(&tracer, cx);
-
-                    record_guard_span(&mut span, guard, &result, elapsed, input, guard_count);
-                    span
-                });
+                if let Some(s) = &mut span {
+                    record_guard_span(s, guard, &result, elapsed, input);
+                }
 
                 match &result {
                     Ok(resp) => debug!(

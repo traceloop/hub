@@ -20,7 +20,8 @@ pub trait RecordSpan {
 }
 
 pub struct OtelTracer {
-    span: BoxedSpan,
+    root_span: BoxedSpan,
+    llm_span: Option<BoxedSpan>,
     accumulated_completion: Option<ChatCompletion>,
 }
 
@@ -87,19 +88,30 @@ impl OtelTracer {
         }
     }
 
-    pub fn start<T: RecordSpan>(operation: &str, request: &T) -> Self {
+    pub fn start() -> Self {
         let tracer = global::tracer("traceloop_hub");
+        let span = tracer
+            .span_builder("traceloop_hub")
+            .with_kind(SpanKind::Server)
+            .start(&tracer);
+
+        Self {
+            root_span: span,
+            llm_span: None,
+            accumulated_completion: None,
+        }
+    }
+
+    pub fn start_llm_span<T: RecordSpan>(&mut self, operation: &str, request: &T) {
+        let tracer = global::tracer("traceloop_hub");
+        let parent_cx = self.parent_context();
         let mut span = tracer
             .span_builder(format!("traceloop_hub.{operation}"))
             .with_kind(SpanKind::Client)
-            .start(&tracer);
+            .start_with_context(&tracer, &parent_cx);
 
         request.record_span(&mut span);
-
-        Self {
-            span,
-            accumulated_completion: None,
-        }
+        self.llm_span = Some(span);
     }
 
     pub fn log_chunk(&mut self, chunk: &ChatCompletionChunk) {
@@ -160,29 +172,39 @@ impl OtelTracer {
 
     pub fn streaming_end(&mut self) {
         if let Some(completion) = self.accumulated_completion.take() {
-            completion.record_span(&mut self.span);
-            self.span.set_status(Status::Ok);
+            if let Some(span) = &mut self.llm_span {
+                completion.record_span(span);
+                span.set_status(Status::Ok);
+            }
         }
+        self.root_span.set_status(Status::Ok);
     }
 
     pub fn log_success<T: RecordSpan>(&mut self, response: &T) {
-        response.record_span(&mut self.span);
-        self.span.set_status(Status::Ok);
+        if let Some(span) = &mut self.llm_span {
+            response.record_span(span);
+            span.set_status(Status::Ok);
+        }
+        self.root_span.set_status(Status::Ok);
     }
 
     pub fn log_error(&mut self, description: String) {
-        self.span.set_status(Status::error(description));
+        if let Some(span) = &mut self.llm_span {
+            span.set_status(Status::error(description.clone()));
+        }
+        self.root_span.set_status(Status::error(description));
     }
 
     /// Returns an OTel Context carrying this tracer's root span as parent,
     /// suitable for creating child spans.
     pub fn parent_context(&self) -> Context {
-        Context::current().with_remote_span_context(self.span.span_context().clone())
+        Context::current().with_remote_span_context(self.root_span.span_context().clone())
     }
 
     pub fn set_vendor(&mut self, vendor: &str) {
-        self.span
-            .set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
+        if let Some(span) = &mut self.llm_span {
+            span.set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
+        }
     }
 }
 
@@ -419,7 +441,8 @@ mod tests {
         // Test that set_vendor method compiles and can be called
         // This ensures the method signature is correct
         let mut tracer = OtelTracer {
-            span: opentelemetry::global::tracer("test").start("test"),
+            root_span: opentelemetry::global::tracer("test").start("test"),
+            llm_span: Some(opentelemetry::global::tracer("test").start("test_llm")),
             accumulated_completion: None,
         };
 
