@@ -3,10 +3,6 @@ use hub_lib::types::GatewayConfig;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
-// ---------------------------------------------------------------------------
-// Phase 1: Core Types & Configuration (9 tests + 4 provider tests)
-// ---------------------------------------------------------------------------
-
 #[test]
 fn test_guard_mode_deserialize_pre_call() {
     let mode: GuardMode = serde_json::from_str("\"pre_call\"").unwrap();

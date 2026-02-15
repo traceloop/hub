@@ -16,12 +16,6 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::helpers::*;
 
-// ---------------------------------------------------------------------------
-// Phase 8: End-to-End Integration (15 tests)
-//
-// Full request flow tests using wiremock for evaluator services.
-// These validate the complete lifecycle from request to response.
-// ---------------------------------------------------------------------------
 
 /// Helper: set up a wiremock evaluator that returns pass/fail
 async fn setup_evaluator(pass: bool) -> MockServer {

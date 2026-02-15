@@ -5,9 +5,6 @@ use hub_lib::guardrails::types::*;
 
 use super::helpers::*;
 
-// ---------------------------------------------------------------------------
-// Header Parsing & Guard Resolution (15 tests)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_parse_guardrails_header_single() {

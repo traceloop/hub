@@ -6,9 +6,6 @@ use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMe
 
 use super::helpers::*;
 
-// ---------------------------------------------------------------------------
-// Input Extraction (5 tests)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_extract_text_single_user_message() {

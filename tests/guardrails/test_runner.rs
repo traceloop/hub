@@ -9,9 +9,6 @@ use opentelemetry_sdk::trace::TracerProvider;
 
 use super::helpers::*;
 
-// ---------------------------------------------------------------------------
-// Guard Execution (12 tests)
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_execute_single_pre_call_guard_passes() {

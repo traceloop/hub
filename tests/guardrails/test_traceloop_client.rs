@@ -8,9 +8,6 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::helpers::*;
 
-// ---------------------------------------------------------------------------
-// Phase 4: Provider Client System (7 tests)
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_traceloop_client_constructs_correct_url() {
