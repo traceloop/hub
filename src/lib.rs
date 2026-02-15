@@ -1,5 +1,6 @@
 pub mod ai_models;
 pub mod config;
+pub mod guardrails;
 pub mod management;
 pub mod models;
 pub mod openapi;

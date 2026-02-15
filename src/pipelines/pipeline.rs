@@ -1,4 +1,6 @@
 use crate::config::models::PipelineType;
+use crate::guardrails::runner::GuardrailsRunner;
+use crate::guardrails::types::{GuardrailResources, Guardrails};
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
 use crate::models::embeddings::EmbeddingsRequest;
@@ -11,8 +13,9 @@ use crate::{
     models::chat::ChatCompletionRequest,
 };
 use async_stream::stream;
+use axum::http::HeaderMap;
 use axum::response::sse::{Event, KeepAlive};
-use axum::response::{IntoResponse, Sse};
+use axum::response::{IntoResponse, Response, Sse};
 use axum::{
     Json, Router,
     extract::State,
@@ -24,7 +27,19 @@ use futures::{Stream, StreamExt};
 use reqwest_streams::error::StreamBodyError;
 use std::sync::Arc;
 
-pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> Router {
+// Re-export builder and orchestrator functions for backward compatibility with tests
+pub use crate::guardrails::runner::{blocked_response, warning_header_value};
+pub use crate::guardrails::setup::{
+    build_guardrail_resources, build_pipeline_guardrails, resolve_guard_defaults,
+};
+
+pub fn create_pipeline(
+    pipeline: &Pipeline,
+    model_registry: &ModelRegistry,
+    guardrail_resources: Option<&GuardrailResources>,
+) -> Router {
+    let guardrails: Option<Arc<Guardrails>> =
+        guardrail_resources.map(|shared| build_pipeline_guardrails(shared, &pipeline.guards));
     let mut router = Router::new();
 
     let available_models: Vec<String> = pipeline
@@ -50,6 +65,7 @@ pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> R
     );
 
     for plugin in pipeline.plugins.clone() {
+        let gr = guardrails.clone();
         router = match plugin {
             PluginConfig::Tracing { endpoint, api_key } => {
                 tracing::info!("Initializing OtelTracer for pipeline {}", pipeline.name);
@@ -59,7 +75,9 @@ pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> R
             PluginConfig::ModelRouter { models } => match pipeline.r#type {
                 PipelineType::Chat => router.route(
                     "/chat/completions",
-                    post(move |state, payload| chat_completions(state, payload, models)),
+                    post(move |state, headers, payload| {
+                        chat_completions(state, headers, payload, models, gr)
+                    }),
                 ),
                 PipelineType::Completion => router.route(
                     "/completions",
@@ -102,16 +120,30 @@ fn trace_and_stream(
 
 pub async fn chat_completions(
     State(model_registry): State<Arc<ModelRegistry>>,
+    headers: HeaderMap,
     Json(payload): Json<ChatCompletionRequest>,
     model_keys: Vec<String>,
-) -> Result<impl IntoResponse, StatusCode> {
-    let mut tracer = OtelTracer::start("chat", &payload);
+    guardrails: Option<Arc<Guardrails>>,
+) -> Result<Response, StatusCode> {
+    let mut tracer = OtelTracer::start();
+    let parent_cx = tracer.parent_context();
+    let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers, Some(parent_cx));
+
+    // Pre-call guardrails
+    let mut all_warnings = Vec::new();
+    if let Some(orch) = &orchestrator {
+        let pre = orch.run_pre_call(&payload).await;
+        if let Some(resp) = pre.blocked_response {
+            return Ok(resp);
+        }
+        all_warnings = pre.warnings;
+    }
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            // Set vendor now that we know which model/provider we're using
+            tracer.start_llm_span("chat", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
             let response = model
@@ -123,7 +155,25 @@ pub async fn chat_completions(
 
             if let ChatCompletionResponse::NonStream(completion) = response {
                 tracer.log_success(&completion);
-                return Ok(Json(completion).into_response());
+
+                tracing::debug!(
+                    completion = %serde_json::to_string(&completion).unwrap_or_default(),
+                    "AASA - LLM response before post-call guardrails"
+                );
+
+                // Post-call guardrails (non-streaming)
+                if let Some(orch) = &orchestrator {
+                    let post = orch.run_post_call(&completion).await;
+                    if let Some(resp) = post.blocked_response {
+                        return Ok(resp);
+                    }
+                    all_warnings.extend(post.warnings);
+                }
+
+                return Ok(GuardrailsRunner::finalize_response(
+                    Json(completion).into_response(),
+                    &all_warnings,
+                ));
             }
 
             if let ChatCompletionResponse::Stream(stream) = response {
@@ -143,21 +193,22 @@ pub async fn completions(
     State(model_registry): State<Arc<ModelRegistry>>,
     Json(payload): Json<CompletionRequest>,
     model_keys: Vec<String>,
-) -> impl IntoResponse {
-    let mut tracer = OtelTracer::start("completion", &payload);
+) -> Result<Response, StatusCode> {
+    let mut tracer = OtelTracer::start();
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            // Set vendor now that we know which model/provider we're using
+            tracer.start_llm_span("completion", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
             let response = model.completions(payload.clone()).await.inspect_err(|e| {
                 eprintln!("Completion error for model {model_key}: {e:?}");
             })?;
             tracer.log_success(&response);
-            return Ok(Json(response));
+
+            return Ok(Json(response).into_response());
         }
     }
 
@@ -171,13 +222,13 @@ pub async fn embeddings(
     Json(payload): Json<EmbeddingsRequest>,
     model_keys: Vec<String>,
 ) -> impl IntoResponse {
-    let mut tracer = OtelTracer::start("embeddings", &payload);
+    let mut tracer = OtelTracer::start();
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            // Set vendor now that we know which model/provider we're using
+            tracer.start_llm_span("embeddings", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
             let response = model.embeddings(payload.clone()).await.inspect_err(|e| {
@@ -293,6 +344,7 @@ mod tests {
             plugins: vec![PluginConfig::ModelRouter {
                 models: model_keys.into_iter().map(|s| s.to_string()).collect(),
             }],
+            guards: vec![],
         }
     }
 
@@ -322,7 +374,7 @@ mod tests {
         let model_configs = create_model_configs(vec!["test-model"]);
         let model_registry = ModelRegistry::new(&model_configs, provider_registry).unwrap();
         let pipeline = create_test_pipeline(vec!["test-model"]);
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 
@@ -371,7 +423,7 @@ mod tests {
         let model_registry =
             Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
         let pipeline = create_test_pipeline(vec!["test-model-1", "test-model-2"]);
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 
@@ -394,7 +446,7 @@ mod tests {
         let model_registry =
             Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
         let pipeline = create_test_pipeline(vec![]);
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 
@@ -412,7 +464,7 @@ mod tests {
         let model_registry =
             Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
         let pipeline = create_test_pipeline(vec!["test-model-1", "test-model-3"]); // Only include 2 of 3 models
-        let app = create_pipeline(&pipeline, &model_registry);
+        let app = create_pipeline(&pipeline, &model_registry, None);
 
         let response = get_models_response(app).await;
 

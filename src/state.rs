@@ -161,9 +161,16 @@ impl AppState {
         _provider_registry: &Arc<ProviderRegistry>,
         model_registry: &Arc<ModelRegistry>,
     ) -> axum::Router {
+        use crate::guardrails::setup::build_guardrail_resources;
         use crate::pipelines::pipeline::create_pipeline;
 
         debug!("Building router with {} pipelines", config.pipelines.len());
+
+        // Build shared guardrail resources once for all pipelines
+        let guardrail_resources = config
+            .guardrails
+            .as_ref()
+            .and_then(build_guardrail_resources);
 
         let (default_pipeline, other_pipelines): (Vec<_>, Vec<_>) = config
             .pipelines
@@ -179,7 +186,11 @@ impl AppState {
                 "Adding default pipeline '{}' to router at index 0",
                 default_pipeline.name
             );
-            let pipeline_router = create_pipeline(default_pipeline, model_registry);
+            let pipeline_router = create_pipeline(
+                default_pipeline,
+                model_registry,
+                guardrail_resources.as_ref(),
+            );
             pipeline_routers.push(pipeline_router);
             pipeline_names.push(default_pipeline.name.clone());
         }
@@ -188,7 +199,8 @@ impl AppState {
             let name = &pipeline.name;
             debug!("Adding pipeline '{}' to router at index {}", name, idx + 1);
 
-            let pipeline_router = create_pipeline(pipeline, model_registry);
+            let pipeline_router =
+                create_pipeline(pipeline, model_registry, guardrail_resources.as_ref());
             pipeline_routers.push(pipeline_router);
             pipeline_names.push(name.clone());
         }

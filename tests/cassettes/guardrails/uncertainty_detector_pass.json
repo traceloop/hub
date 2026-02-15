@@ -1,0 +1,19 @@
+{
+  "evaluator_slug": "uncertainty-detector",
+  "input_text": "What is 2 + 2?",
+  "params": {},
+  "request_body": {
+    "input": {
+      "prompt": "What is 2 + 2?"
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "answer": "",
+      "uncertainty": 0
+    },
+    "pass": true
+  },
+  "expected_pass": true
+}

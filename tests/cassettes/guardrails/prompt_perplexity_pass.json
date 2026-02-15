@@ -1,0 +1,18 @@
+{
+  "evaluator_slug": "prompt-perplexity",
+  "input_text": "Please explain the concept of photosynthesis in simple terms.",
+  "params": {},
+  "request_body": {
+    "input": {
+      "prompt": "Please explain the concept of photosynthesis in simple terms."
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "perplexity_score": 80.0
+    },
+    "pass": true
+  },
+  "expected_pass": true
+}

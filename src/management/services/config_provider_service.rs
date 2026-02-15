@@ -257,6 +257,7 @@ impl ConfigProviderService {
             name: dto.name,
             r#type: core_pipeline_type,
             plugins: core_plugins,
+            guards: vec![],
         })
     }
 

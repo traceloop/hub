@@ -1,0 +1,25 @@
+{
+  "evaluator_slug": "json-validator",
+  "input_text": "{\"name\": \"Alice\", \"age\": 30}",
+  "params": {
+    "enable_schema_validation": true,
+    "schema_string": "{\"name\": \"string\", \"age\": \"number\"}"
+  },
+  "request_body": {
+    "input": {
+      "text": "{\"name\": \"Alice\", \"age\": 30}"
+    },
+    "config": {
+      "enable_schema_validation": true,
+      "schema_string": "{\"name\": \"string\", \"age\": \"number\"}"
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "is_valid_json": true
+    },
+    "pass": true
+  },
+  "expected_pass": true
+}

@@ -1,0 +1,18 @@
+{
+  "evaluator_slug": "pii-detector",
+  "input_text": "The weather is sunny today and I like programming in Rust.",
+  "params": {},
+  "request_body": {
+    "input": {
+      "text": "The weather is sunny today and I like programming in Rust."
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "has_pii": false
+    },
+    "pass": true
+  },
+  "expected_pass": true
+}
