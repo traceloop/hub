@@ -61,6 +61,7 @@ async fn test_traceloop_client_sends_correct_body() {
         .await;
 
     let mut guard = create_test_guard_with_api_base("test", GuardMode::PreCall, &mock_server.uri());
+    guard.evaluator_slug = "toxicity-detector".to_string();
     guard.params.insert("threshold".to_string(), json!(0.5));
 
     let client = TraceloopClient::new();

@@ -1,8 +1,8 @@
 use hub_lib::guardrails::parsing::CompletionExtractor;
 use hub_lib::guardrails::runner::*;
 use hub_lib::guardrails::types::*;
-use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
 use opentelemetry::Context;
+use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
 use opentelemetry_sdk::export::trace::SpanData;
 use opentelemetry_sdk::testing::trace::InMemorySpanExporter;
 use opentelemetry_sdk::trace::TracerProvider;
@@ -244,7 +244,12 @@ async fn test_guard_spans_created_with_parent_context() {
     drop(parent_cx);
 
     let spans = get_guard_spans(parent_span_ctx.trace_id());
-    assert_eq!(spans.len(), 2, "Expected 2 guard spans, got {}", spans.len());
+    assert_eq!(
+        spans.len(),
+        2,
+        "Expected 2 guard spans, got {}",
+        spans.len()
+    );
 
     let span_names: Vec<&str> = spans.iter().map(|s| s.name.as_ref()).collect();
     assert!(span_names.contains(&"pii-check.guard"));
@@ -253,7 +258,8 @@ async fn test_guard_spans_created_with_parent_context() {
     // All guard spans should be children of the parent
     for span in &spans {
         assert_eq!(
-            span.parent_span_id, parent_span_ctx.span_id(),
+            span.parent_span_id,
+            parent_span_ctx.span_id(),
             "Guard span '{}' should be child of the parent span",
             span.name
         );
@@ -325,8 +331,7 @@ async fn test_guard_span_attributes_on_error() {
         Err(GuardrailError::Timeout("timed out".to_string())),
     );
 
-    let _outcome =
-        execute_guards(&[guard], "test input", &mock_client, Some(&parent_cx)).await;
+    let _outcome = execute_guards(&[guard], "test input", &mock_client, Some(&parent_cx)).await;
     drop(parent_cx);
 
     let spans = get_guard_spans(parent_span_ctx.trace_id());
@@ -342,7 +347,12 @@ async fn test_guard_span_attributes_on_error() {
     assert_eq!(attrs.get("gen_ai.guardrail.name").unwrap(), "failing-guard");
     assert_eq!(attrs.get("gen_ai.guardrail.status").unwrap(), "ERROR");
     assert_eq!(attrs.get("gen_ai.guardrail.error.type").unwrap(), "Timeout");
-    assert!(attrs.get("gen_ai.guardrail.error.message").unwrap().contains("timed out"));
+    assert!(
+        attrs
+            .get("gen_ai.guardrail.error.message")
+            .unwrap()
+            .contains("timed out")
+    );
 }
 
 #[tokio::test]

@@ -1,7 +1,7 @@
 use hub_lib::guardrails::parsing::{CompletionExtractor, PromptExtractor};
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::runner::{
-    blocked_response, execute_guards, warning_header_value, GuardrailsRunner,
+    GuardrailsRunner, blocked_response, execute_guards, warning_header_value,
 };
 use hub_lib::guardrails::setup::{build_guardrail_resources, build_pipeline_guardrails};
 use hub_lib::guardrails::types::*;
@@ -560,7 +560,7 @@ async fn test_pre_call_guardrails_warn_and_continue() {
         GuardMode::PreCall,
         OnFailure::Warn,
         &eval_server.uri(),
-        "tone",
+        "tone-detection",
     );
 
     let client = TraceloopClient::new();
@@ -588,7 +588,7 @@ async fn test_post_call_guardrails_warn_and_add_header() {
         GuardMode::PostCall,
         OnFailure::Warn,
         &eval_server.uri(),
-        "safety",
+        "pii-detector",
     );
 
     let client = TraceloopClient::new();
@@ -646,10 +646,7 @@ async fn test_post_call_skipped_on_empty_response() {
     // post-call guards should be skipped and a warning returned.
     let eval_server = MockServer::start().await;
     Mock::given(matchers::any())
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(json!({"result": {}, "pass": true})),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"result": {}, "pass": true})))
         .expect(0) // evaluator should never be called
         .mount(&eval_server)
         .await;

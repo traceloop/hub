@@ -43,7 +43,10 @@ fn test_extract_text_multi_turn_conversation() {
         },
     ];
     let text = request.extract_pompt();
-    assert_eq!(text, "Follow-up question");
+    assert_eq!(
+        text,
+        "You are helpful\nFirst question\nFirst answer\nFollow-up question"
+    );
 }
 
 #[test]
