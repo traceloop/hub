@@ -111,14 +111,11 @@ pub async fn execute_guards(
     }
 }
 
-/// Result of running pre-call or post-call guards.
 pub struct GuardPhaseResult {
     pub blocked_response: Option<Response>,
     pub warnings: Vec<GuardWarning>,
 }
 
-/// Runs guardrails across pre-call and post-call phases.
-/// Shared between chat_completions and completions handlers.
 pub struct GuardrailsRunner<'a> {
     pre_call: Vec<Guard>,
     post_call: Vec<Guard>,
