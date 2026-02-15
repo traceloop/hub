@@ -49,7 +49,11 @@ fn record_guard_span(
 
     match result {
         Ok(resp) => {
-            let status = if resp.pass { GUARDRAIL_PASSED } else { GUARDRAIL_FAILED };
+            let status = if resp.pass {
+                GUARDRAIL_PASSED
+            } else {
+                GUARDRAIL_FAILED
+            };
             span.set_attribute(KeyValue::new(GEN_AI_GUARDRAIL_STATUS, status));
         }
         Err(err) => {
@@ -269,9 +273,13 @@ impl<'a> GuardrailsRunner<'a> {
             };
         }
 
-        let outcome =
-            execute_guards(&self.post_call, &completion, self.client, self.parent_cx.as_ref())
-                .await;
+        let outcome = execute_guards(
+            &self.post_call,
+            &completion,
+            self.client,
+            self.parent_cx.as_ref(),
+        )
+        .await;
         if outcome.blocked {
             return GuardPhaseResult {
                 blocked_response: Some(blocked_response(&outcome)),

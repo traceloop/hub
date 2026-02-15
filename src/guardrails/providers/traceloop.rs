@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
 use tracing::debug;
 
 use super::GuardrailClient;
@@ -88,6 +87,7 @@ impl GuardrailClient for TraceloopClient {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::collections::HashMap;
 
     #[test]
     fn test_build_body_text_slug() {
