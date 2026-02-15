@@ -6,8 +6,8 @@ use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest, EmbeddingsRe
 use crate::models::streaming::ChatCompletionChunk;
 use crate::models::usage::{EmbeddingUsage, Usage};
 use opentelemetry::global::{BoxedSpan, ObjectSafeSpan};
-use opentelemetry::trace::{SpanKind, Status, Tracer};
-use opentelemetry::{KeyValue, global};
+use opentelemetry::trace::{SpanKind, Status, TraceContextExt, Tracer};
+use opentelemetry::{Context, KeyValue, global};
 use opentelemetry_otlp::{SpanExporter, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::TracerProvider;
@@ -172,6 +172,12 @@ impl OtelTracer {
 
     pub fn log_error(&mut self, description: String) {
         self.span.set_status(Status::error(description));
+    }
+
+    /// Returns an OTel Context carrying this tracer's root span as parent,
+    /// suitable for creating child spans.
+    pub fn parent_context(&self) -> Context {
+        Context::current().with_remote_span_context(self.span.span_context().clone())
     }
 
     pub fn set_vendor(&mut self, vendor: &str) {

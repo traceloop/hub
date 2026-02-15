@@ -12,7 +12,7 @@ use super::helpers::*;
 async fn test_execute_single_pre_call_guard_passes() {
     let guard = create_test_guard("check", GuardMode::PreCall);
     let mock_client = MockGuardrailClient::with_response("check", Ok(passing_response()));
-    let outcome = execute_guards(&[guard], "test input", &mock_client).await;
+    let outcome = execute_guards(&[guard], "test input", &mock_client, None).await;
     assert!(!outcome.blocked);
     assert_eq!(outcome.results.len(), 1);
     assert!(matches!(&outcome.results[0], GuardResult::Passed { .. }));
@@ -24,7 +24,7 @@ async fn test_execute_single_pre_call_guard_fails_block() {
     let guard =
         create_test_guard_with_failure_action("check", GuardMode::PreCall, OnFailure::Block);
     let mock_client = MockGuardrailClient::with_response("check", Ok(failing_response()));
-    let outcome = execute_guards(&[guard], "toxic input", &mock_client).await;
+    let outcome = execute_guards(&[guard], "toxic input", &mock_client, None).await;
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard, Some("check".to_string()));
 }
@@ -33,7 +33,7 @@ async fn test_execute_single_pre_call_guard_fails_block() {
 async fn test_execute_single_pre_call_guard_fails_warn() {
     let guard = create_test_guard_with_failure_action("check", GuardMode::PreCall, OnFailure::Warn);
     let mock_client = MockGuardrailClient::with_response("check", Ok(failing_response()));
-    let outcome = execute_guards(&[guard], "borderline input", &mock_client).await;
+    let outcome = execute_guards(&[guard], "borderline input", &mock_client, None).await;
     assert!(!outcome.blocked);
     assert_eq!(outcome.warnings.len(), 1);
     assert_eq!(outcome.warnings[0].guard_name, "check");
@@ -51,7 +51,7 @@ async fn test_execute_multiple_pre_call_guards_all_pass() {
         ("guard-2", Ok(passing_response())),
         ("guard-3", Ok(passing_response())),
     ]);
-    let outcome = execute_guards(&guards, "safe input", &mock_client).await;
+    let outcome = execute_guards(&guards, "safe input", &mock_client, None).await;
     assert!(!outcome.blocked);
     assert_eq!(outcome.results.len(), 3);
     assert!(outcome.warnings.is_empty());
@@ -69,7 +69,7 @@ async fn test_execute_multiple_guards_one_blocks() {
         ("guard-2", Ok(failing_response())),
         ("guard-3", Ok(passing_response())),
     ]);
-    let outcome = execute_guards(&guards, "input", &mock_client).await;
+    let outcome = execute_guards(&guards, "input", &mock_client, None).await;
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard, Some("guard-2".to_string()));
 }
@@ -86,7 +86,7 @@ async fn test_execute_multiple_guards_one_warns_continue() {
         ("guard-2", Ok(failing_response())),
         ("guard-3", Ok(passing_response())),
     ]);
-    let outcome = execute_guards(&guards, "input", &mock_client).await;
+    let outcome = execute_guards(&guards, "input", &mock_client, None).await;
     assert!(!outcome.blocked);
     assert_eq!(outcome.results.len(), 3);
     assert_eq!(outcome.warnings.len(), 1);
@@ -101,7 +101,7 @@ async fn test_guard_evaluator_unavailable_required_false() {
             "connection refused".to_string(),
         )),
     );
-    let outcome = execute_guards(&[guard], "input", &mock_client).await;
+    let outcome = execute_guards(&[guard], "input", &mock_client, None).await;
     assert!(!outcome.blocked); // Fail-open
     assert!(matches!(
         &outcome.results[0],
@@ -121,7 +121,7 @@ async fn test_guard_evaluator_unavailable_required_true() {
             "connection refused".to_string(),
         )),
     );
-    let outcome = execute_guards(&[guard], "input", &mock_client).await;
+    let outcome = execute_guards(&[guard], "input", &mock_client, None).await;
     assert!(outcome.blocked); // Fail-closed
 }
 
@@ -131,7 +131,7 @@ async fn test_execute_post_call_guards_non_streaming() {
     let mock_client = MockGuardrailClient::with_response("response-check", Ok(passing_response()));
     let completion = create_test_chat_completion("Safe response text");
     let response_text = completion.extract_completion();
-    let outcome = execute_guards(&[guard], &response_text, &mock_client).await;
+    let outcome = execute_guards(&[guard], &response_text, &mock_client, None).await;
     assert!(!outcome.blocked);
 }
 
@@ -140,7 +140,7 @@ async fn test_execute_post_call_guards_streaming_accumulated() {
     let guard = create_test_guard("response-check", GuardMode::PostCall);
     let mock_client = MockGuardrailClient::with_response("response-check", Ok(passing_response()));
     let accumulated_text = "Hello world from streaming!";
-    let outcome = execute_guards(&[guard], accumulated_text, &mock_client).await;
+    let outcome = execute_guards(&[guard], accumulated_text, &mock_client, None).await;
     assert!(!outcome.blocked);
 }
 
@@ -158,7 +158,7 @@ async fn test_parallel_execution_of_independent_guards() {
         ("guard-2", Ok(passing_response())),
     ]);
     let start = std::time::Instant::now();
-    let outcome = execute_guards(&guards, "input", &mock_client).await;
+    let outcome = execute_guards(&guards, "input", &mock_client, None).await;
     let _elapsed = start.elapsed();
     assert!(!outcome.blocked);
     assert_eq!(outcome.results.len(), 2);
@@ -176,7 +176,7 @@ async fn test_executor_returns_correct_guardrails_outcome() {
         ("warner", Ok(failing_response())),
         ("blocker", Ok(failing_response())),
     ]);
-    let outcome = execute_guards(&guards, "input", &mock_client).await;
+    let outcome = execute_guards(&guards, "input", &mock_client, None).await;
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard, Some("blocker".to_string()));
     assert!(outcome.warnings.iter().any(|w| w.guard_name == "warner"));

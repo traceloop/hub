@@ -126,7 +126,8 @@ pub async fn chat_completions(
     guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start("chat", &payload);
-    let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers);
+    let parent_cx = tracer.parent_context();
+    let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers, Some(parent_cx));
 
     // Pre-call guardrails
     let mut all_warnings = Vec::new();

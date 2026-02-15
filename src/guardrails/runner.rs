@@ -5,46 +5,121 @@ use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use futures::future::join_all;
+use opentelemetry::global::{BoxedSpan, ObjectSafeSpan};
+use opentelemetry::trace::{SpanKind, Status as OtelStatus, Tracer};
+use opentelemetry::{Context, KeyValue, global};
 use serde_json::json;
 use tracing::{debug, warn};
 
+use crate::config::lib::get_trace_content_enabled;
+
 use super::parsing::{CompletionExtractor, PromptExtractor};
 use super::setup::{parse_guardrails_header, resolve_guards_by_name, split_guards_by_mode};
+use super::span_attributes::*;
 use super::types::{
-    Guard, GuardResult, GuardWarning, GuardrailClient, Guardrails, GuardrailsOutcome, OnFailure,
+    EvaluatorResponse, Guard, GuardResult, GuardWarning, GuardrailClient, GuardrailError,
+    Guardrails, GuardrailsOutcome, OnFailure,
 };
+
+fn error_type_name(err: &GuardrailError) -> &'static str {
+    match err {
+        GuardrailError::Unavailable(_) => "Unavailable",
+        GuardrailError::HttpError { .. } => "HttpError",
+        GuardrailError::Timeout(_) => "Timeout",
+        GuardrailError::ParseError(_) => "ParseError",
+    }
+}
+
+fn record_guard_span(
+    span: &mut BoxedSpan,
+    guard: &Guard,
+    result: &Result<EvaluatorResponse, GuardrailError>,
+    elapsed: std::time::Duration,
+    input: &str,
+    guard_count: usize,
+) {
+    span.set_attribute(KeyValue::new(GEN_AI_GUARDRAIL_NAME, guard.name.clone()));
+    span.set_attribute(KeyValue::new(
+        GEN_AI_GUARDRAIL_DURATION,
+        elapsed.as_millis() as i64,
+    ));
+
+    if get_trace_content_enabled() {
+        span.set_attribute(KeyValue::new(GEN_AI_GUARDRAIL_INPUT, input.to_string()));
+    }
+
+    match result {
+        Ok(resp) => {
+            let status = if resp.pass { GUARDRAIL_PASSED } else { GUARDRAIL_FAILED };
+            span.set_attribute(KeyValue::new(GEN_AI_GUARDRAIL_STATUS, status));
+        }
+        Err(err) => {
+            span.set_attribute(KeyValue::new(GEN_AI_GUARDRAIL_STATUS, GUARDRAIL_ERROR));
+            span.set_attribute(KeyValue::new(
+                GEN_AI_GUARDRAIL_ERROR_TYPE,
+                error_type_name(err),
+            ));
+            span.set_attribute(KeyValue::new(
+                GEN_AI_GUARDRAIL_ERROR_MESSAGE,
+                err.to_string(),
+            ));
+            span.set_status(OtelStatus::error(err.to_string()));
+        }
+    }
+}
 
 /// Execute a set of guardrails against the given input text.
 /// Guards are run concurrently. Returns a GuardrailsOutcome with results, blocked status, and warnings.
+/// When `parent_cx` is provided, creates a child OTel span per guard evaluation.
 pub async fn execute_guards(
     guards: &[Guard],
     input: &str,
     client: &dyn GuardrailClient,
+    parent_cx: Option<&Context>,
 ) -> GuardrailsOutcome {
     debug!(guard_count = guards.len(), "Executing guardrails");
 
+    let guard_count = guards.len();
+    let parent_cx = parent_cx.cloned();
+
     let futures: Vec<_> = guards
         .iter()
-        .map(|guard| async move {
-            let start = std::time::Instant::now();
-            let result = client.evaluate(guard, input).await;
-            let elapsed = start.elapsed();
-            match &result {
-                Ok(resp) => debug!(
-                    guard = %guard.name,
-                    pass = resp.pass,
-                    elapsed_ms = elapsed.as_millis(),
-                    "Guard evaluation complete"
-                ),
-                Err(err) => warn!(
-                    guard = %guard.name,
-                    error = %err,
-                    required = guard.required,
-                    elapsed_ms = elapsed.as_millis(),
-                    "Guard evaluation failed"
-                ),
+        .map(|guard| {
+            let parent_cx = parent_cx.clone();
+            async move {
+                let start = std::time::Instant::now();
+                let result = client.evaluate(guard, input).await;
+                let elapsed = start.elapsed();
+
+                // Create child span if tracing context is available
+                let span = parent_cx.as_ref().map(|cx| {
+                    let tracer = global::tracer("traceloop_hub");
+                    let mut span = tracer
+                        .span_builder(format!("{}.guard", guard.name))
+                        .with_kind(SpanKind::Internal)
+                        .start_with_context(&tracer, cx);
+
+                    record_guard_span(&mut span, guard, &result, elapsed, input, guard_count);
+                    span
+                });
+
+                match &result {
+                    Ok(resp) => debug!(
+                        guard = %guard.name,
+                        pass = resp.pass,
+                        elapsed_ms = elapsed.as_millis(),
+                        "Guard evaluation complete"
+                    ),
+                    Err(err) => warn!(
+                        guard = %guard.name,
+                        error = %err,
+                        required = guard.required,
+                        elapsed_ms = elapsed.as_millis(),
+                        "Guard evaluation failed"
+                    ),
+                }
+                (guard, result, span)
             }
-            (guard, result)
         })
         .collect();
 
@@ -54,8 +129,12 @@ pub async fn execute_guards(
     let mut blocked = false;
     let mut blocking_guard = None;
     let mut warnings = Vec::new();
+    let mut guard_spans: Vec<BoxedSpan> = Vec::new();
 
-    for (guard, result) in results_raw {
+    for (guard, result, span) in results_raw {
+        if let Some(s) = span {
+            guard_spans.push(s);
+        }
         match result {
             Ok(response) => {
                 if response.pass {
@@ -122,12 +201,18 @@ pub struct GuardrailsRunner<'a> {
     pre_call: Vec<Guard>,
     post_call: Vec<Guard>,
     client: &'a dyn GuardrailClient,
+    parent_cx: Option<Context>,
 }
 
 impl<'a> GuardrailsRunner<'a> {
     /// Create a runner by resolving guards from pipeline config + request headers.
     /// Returns None if no guards are active for this request.
-    pub fn new(guardrails: Option<&'a Guardrails>, headers: &HeaderMap) -> Option<Self> {
+    /// When `parent_cx` is provided, guardrail evaluations are traced as child spans.
+    pub fn new(
+        guardrails: Option<&'a Guardrails>,
+        headers: &HeaderMap,
+        parent_cx: Option<Context>,
+    ) -> Option<Self> {
         let gr = guardrails?;
         let (pre_call, post_call) = resolve_request_guards(gr, headers);
         if pre_call.is_empty() && post_call.is_empty() {
@@ -137,6 +222,7 @@ impl<'a> GuardrailsRunner<'a> {
             pre_call,
             post_call,
             client: gr.client.as_ref(),
+            parent_cx,
         })
     }
 
@@ -149,7 +235,8 @@ impl<'a> GuardrailsRunner<'a> {
             };
         }
         let input = request.extract_pompt();
-        let outcome = execute_guards(&self.pre_call, &input, self.client).await;
+        let outcome =
+            execute_guards(&self.pre_call, &input, self.client, self.parent_cx.as_ref()).await;
         if outcome.blocked {
             return GuardPhaseResult {
                 blocked_response: Some(blocked_response(&outcome)),
@@ -183,7 +270,9 @@ impl<'a> GuardrailsRunner<'a> {
             };
         }
 
-        let outcome = execute_guards(&self.post_call, &completion, self.client).await;
+        let outcome =
+            execute_guards(&self.post_call, &completion, self.client, self.parent_cx.as_ref())
+                .await;
         if outcome.blocked {
             return GuardPhaseResult {
                 blocked_response: Some(blocked_response(&outcome)),

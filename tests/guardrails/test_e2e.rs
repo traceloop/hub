@@ -72,7 +72,7 @@ async fn test_e2e_pre_call_block_flow() {
     let input = request.extract_pompt();
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], &input, &client).await;
+    let outcome = execute_guards(&[guard], &input, &client, None).await;
 
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard.as_deref(), Some("blocker"));
@@ -94,7 +94,7 @@ async fn test_e2e_pre_call_pass_flow() {
     let input = request.extract_pompt();
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], &input, &client).await;
+    let outcome = execute_guards(&[guard], &input, &client, None).await;
 
     assert!(!outcome.blocked);
     assert!(outcome.warnings.is_empty());
@@ -118,7 +118,7 @@ async fn test_e2e_post_call_block_flow() {
     let response_text = completion.extract_completion();
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], &response_text, &client).await;
+    let outcome = execute_guards(&[guard], &response_text, &client, None).await;
 
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard.as_deref(), Some("pii-check"));
@@ -140,7 +140,7 @@ async fn test_e2e_post_call_warn_flow() {
     let response_text = completion.extract_completion();
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], &response_text, &client).await;
+    let outcome = execute_guards(&[guard], &response_text, &client, None).await;
 
     assert!(!outcome.blocked);
     assert_eq!(outcome.warnings.len(), 1);
@@ -173,13 +173,13 @@ async fn test_e2e_pre_and_post_both_pass() {
     // Pre-call
     let request = create_test_chat_request("Hello");
     let input = request.extract_pompt();
-    let pre_outcome = execute_guards(&[pre_guard], &input, &client).await;
+    let pre_outcome = execute_guards(&[pre_guard], &input, &client, None).await;
     assert!(!pre_outcome.blocked);
 
     // Post-call
     let completion = create_test_chat_completion("Hi there!");
     let response_text = completion.extract_completion();
-    let post_outcome = execute_guards(&[post_guard], &response_text, &client).await;
+    let post_outcome = execute_guards(&[post_guard], &response_text, &client, None).await;
     assert!(!post_outcome.blocked);
     assert!(post_outcome.warnings.is_empty());
 }
@@ -216,7 +216,7 @@ async fn test_e2e_pre_blocks_post_never_runs() {
     let request = create_test_chat_request("Bad input");
     let input = request.extract_pompt();
 
-    let pre_outcome = execute_guards(&[pre_guard], &input, &client).await;
+    let pre_outcome = execute_guards(&[pre_guard], &input, &client, None).await;
     assert!(pre_outcome.blocked);
 
     // Since pre blocked, post guards never run - post_eval.verify() will assert 0 calls
@@ -256,7 +256,7 @@ async fn test_e2e_mixed_block_and_warn() {
     ];
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&guards, "test input", &client).await;
+    let outcome = execute_guards(&guards, "test input", &client, None).await;
 
     assert!(outcome.blocked);
     assert_eq!(outcome.blocking_guard.as_deref(), Some("blocker"));
@@ -278,7 +278,7 @@ async fn test_e2e_streaming_post_call_buffer_pass() {
     let accumulated = "Hello world!";
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], &accumulated, &client).await;
+    let outcome = execute_guards(&[guard], &accumulated, &client, None).await;
 
     assert!(!outcome.blocked);
 }
@@ -298,7 +298,7 @@ async fn test_e2e_streaming_post_call_buffer_block() {
     let accumulated = "Here is SSN: 123-45-6789";
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], &accumulated, &client).await;
+    let outcome = execute_guards(&[guard], &accumulated, &client, None).await;
 
     assert!(outcome.blocked);
 }
@@ -433,7 +433,7 @@ async fn test_e2e_multiple_guards_different_evaluators() {
     ];
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&guards, "test input", &client).await;
+    let outcome = execute_guards(&guards, "test input", &client, None).await;
 
     assert!(!outcome.blocked);
     assert_eq!(outcome.results.len(), 2);
@@ -459,7 +459,7 @@ async fn test_e2e_fail_open_evaluator_down() {
     guard.required = false; // fail-open
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], "test input", &client).await;
+    let outcome = execute_guards(&[guard], "test input", &client, None).await;
 
     assert!(!outcome.blocked); // Fail-open: not blocked despite error
 }
@@ -483,7 +483,7 @@ async fn test_e2e_fail_closed_evaluator_down() {
     guard.required = true; // fail-closed
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], "test input", &client).await;
+    let outcome = execute_guards(&[guard], "test input", &client, None).await;
 
     assert!(outcome.blocked); // Fail-closed: blocked due to error
 }
@@ -564,7 +564,7 @@ async fn test_pre_call_guardrails_warn_and_continue() {
     );
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], "borderline input", &client).await;
+    let outcome = execute_guards(&[guard], "borderline input", &client, None).await;
 
     assert!(!outcome.blocked);
     assert_eq!(outcome.warnings.len(), 1);
@@ -592,7 +592,7 @@ async fn test_post_call_guardrails_warn_and_add_header() {
     );
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], "Some LLM response", &client).await;
+    let outcome = execute_guards(&[guard], "Some LLM response", &client, None).await;
 
     assert!(!outcome.blocked);
     assert!(!outcome.warnings.is_empty());
@@ -669,7 +669,7 @@ async fn test_post_call_skipped_on_empty_response() {
     };
 
     let headers = HeaderMap::new();
-    let runner = GuardrailsRunner::new(Some(&guardrails), &headers).unwrap();
+    let runner = GuardrailsRunner::new(Some(&guardrails), &headers, None).unwrap();
 
     // Completion with content: None (simulates empty LLM response)
     let empty_completion = create_test_chat_completion("");
@@ -704,7 +704,7 @@ async fn test_evaluator_error_not_blocked_by_default() {
     // guard.required is false by default
 
     let client = TraceloopClient::new();
-    let outcome = execute_guards(&[guard], "test input", &client).await;
+    let outcome = execute_guards(&[guard], "test input", &client, None).await;
 
     assert!(!outcome.blocked);
 }
