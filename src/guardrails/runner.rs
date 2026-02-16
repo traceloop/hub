@@ -237,7 +237,7 @@ impl<'a> GuardrailsRunner<'a> {
                 warnings: Vec::new(),
             };
         }
-        let input = request.extract_pompt();
+        let input = request.extract_prompt();
         let outcome =
             execute_guards(&self.pre_call, &input, self.client, self.parent_cx.as_ref()).await;
         if outcome.blocked {

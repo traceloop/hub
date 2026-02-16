@@ -9,7 +9,7 @@ use super::helpers::*;
 #[test]
 fn test_extract_text_single_user_message() {
     let request = create_test_chat_request("Hello world");
-    let text = request.extract_pompt();
+    let text = request.extract_prompt();
     assert_eq!(text, "Hello world");
 }
 
@@ -38,7 +38,7 @@ fn test_extract_text_multi_turn_conversation() {
             ..default_message()
         },
     ];
-    let text = request.extract_pompt();
+    let text = request.extract_prompt();
     assert_eq!(
         text,
         "You are helpful\nFirst question\nFirst answer\nFollow-up question"
@@ -58,7 +58,7 @@ fn test_extract_text_from_array_content_parts() {
             text: "Part 2".to_string(),
         },
     ]));
-    let text = request.extract_pompt();
+    let text = request.extract_prompt();
     assert_eq!(text, "Part 1 Part 2");
 }
 
@@ -73,7 +73,7 @@ fn test_extract_response_from_chat_completion() {
 fn test_extract_handles_empty_content() {
     let mut request = create_test_chat_request("");
     request.messages[0].content = None;
-    let text = request.extract_pompt();
+    let text = request.extract_prompt();
     assert_eq!(text, "");
 }
 

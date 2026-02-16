@@ -6,7 +6,7 @@ use super::types::{EvaluatorResponse, GuardrailError};
 
 /// Trait for extracting pre-call guardrail input from a request.
 pub trait PromptExtractor {
-    fn extract_pompt(&self) -> String;
+    fn extract_prompt(&self) -> String;
 }
 
 /// Trait for extracting post-call guardrail input from a response.
@@ -15,7 +15,7 @@ pub trait CompletionExtractor {
 }
 
 impl PromptExtractor for ChatCompletionRequest {
-    fn extract_pompt(&self) -> String {
+    fn extract_prompt(&self) -> String {
         self.messages
             .iter()
             .filter_map(|m| {

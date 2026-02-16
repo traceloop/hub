@@ -62,7 +62,7 @@ async fn test_e2e_pre_call_block_flow() {
     );
 
     let request = create_test_chat_request("Bad input");
-    let input = request.extract_pompt();
+    let input = request.extract_prompt();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &input, &client, None).await;
@@ -84,7 +84,7 @@ async fn test_e2e_pre_call_pass_flow() {
     );
 
     let request = create_test_chat_request("Safe input");
-    let input = request.extract_pompt();
+    let input = request.extract_prompt();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], &input, &client, None).await;
@@ -165,7 +165,7 @@ async fn test_e2e_pre_and_post_both_pass() {
 
     // Pre-call
     let request = create_test_chat_request("Hello");
-    let input = request.extract_pompt();
+    let input = request.extract_prompt();
     let pre_outcome = execute_guards(&[pre_guard], &input, &client, None).await;
     assert!(!pre_outcome.blocked);
 
@@ -207,7 +207,7 @@ async fn test_e2e_pre_blocks_post_never_runs() {
 
     let client = TraceloopClient::new();
     let request = create_test_chat_request("Bad input");
-    let input = request.extract_pompt();
+    let input = request.extract_prompt();
 
     let pre_outcome = execute_guards(&[pre_guard], &input, &client, None).await;
     assert!(pre_outcome.blocked);

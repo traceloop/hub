@@ -20,8 +20,8 @@ pub trait RecordSpan {
 }
 
 pub struct OtelTracer {
-    root_span: BoxedSpan,
     llm_span: Option<BoxedSpan>,
+    root_span: BoxedSpan,
     accumulated_completion: Option<ChatCompletion>,
 }
 
@@ -96,8 +96,8 @@ impl OtelTracer {
             .start(&tracer);
 
         Self {
-            root_span: span,
             llm_span: None,
+            root_span: span,
             accumulated_completion: None,
         }
     }
@@ -441,8 +441,8 @@ mod tests {
         // Test that set_vendor method compiles and can be called
         // This ensures the method signature is correct
         let mut tracer = OtelTracer {
-            root_span: opentelemetry::global::tracer("test").start("test"),
             llm_span: Some(opentelemetry::global::tracer("test").start("test_llm")),
+            root_span: opentelemetry::global::tracer("test").start("test"),
             accumulated_completion: None,
         };
 
