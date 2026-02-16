@@ -41,7 +41,8 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
     let has_pipeline_guards = config.pipelines.iter().any(|p| !p.guards.is_empty());
     if has_pipeline_guards && config.guardrails.is_none() {
         errors.push(
-            "One or more pipelines specify guards, but the 'guardrails' section is missing.".to_string()
+            "One or more pipelines specify guards, but the 'guardrails' section is missing."
+                .to_string(),
         );
     }
 
