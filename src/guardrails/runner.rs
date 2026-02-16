@@ -302,7 +302,7 @@ impl<'a> GuardrailsRunner<'a> {
         let mut response = response;
         response
             .headers_mut()
-            .insert("X-Traceloop-Guardrail-Warning", header_val.parse().unwrap());
+            .insert("x-traceloop-guardrail-warning", header_val.parse().unwrap());
         response
     }
 }

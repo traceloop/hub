@@ -37,7 +37,15 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
         }
     }
 
-    // Check 3: Guardrails validation
+    // Check 3: If any pipeline specifies guards, guardrails section must exist
+    let has_pipeline_guards = config.pipelines.iter().any(|p| !p.guards.is_empty());
+    if has_pipeline_guards && config.guardrails.is_none() {
+        errors.push(
+            "One or more pipelines specify guards, but the 'guardrails' section is missing.".to_string()
+        );
+    }
+
+    // Check 4: Guardrails validation
     if let Some(gr_config) = &config.guardrails {
         // Guard provider references must exist in guardrails.providers
         for guard in &gr_config.guards {
@@ -447,5 +455,40 @@ mod tests {
                 .iter()
                 .any(|e| e.contains("unknown evaluator_slug 'made-up-slug'"))
         );
+    }
+
+    #[test]
+    fn test_pipeline_guards_without_guardrails_section() {
+        // Test the case where a pipeline specifies guards but guardrails section is missing
+        let config = GatewayConfig {
+            guardrails: None, // Missing guardrails section
+            general: None,
+            providers: vec![Provider {
+                key: "p1".to_string(),
+                r#type: ProviderType::OpenAI,
+                api_key: "key1".to_string(),
+                params: Default::default(),
+            }],
+            models: vec![ModelConfig {
+                key: "m1".to_string(),
+                r#type: "gpt-4".to_string(),
+                provider: "p1".to_string(),
+                params: Default::default(),
+            }],
+            pipelines: vec![Pipeline {
+                name: "pipe1".to_string(),
+                r#type: PipelineType::Chat,
+                plugins: vec![PluginConfig::ModelRouter {
+                    models: vec!["m1".to_string()],
+                }],
+                guards: vec!["g1".to_string()], // Pipeline specifies a guard
+            }],
+        };
+        let result = validate_gateway_config(&config);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("pipelines specify guards"));
+        assert!(errors[0].contains("guardrails' section is missing"));
     }
 }
