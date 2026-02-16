@@ -2,7 +2,16 @@
 
 Guardrails intercept LLM gateway traffic to evaluate requests and responses against configurable safety, validation, and quality checks. Each guard calls an external evaluator API and either **blocks** the request (HTTP 403) or **warns** via a response header, depending on configuration.
 
-> **Full reference documentation:** *(coming soon — link to external docs will be added here)*
+> **Available in:** Traceloop Hub v1
+> **Full reference documentation:** [Guardrails Documentation](https://docs.traceloop.com/evaluators/guardrails)
+
+---
+
+Guardrails can be implemented in **Config Mode (Hub v1)** :
+Guardrails fully defined in YAML configuration, applied automatically to gateway requests
+
+
+This document focuses on **config mode** available in Traceloop Hub v1.
 
 ---
 

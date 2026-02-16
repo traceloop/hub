@@ -94,6 +94,9 @@ pipelines:
   # Default pipeline for chat completions
   - name: default
     type: chat
+    guards:  # Optional: reference guards by name (defined in guardrails section below)
+      - pii-check
+      - injection-check
     plugins:
       - logging:
           level: info  # Supported levels: debug, info, warning, error
@@ -125,3 +128,36 @@ pipelines:
       - model-router:
           models:  # List the models you want to use for embeddings
             - textembedding-gecko
+
+guardrails:
+  providers:
+    - name: traceloop
+      api_base: ${TRACELOOP_BASE_URL}  # or use direct URL
+      api_key: ${TRACELOOP_API_KEY}  # or use "<your-api-key>"
+  guards:
+    # PII Detection - Pre-call guard
+    - name: pii-check
+      provider: traceloop
+      evaluator_slug: pii-detector
+      mode: pre_call  # Runs before the model call
+      on_failure: block  # Options: block, warn
+      required: true  # If true, request fails if guard is unavailable
+    
+    # Prompt Injection Detection - Pre-call guard
+    - name: injection-check
+      provider: traceloop
+      evaluator_slug: prompt-injection
+      params:
+        threshold: 0.8
+      mode: pre_call
+      on_failure: block
+      required: false
+
+    # Toxicity Detection - Post-call guard
+    - name: toxicity-filter
+      provider: traceloop
+      evaluator_slug: toxicity-detector
+      params:
+        threshold: 0.8
+      mode: post_call  # Runs after the model call
+      on_failure: block
