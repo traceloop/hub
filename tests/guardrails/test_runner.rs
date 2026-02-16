@@ -372,3 +372,46 @@ async fn test_no_guard_spans_without_parent_context() {
         "No guard spans should be created when parent_cx is None"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Response Finalization Tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_finalize_response_with_valid_warnings() {
+    use axum::response::IntoResponse;
+    let response = (axum::http::StatusCode::OK, "test body").into_response();
+    let warnings = vec![GuardWarning {
+        guard_name: "test-guard".to_string(),
+        reason: "failed".to_string(),
+    }];
+    let finalized = GuardrailsRunner::finalize_response(response, &warnings);
+    let headers = finalized.headers();
+    assert!(headers.contains_key("x-traceloop-guardrail-warning"));
+}
+
+#[test]
+fn test_finalize_response_with_invalid_header_characters() {
+    use axum::response::IntoResponse;
+    let response = (axum::http::StatusCode::OK, "test body").into_response();
+    // Guard name with newline character (invalid in HTTP headers)
+    let warnings = vec![GuardWarning {
+        guard_name: "test-guard\nwith-newline".to_string(),
+        reason: "failed".to_string(),
+    }];
+    // Should not panic, header should be skipped
+    let finalized = GuardrailsRunner::finalize_response(response, &warnings);
+    let headers = finalized.headers();
+    // Header should not be present since it couldn't be parsed
+    assert!(!headers.contains_key("x-traceloop-guardrail-warning"));
+}
+
+#[test]
+fn test_finalize_response_with_no_warnings() {
+    use axum::response::IntoResponse;
+    let response = (axum::http::StatusCode::OK, "test body").into_response();
+    let warnings = vec![];
+    let finalized = GuardrailsRunner::finalize_response(response, &warnings);
+    let headers = finalized.headers();
+    assert!(!headers.contains_key("x-traceloop-guardrail-warning"));
+}

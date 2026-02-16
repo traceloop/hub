@@ -300,9 +300,20 @@ impl<'a> GuardrailsRunner<'a> {
         }
         let header_val = warning_header_value(warnings);
         let mut response = response;
-        response
-            .headers_mut()
-            .insert("x-traceloop-guardrail-warning", header_val.parse().unwrap());
+        match header_val.parse() {
+            Ok(parsed_header) => {
+                response
+                    .headers_mut()
+                    .insert("x-traceloop-guardrail-warning", parsed_header);
+            }
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    header_value = %header_val,
+                    "Failed to parse guardrail warning header, skipping header"
+                );
+            }
+        }
         response
     }
 }
