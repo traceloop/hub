@@ -184,8 +184,11 @@ async fn test_cassette_regex_validator() {
         cassette_name: "regex_validator_pass",
         input: "Order ID: ABC-12345",
         params: HashMap::from([
-            ("regex".to_string(), json!(r"[A-Z]{3}-\d{5}")),
+            ("regex".to_string(), json!(r"^[A-Z]{3}-\d{5}$")),
             ("should_match".to_string(), json!(true)),
+            ("case_sensitive".to_string(), json!(true)),
+            ("dot_include_nl".to_string(), json!(true)),
+            ("multi_line".to_string(), json!(true)),
         ]),
         expected_pass: true,
     })
