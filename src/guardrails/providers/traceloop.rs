@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use tracing::debug;
 
 use super::GuardrailClient;
 use crate::guardrails::evaluator_types::get_evaluator;
@@ -7,6 +6,8 @@ use crate::guardrails::parsing::parse_evaluator_http_response;
 use crate::guardrails::types::{EvaluatorResponse, Guard, GuardrailError};
 
 const DEFAULT_TRACELOOP_API: &str = "https://api.traceloop.com";
+const DEFAULT_TIMEOUT_SEC: u64 = 3;
+
 /// HTTP client for the Traceloop evaluator API service.
 /// Calls `POST {api_base}/v2/guardrails/{evaluator_slug}`.
 pub struct TraceloopClient {
@@ -21,9 +22,7 @@ impl Default for TraceloopClient {
 
 impl TraceloopClient {
     pub fn new() -> Self {
-        Self {
-            http_client: reqwest::Client::new(),
-        }
+        Self::with_timeout(std::time::Duration::from_secs(DEFAULT_TIMEOUT_SEC))
     }
 
     pub fn with_timeout(timeout: std::time::Duration) -> Self {
@@ -63,8 +62,6 @@ impl GuardrailClient for TraceloopClient {
         })?;
         let body = evaluator.build_body(input, &guard.params)?;
 
-        debug!(guard = %guard.name, slug = %guard.evaluator_slug, %url, %body, "NOMI - Calling evaluator API");
-
         let response = self
             .http_client
             .post(&url)
@@ -76,8 +73,6 @@ impl GuardrailClient for TraceloopClient {
 
         let status = response.status().as_u16();
         let response_body = response.text().await?;
-
-        debug!(guard = %guard.name, %status, %response_body, "RON - Evaluator API response");
 
         parse_evaluator_http_response(status, &response_body)
     }
