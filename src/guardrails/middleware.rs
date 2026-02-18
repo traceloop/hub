@@ -10,12 +10,57 @@ use tower::{Layer, Service};
 use tracing::debug;
 
 use crate::models::chat::{ChatCompletion, ChatCompletionRequest};
+use crate::models::completion::{CompletionRequest, CompletionResponse};
+use crate::models::embeddings::EmbeddingsRequest;
 
 use super::runner::GuardrailsRunner;
 use super::types::Guardrails;
 
-/// Maximum request/response body size to buffer (10 MB).
-const MAX_BODY_SIZE: usize = 10 * 1024 * 1024;
+/// Enum representing the endpoint type.
+#[derive(Debug, Clone, Copy)]
+enum EndpointType {
+    Chat,
+    Completion,
+    Embeddings,
+}
+
+impl EndpointType {
+    /// Determine endpoint type from request path.
+    fn from_path(path: &str) -> Option<Self> {
+        match path {
+            p if p.contains("/chat/completions") => Some(Self::Chat),
+            p if p.contains("/completions") => Some(Self::Completion),
+            p if p.contains("/embeddings") => Some(Self::Embeddings),
+            _ => None,
+        }
+    }
+}
+
+/// Enum representing the type of request being processed.
+enum ParsedRequest {
+    Chat(ChatCompletionRequest),
+    Completion(CompletionRequest),
+    Embeddings(EmbeddingsRequest),
+}
+
+impl ParsedRequest {
+    /// Returns true if this is a streaming request.
+    fn is_streaming(&self) -> bool {
+        match self {
+            ParsedRequest::Chat(req) => req.stream.unwrap_or(false),
+            ParsedRequest::Completion(req) => req.stream.unwrap_or(false),
+            ParsedRequest::Embeddings(_) => false,
+        }
+    }
+
+    /// Returns true if this request type supports post-call guards.
+    fn supports_post_call(&self) -> bool {
+        match self {
+            ParsedRequest::Chat(_) | ParsedRequest::Completion(_) => true,
+            ParsedRequest::Embeddings(_) => false,
+        }
+    }
+}
 
 /// Tower layer that applies guardrail checks around a service.
 ///
@@ -44,10 +89,9 @@ impl<S> Layer<S> for GuardrailsLayer {
     }
 }
 
-/// Tower service that wraps an inner service with guardrail checks.
 #[derive(Clone)]
 pub struct GuardrailsMiddleware<S> {
-    inner: S,
+    inner: S, // pipeline router
     guardrails: Option<Arc<Guardrails>>,
 }
 
@@ -67,8 +111,6 @@ where
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let guardrails = self.guardrails.clone();
-        // Clone inner and swap so the clone is used in the future
-        // (standard Tower pattern to satisfy borrow checker)
         let inner = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, inner);
 
@@ -81,8 +123,19 @@ where
 
             let (parts, body) = request.into_parts();
 
+            // Determine endpoint type from path (more efficient than parsing JSON)
+            let endpoint_type = match EndpointType::from_path(parts.uri.path()) {
+                Some(t) => t,
+                None => {
+                    // Unsupported endpoint — pass through
+                    debug!("Guardrails middleware: unsupported endpoint {}, passing through", parts.uri.path());
+                    let request = Request::from_parts(parts, body);
+                    return inner.call(request).await;
+                }
+            };
+
             // Buffer request body
-            let bytes = match axum::body::to_bytes(body, MAX_BODY_SIZE).await {
+            let bytes = match axum::body::to_bytes(body, usize::MAX).await {
                 Ok(b) => b,
                 Err(_) => {
                     debug!("Guardrails middleware: failed to buffer request body, passing through");
@@ -90,18 +143,42 @@ where
                 }
             };
 
-            // Try to parse as ChatCompletionRequest
-            let chat_request: ChatCompletionRequest = match serde_json::from_slice(&bytes) {
-                Ok(r) => r,
-                Err(_) => {
-                    // Not a chat completion request — pass through unchanged
-                    let request = Request::from_parts(parts, Body::from(bytes));
-                    return inner.call(request).await;
+            // Parse request based on endpoint type
+            let parsed_request = match endpoint_type {
+                EndpointType::Chat => {
+                    match serde_json::from_slice::<ChatCompletionRequest>(&bytes) {
+                        Ok(req) => ParsedRequest::Chat(req),
+                        Err(e) => {
+                            debug!("Guardrails middleware: failed to parse chat request: {}", e);
+                            let request = Request::from_parts(parts, Body::from(bytes));
+                            return inner.call(request).await;
+                        }
+                    }
+                }
+                EndpointType::Completion => {
+                    match serde_json::from_slice::<CompletionRequest>(&bytes) {
+                        Ok(req) => ParsedRequest::Completion(req),
+                        Err(e) => {
+                            debug!("Guardrails middleware: failed to parse completion request: {}", e);
+                            let request = Request::from_parts(parts, Body::from(bytes));
+                            return inner.call(request).await;
+                        }
+                    }
+                }
+                EndpointType::Embeddings => {
+                    match serde_json::from_slice::<EmbeddingsRequest>(&bytes) {
+                        Ok(req) => ParsedRequest::Embeddings(req),
+                        Err(e) => {
+                            debug!("Guardrails middleware: failed to parse embeddings request: {}", e);
+                            let request = Request::from_parts(parts, Body::from(bytes));
+                            return inner.call(request).await;
+                        }
+                    }
                 }
             };
 
             // Skip guardrails for streaming requests
-            if chat_request.stream.unwrap_or(false) {
+            if parsed_request.is_streaming() {
                 debug!("Guardrails middleware: streaming request, skipping guardrails");
                 let request = Request::from_parts(parts, Body::from(bytes));
                 return inner.call(request).await;
@@ -120,7 +197,11 @@ where
             };
 
             // --- Pre-call guards ---
-            let pre_result = runner.run_pre_call(&chat_request).await;
+            let pre_result = match &parsed_request {
+                ParsedRequest::Chat(req) => runner.run_pre_call(req).await,
+                ParsedRequest::Completion(req) => runner.run_pre_call(req).await,
+                ParsedRequest::Embeddings(req) => runner.run_pre_call(req).await,
+            };
             if let Some(blocked) = pre_result.blocked_response {
                 return Ok(blocked);
             }
@@ -130,28 +211,55 @@ where
             let request = Request::from_parts(parts, Body::from(bytes));
             let response = inner.call(request).await?;
 
-            // --- Post-call guards ---
+            // --- Post-call guards (only for request types that produce text) ---
             let (resp_parts, resp_body) = response.into_parts();
-            let resp_bytes = match axum::body::to_bytes(resp_body, MAX_BODY_SIZE).await {
-                Ok(b) => b,
-                Err(_) => {
-                    debug!("Guardrails middleware: failed to buffer response body, skipping post-call");
-                    let response = Response::from_parts(resp_parts, Body::empty());
-                    return Ok(GuardrailsRunner::finalize_response(response, &all_warnings));
-                }
-            };
 
-            if let Ok(completion) = serde_json::from_slice::<ChatCompletion>(&resp_bytes) {
-                let post_result = runner.run_post_call(&completion).await;
-                if let Some(blocked) = post_result.blocked_response {
-                    return Ok(blocked);
+            if parsed_request.supports_post_call() {
+                let resp_bytes = match axum::body::to_bytes(resp_body, usize::MAX).await {
+                    Ok(b) => b,
+                    Err(_) => {
+                        debug!("Guardrails middleware: failed to buffer response body, skipping post-call");
+                        let response = Response::from_parts(resp_parts, Body::empty());
+                        return Ok(GuardrailsRunner::finalize_response(response, &all_warnings));
+                    }
+                };
+
+                let post_result = match &parsed_request {
+                    ParsedRequest::Chat(_) => {
+                        if let Ok(completion) = serde_json::from_slice::<ChatCompletion>(&resp_bytes) {
+                            Some(runner.run_post_call(&completion).await)
+                        } else {
+                            debug!("Guardrails middleware: failed to parse chat completion response");
+                            None
+                        }
+                    }
+                    ParsedRequest::Completion(_) => {
+                        if let Ok(completion) = serde_json::from_slice::<CompletionResponse>(&resp_bytes) {
+                            Some(runner.run_post_call(&completion).await)
+                        } else {
+                            debug!("Guardrails middleware: failed to parse completion response");
+                            None
+                        }
+                    }
+                    ParsedRequest::Embeddings(_) => None,
+                };
+
+                if let Some(result) = post_result {
+                    if let Some(blocked) = result.blocked_response {
+                        return Ok(blocked);
+                    }
+                    all_warnings.extend(result.warnings);
                 }
-                all_warnings.extend(post_result.warnings);
+
+                // Reconstruct response with original bytes and attach warning headers
+                let response = Response::from_parts(resp_parts, Body::from(resp_bytes));
+                Ok(GuardrailsRunner::finalize_response(response, &all_warnings))
+            } else {
+                // No post-call guards for this request type (e.g., embeddings)
+                // Pass through response with pre-call warnings attached
+                let response = Response::from_parts(resp_parts, resp_body);
+                Ok(GuardrailsRunner::finalize_response(response, &all_warnings))
             }
-
-            // Reconstruct response with original bytes and attach warning headers
-            let response = Response::from_parts(resp_parts, Body::from(resp_bytes));
-            Ok(GuardrailsRunner::finalize_response(response, &all_warnings))
         })
     }
 }

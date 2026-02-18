@@ -1,5 +1,7 @@
 use crate::models::chat::{ChatCompletion, ChatCompletionRequest};
+use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::content::ChatMessageContent;
+use crate::models::embeddings::EmbeddingsRequest;
 use tracing::debug;
 
 use super::types::{EvaluatorResponse, GuardrailError};
@@ -49,6 +51,36 @@ impl CompletionExtractor for ChatCompletion {
                     .join(" "),
             })
             .unwrap_or_default()
+    }
+}
+
+impl PromptExtractor for CompletionRequest {
+    fn extract_prompt(&self) -> String {
+        self.prompt.clone()
+    }
+}
+
+impl CompletionExtractor for CompletionResponse {
+    fn extract_completion(&self) -> String {
+        self.choices
+            .first()
+            .map(|choice| choice.text.clone())
+            .unwrap_or_default()
+    }
+}
+
+impl PromptExtractor for EmbeddingsRequest {
+    fn extract_prompt(&self) -> String {
+        match &self.input {
+            crate::models::embeddings::EmbeddingsInput::Single(s) => s.clone(),
+            crate::models::embeddings::EmbeddingsInput::Multiple(v) => v.join("\n"),
+            crate::models::embeddings::EmbeddingsInput::SingleTokenIds(_) => {
+                "[token IDs]".to_string()
+            }
+            crate::models::embeddings::EmbeddingsInput::MultipleTokenIds(_) => {
+                "[multiple token IDs]".to_string()
+            }
+        }
     }
 }
 
