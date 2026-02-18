@@ -34,4 +34,9 @@ impl ProviderRegistry {
     pub fn get(&self, name: &str) -> Option<Arc<dyn Provider>> {
         self.providers.get(name).cloned()
     }
+
+    #[cfg(test)]
+    pub fn providers_mut(&mut self) -> &mut HashMap<String, Arc<dyn Provider>> {
+        &mut self.providers
+    }
 }
