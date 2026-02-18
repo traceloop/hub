@@ -115,6 +115,44 @@ async fn test_traceloop_client_handles_timeout() {
     assert!(result.is_err());
 }
 
+#[tokio::test]
+async fn test_traceloop_client_rejects_missing_api_key() {
+    let mock_server = MockServer::start().await;
+    let mut guard = create_test_guard_with_api_base("test", GuardMode::PreCall, &mock_server.uri());
+    guard.api_key = None;
+
+    let client = TraceloopClient::new();
+    let result = client.evaluate(&guard, "test input").await;
+
+    assert!(result.is_err());
+    if let Err(e) = result {
+        assert!(
+            e.to_string().contains("API key is required"),
+            "Expected error message about missing API key, got: {}",
+            e
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_traceloop_client_rejects_empty_api_key() {
+    let mock_server = MockServer::start().await;
+    let mut guard = create_test_guard_with_api_base("test", GuardMode::PreCall, &mock_server.uri());
+    guard.api_key = Some("".to_string());
+
+    let client = TraceloopClient::new();
+    let result = client.evaluate(&guard, "test input").await;
+
+    assert!(result.is_err());
+    if let Err(e) = result {
+        assert!(
+            e.to_string().contains("API key is required"),
+            "Expected error message about missing API key, got: {}",
+            e
+        );
+    }
+}
+
 #[test]
 fn test_client_creation_from_guard_config() {
     let guard = create_test_guard("test", GuardMode::PreCall);

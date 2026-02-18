@@ -52,7 +52,15 @@ impl GuardrailClient for TraceloopClient {
             api_base, guard.evaluator_slug
         );
 
-        let api_key = guard.api_key.as_deref().unwrap_or("");
+        let api_key = guard
+            .api_key
+            .as_deref()
+            .filter(|k| !k.is_empty())
+            .ok_or_else(|| {
+                GuardrailError::Unavailable(
+                    "Traceloop API key is required but not provided".to_string(),
+                )
+            })?;
 
         let evaluator = get_evaluator(&guard.evaluator_slug).ok_or_else(|| {
             GuardrailError::Unavailable(format!(
