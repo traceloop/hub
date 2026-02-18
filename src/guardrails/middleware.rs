@@ -14,6 +14,8 @@ use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::EmbeddingsRequest;
 use crate::pipelines::otel::SharedTracer;
 
+use serde::de::DeserializeOwned;
+
 use super::parsing::PromptExtractor;
 use super::runner::GuardrailsRunner;
 use super::types::Guardrails;
@@ -122,6 +124,21 @@ async fn handle_post_call_guards(
     GuardrailsRunner::finalize_response(response, &warnings)
 }
 
+/// Try to deserialize bytes into a request type, logging on failure.
+/// Returns None if deserialization fails, allowing the caller to pass through.
+fn try_parse<T: DeserializeOwned>(bytes: &[u8], label: &str) -> Option<T> {
+    match serde_json::from_slice::<T>(bytes) {
+        Ok(req) => Some(req),
+        Err(e) => {
+            debug!(
+                "Guardrails middleware: failed to parse {} request: {}",
+                label, e
+            );
+            None
+        }
+    }
+}
+
 /// Tower layer that applies guardrail checks around a service.
 ///
 /// - **Pre-call guards** run before the inner service, inspecting the request body.
@@ -208,41 +225,18 @@ where
 
             // Parse request based on endpoint type
             let parsed_request = match endpoint_type {
-                EndpointType::Chat => {
-                    match serde_json::from_slice::<ChatCompletionRequest>(&bytes) {
-                        Ok(req) => ParsedRequest::Chat(Box::new(req)),
-                        Err(e) => {
-                            debug!("Guardrails middleware: failed to parse chat request: {}", e);
-                            let request = Request::from_parts(parts, Body::from(bytes));
-                            return inner.call(request).await;
-                        }
-                    }
-                }
-                EndpointType::Completion => {
-                    match serde_json::from_slice::<CompletionRequest>(&bytes) {
-                        Ok(req) => ParsedRequest::Completion(Box::new(req)),
-                        Err(e) => {
-                            debug!(
-                                "Guardrails middleware: failed to parse completion request: {}",
-                                e
-                            );
-                            let request = Request::from_parts(parts, Body::from(bytes));
-                            return inner.call(request).await;
-                        }
-                    }
-                }
-                EndpointType::Embeddings => {
-                    match serde_json::from_slice::<EmbeddingsRequest>(&bytes) {
-                        Ok(req) => ParsedRequest::Embeddings(Box::new(req)),
-                        Err(e) => {
-                            debug!(
-                                "Guardrails middleware: failed to parse embeddings request: {}",
-                                e
-                            );
-                            let request = Request::from_parts(parts, Body::from(bytes));
-                            return inner.call(request).await;
-                        }
-                    }
+                EndpointType::Chat => try_parse::<ChatCompletionRequest>(&bytes, "chat")
+                    .map(|req| ParsedRequest::Chat(Box::new(req))),
+                EndpointType::Completion => try_parse::<CompletionRequest>(&bytes, "completion")
+                    .map(|req| ParsedRequest::Completion(Box::new(req))),
+                EndpointType::Embeddings => try_parse::<EmbeddingsRequest>(&bytes, "embeddings")
+                    .map(|req| ParsedRequest::Embeddings(Box::new(req))),
+            };
+            let parsed_request = match parsed_request {
+                Some(pr) => pr,
+                None => {
+                    let request = Request::from_parts(parts, Body::from(bytes));
+                    return inner.call(request).await;
                 }
             };
 

@@ -27,6 +27,12 @@ use futures::{Stream, StreamExt};
 use reqwest_streams::error::StreamBodyError;
 use std::sync::Arc;
 
+/// Access the tracer behind the shared mutex, executing a closure with the locked guard.
+/// Panics if the mutex is poisoned (same behavior as the previous .lock().unwrap() calls).
+fn with_tracer<R>(tracer: &SharedTracer, f: impl FnOnce(&mut OtelTracer) -> R) -> R {
+    f(&mut tracer.lock().unwrap())
+}
+
 // Re-export builder and orchestrator functions for backward compatibility with tests
 pub use crate::guardrails::runner::{blocked_response, warning_header_value};
 pub use crate::guardrails::setup::{
@@ -106,17 +112,17 @@ fn trace_and_stream(
         while let Some(result) = stream.next().await {
             yield match result {
                 Ok(chunk) => {
-                    tracer.lock().unwrap().log_chunk(&chunk);
+                    with_tracer(&tracer, |t| t.log_chunk(&chunk));
                     Event::default().json_data(chunk)
                 }
                 Err(e) => {
                     eprintln!("Error in stream: {e:?}");
-                    tracer.lock().unwrap().log_error(e.to_string());
+                    with_tracer(&tracer, |t| t.log_error(e.to_string()));
                     Err(axum::Error::new(e))
                 }
             };
         }
-        tracer.lock().unwrap().streaming_end();
+        with_tracer(&tracer, |t| t.streaming_end());
     }
 }
 
@@ -130,26 +136,24 @@ pub async fn chat_completions(
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            {
-                let mut tracer_guard = tracer.lock().unwrap();
-                tracer_guard.start_llm_span("chat", &payload);
-                tracer_guard.set_vendor(&get_vendor_name(&model.provider.r#type()));
-            }
+            with_tracer(&tracer, |t| {
+                t.start_llm_span("chat", &payload);
+                t.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            });
 
             let response = match model.chat_completions(payload.clone()).await {
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Chat completion error for model {model_key}: {e:?}");
-                    tracer
-                        .lock()
-                        .unwrap()
-                        .log_error(format!("Chat completion failed: {e:?}"));
+                    with_tracer(&tracer, |t| {
+                        t.log_error(format!("Chat completion failed: {e:?}"))
+                    });
                     return Err(e);
                 }
             };
 
             if let ChatCompletionResponse::NonStream(completion) = response {
-                tracer.lock().unwrap().log_success(&completion);
+                with_tracer(&tracer, |t| t.log_success(&completion));
                 return Ok(Json(completion).into_response());
             }
 
@@ -161,10 +165,9 @@ pub async fn chat_completions(
         }
     }
 
-    tracer
-        .lock()
-        .unwrap()
-        .log_error("No matching model found".to_string());
+    with_tracer(&tracer, |t| {
+        t.log_error("No matching model found".to_string())
+    });
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
@@ -179,33 +182,30 @@ pub async fn completions(
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            {
-                let mut tracer_guard = tracer.lock().unwrap();
-                tracer_guard.start_llm_span("completion", &payload);
-                tracer_guard.set_vendor(&get_vendor_name(&model.provider.r#type()));
-            }
+            with_tracer(&tracer, |t| {
+                t.start_llm_span("completion", &payload);
+                t.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            });
 
             let response = match model.completions(payload.clone()).await {
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Completion error for model {model_key}: {e:?}");
-                    tracer
-                        .lock()
-                        .unwrap()
-                        .log_error(format!("Completion failed: {e:?}"));
+                    with_tracer(&tracer, |t| {
+                        t.log_error(format!("Completion failed: {e:?}"))
+                    });
                     return Err(e);
                 }
             };
-            tracer.lock().unwrap().log_success(&response);
+            with_tracer(&tracer, |t| t.log_success(&response));
 
             return Ok(Json(response).into_response());
         }
     }
 
-    tracer
-        .lock()
-        .unwrap()
-        .log_error("No matching model found".to_string());
+    with_tracer(&tracer, |t| {
+        t.log_error("No matching model found".to_string())
+    });
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
@@ -220,32 +220,29 @@ pub async fn embeddings(
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            {
-                let mut tracer_guard = tracer.lock().unwrap();
-                tracer_guard.start_llm_span("embeddings", &payload);
-                tracer_guard.set_vendor(&get_vendor_name(&model.provider.r#type()));
-            }
+            with_tracer(&tracer, |t| {
+                t.start_llm_span("embeddings", &payload);
+                t.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            });
 
             let response = match model.embeddings(payload.clone()).await {
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Embeddings error for model {model_key}: {e:?}");
-                    tracer
-                        .lock()
-                        .unwrap()
-                        .log_error(format!("Embeddings failed: {e:?}"));
+                    with_tracer(&tracer, |t| {
+                        t.log_error(format!("Embeddings failed: {e:?}"))
+                    });
                     return Err(e);
                 }
             };
-            tracer.lock().unwrap().log_success(&response);
+            with_tracer(&tracer, |t| t.log_success(&response));
             return Ok(Json(response));
         }
     }
 
-    tracer
-        .lock()
-        .unwrap()
-        .log_error("No matching model found".to_string());
+    with_tracer(&tracer, |t| {
+        t.log_error("No matching model found".to_string())
+    });
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }

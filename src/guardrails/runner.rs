@@ -207,6 +207,22 @@ pub struct GuardrailsRunner<'a> {
     parent_cx: Option<Context>,
 }
 
+/// Convert a GuardrailsOutcome into a GuardPhaseResult.
+/// If the outcome is blocked, produces a blocked response; otherwise, forwards warnings.
+fn outcome_to_phase_result(outcome: GuardrailsOutcome) -> GuardPhaseResult {
+    if outcome.blocked {
+        GuardPhaseResult {
+            blocked_response: Some(blocked_response(&outcome)),
+            warnings: Vec::new(),
+        }
+    } else {
+        GuardPhaseResult {
+            blocked_response: None,
+            warnings: outcome.warnings,
+        }
+    }
+}
+
 impl<'a> GuardrailsRunner<'a> {
     /// Create a runner by resolving guards from pipeline config + request headers.
     /// Returns None if no guards are active for this request.
@@ -240,16 +256,7 @@ impl<'a> GuardrailsRunner<'a> {
         let input = request.extract_prompt();
         let outcome =
             execute_guards(&self.pre_call, &input, self.client, self.parent_cx.as_ref()).await;
-        if outcome.blocked {
-            return GuardPhaseResult {
-                blocked_response: Some(blocked_response(&outcome)),
-                warnings: Vec::new(),
-            };
-        }
-        GuardPhaseResult {
-            blocked_response: None,
-            warnings: outcome.warnings,
-        }
+        outcome_to_phase_result(outcome)
     }
 
     /// Run post-call guards, extracting input from the response only if guards exist.
@@ -280,16 +287,7 @@ impl<'a> GuardrailsRunner<'a> {
             self.parent_cx.as_ref(),
         )
         .await;
-        if outcome.blocked {
-            return GuardPhaseResult {
-                blocked_response: Some(blocked_response(&outcome)),
-                warnings: Vec::new(),
-            };
-        }
-        GuardPhaseResult {
-            blocked_response: None,
-            warnings: outcome.warnings,
-        }
+        outcome_to_phase_result(outcome)
     }
 
     /// Attach warning headers to a response if there are any warnings.
@@ -323,39 +321,32 @@ pub fn blocked_response(outcome: &GuardrailsOutcome) -> Response {
     let guard_name = outcome.blocking_guard.as_deref().unwrap_or("unknown");
 
     // Find the blocking guard result to get details
-    let details = outcome
-        .results
-        .iter()
-        .find(|r| match r {
-            GuardResult::Failed { name, .. } => name == guard_name,
-            GuardResult::Error { name, .. } => name == guard_name,
-            _ => false,
-        })
-        .and_then(|r| match r {
-            GuardResult::Failed { result, .. } => Some(json!({
-                "evaluation_result": result,
-                "reason": "evaluation_failed"
-            })),
-            GuardResult::Error { error, .. } => Some(json!({
-                "error_details": error,
-                "reason": "evaluator_error"
-            })),
-            _ => None,
-        });
-
-    let mut error_obj = json!({
-        "type": "guardrail_blocked",
-        "guardrail": guard_name,
-        "message": format!("Request blocked by guardrail '{guard_name}'"),
+    let blocking_result = outcome.results.iter().find(|r| match r {
+        GuardResult::Failed { name, .. } | GuardResult::Error { name, .. } => name == guard_name,
+        _ => false,
     });
 
-    if let Some(details) = details {
-        if let Some(obj) = error_obj.as_object_mut() {
-            if let Some(details_obj) = details.as_object() {
-                obj.extend(details_obj.clone());
-            }
-        }
-    }
+    let error_obj = match blocking_result {
+        Some(GuardResult::Failed { result, .. }) => json!({
+            "type": "guardrail_blocked",
+            "guardrail": guard_name,
+            "message": format!("Request blocked by guardrail '{guard_name}'"),
+            "evaluation_result": result,
+            "reason": "evaluation_failed",
+        }),
+        Some(GuardResult::Error { error, .. }) => json!({
+            "type": "guardrail_blocked",
+            "guardrail": guard_name,
+            "message": format!("Request blocked by guardrail '{guard_name}'"),
+            "error_details": error,
+            "reason": "evaluator_error",
+        }),
+        _ => json!({
+            "type": "guardrail_blocked",
+            "guardrail": guard_name,
+            "message": format!("Request blocked by guardrail '{guard_name}'"),
+        }),
+    };
 
     let body = json!({ "error": error_obj });
     (StatusCode::FORBIDDEN, Json(body)).into_response()
