@@ -42,6 +42,12 @@ This document focuses on **config mode** available in Traceloop Hub v1.
 2. **Post-call guards** run on the LLM's response *before* it is returned to the client.
 3. All guards in a phase execute **concurrently** for minimal latency.
 
+**Supported Routes:**
+- ✅ Chat Completions (`/v1/chat/completions`) — pre-call and post-call guards
+- ✅ Completions (`/v1/completions`) — pre-call and post-call guards
+- ✅ Embeddings (`/v1/embeddings`) — **pre-call guards only**
+- ❌ Streaming requests are **not supported** — guardrails require the complete request/response for evaluation
+
 ---
 
 ## Configuration
@@ -150,28 +156,6 @@ Each guard evaluation emits an OpenTelemetry child span with these attributes:
 
 ---
 
-## Source Layout
+## Implementation
 
-```
-src/guardrails/
-├── mod.rs               # Module exports
-├── types.rs             # Core types: Guard, GuardrailsConfig, GuardResult, GuardrailsOutcome
-├── evaluator_types.rs   # Evaluator slug registry and request body builders
-├── parsing.rs           # Input/output extraction from chat requests/responses
-├── runner.rs            # Execution orchestration (GuardrailsRunner, execute_guards)
-├── setup.rs             # Config resolution, resource building, guard merging
-├── span_attributes.rs   # OpenTelemetry attribute constants
-└── providers/
-    ├── mod.rs           # GuardrailClient trait re-export
-    └── traceloop.rs     # Traceloop evaluator API HTTP client
-```
-
-### Key Types
-
-- **`Guard`** — a single guardrail definition (name, evaluator slug, mode, failure policy, credentials)
-- **`GuardrailsConfig`** — top-level config containing provider defaults and guard list
-- **`Guardrails`** — per-pipeline runtime state holding shared guards + client
-- **`GuardrailsRunner`** — per-request orchestrator that runs pre/post phases
-- **`GuardrailClient`** (trait) — provider implementation for calling evaluator APIs
-- **`EvaluatorRequest`** (trait) — evaluator-specific request body builder
-- **`GuardrailsOutcome`** — aggregated results from a guard execution phase
+See `src/guardrails/mod.rs` for module structure and key type definitions.
