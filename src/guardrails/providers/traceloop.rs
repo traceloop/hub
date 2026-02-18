@@ -30,7 +30,7 @@ impl TraceloopClient {
             http_client: reqwest::Client::builder()
                 .timeout(timeout)
                 .build()
-                .unwrap_or_default(),
+                .expect("Failed to build HTTP client for Traceloop"),
         }
     }
 }

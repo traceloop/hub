@@ -130,12 +130,14 @@ pub async fn chat_completions(
             tracer.start_llm_span("chat", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
-            let response = model
-                .chat_completions(payload.clone())
-                .await
-                .inspect_err(|e| {
+            let response = match model.chat_completions(payload.clone()).await {
+                Ok(response) => response,
+                Err(e) => {
                     eprintln!("Chat completion error for model {model_key}: {e:?}");
-                })?;
+                    tracer.log_error(format!("Chat completion failed: {e:?}"));
+                    return Err(e);
+                }
+            };
 
             if let ChatCompletionResponse::NonStream(completion) = response {
                 tracer.log_success(&completion);
@@ -169,9 +171,14 @@ pub async fn completions(
             tracer.start_llm_span("completion", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
-            let response = model.completions(payload.clone()).await.inspect_err(|e| {
-                eprintln!("Completion error for model {model_key}: {e:?}");
-            })?;
+            let response = match model.completions(payload.clone()).await {
+                Ok(response) => response,
+                Err(e) => {
+                    eprintln!("Completion error for model {model_key}: {e:?}");
+                    tracer.log_error(format!("Completion failed: {e:?}"));
+                    return Err(e);
+                }
+            };
             tracer.log_success(&response);
 
             return Ok(Json(response).into_response());
@@ -197,9 +204,14 @@ pub async fn embeddings(
             tracer.start_llm_span("embeddings", &payload);
             tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
 
-            let response = model.embeddings(payload.clone()).await.inspect_err(|e| {
-                eprintln!("Embeddings error for model {model_key}: {e:?}");
-            })?;
+            let response = match model.embeddings(payload.clone()).await {
+                Ok(response) => response,
+                Err(e) => {
+                    eprintln!("Embeddings error for model {model_key}: {e:?}");
+                    tracer.log_error(format!("Embeddings failed: {e:?}"));
+                    return Err(e);
+                }
+            };
             tracer.log_success(&response);
             return Ok(Json(response));
         }
