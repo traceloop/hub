@@ -29,37 +29,15 @@ async fn setup_evaluator(pass: bool) -> MockServer {
     server
 }
 
-fn guard_with_server(
-    name: &str,
-    mode: GuardMode,
-    on_failure: OnFailure,
-    server_uri: &str,
-    slug: &str,
-) -> Guard {
-    Guard {
-        name: name.to_string(),
-        provider: "traceloop".to_string(),
-        evaluator_slug: slug.to_string(),
-        params: Default::default(),
-        mode,
-        on_failure,
-        required: false,
-        api_base: Some(server_uri.to_string()),
-        api_key: Some("test-key".to_string()),
-    }
-}
-
 #[tokio::test]
 async fn test_e2e_pre_call_block_flow() {
     // Request -> guard fail+block -> 403
     let eval = setup_evaluator(false).await;
-    let guard = guard_with_server(
-        "blocker",
-        GuardMode::PreCall,
-        OnFailure::Block,
-        &eval.uri(),
-        "toxicity-detector",
-    );
+    let guard = TestGuardBuilder::new("blocker", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval.uri())
+        .evaluator_slug("toxicity-detector")
+        .build();
 
     let request = create_test_chat_request("Bad input");
     let input = request.extract_prompt();
@@ -75,13 +53,11 @@ async fn test_e2e_pre_call_block_flow() {
 async fn test_e2e_pre_call_pass_flow() {
     // Request -> guard pass -> LLM -> 200
     let eval = setup_evaluator(true).await;
-    let guard = guard_with_server(
-        "checker",
-        GuardMode::PreCall,
-        OnFailure::Block,
-        &eval.uri(),
-        "toxicity-detector",
-    );
+    let guard = TestGuardBuilder::new("checker", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval.uri())
+        .evaluator_slug("toxicity-detector")
+        .build();
 
     let request = create_test_chat_request("Safe input");
     let input = request.extract_prompt();
@@ -98,13 +74,11 @@ async fn test_e2e_pre_call_pass_flow() {
 async fn test_e2e_post_call_block_flow() {
     // Request -> LLM -> guard fail+block -> 403
     let eval = setup_evaluator(false).await;
-    let guard = guard_with_server(
-        "pii-check",
-        GuardMode::PostCall,
-        OnFailure::Block,
-        &eval.uri(),
-        "pii-detector",
-    );
+    let guard = TestGuardBuilder::new("pii-check", GuardMode::PostCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval.uri())
+        .evaluator_slug("pii-detector")
+        .build();
 
     // Simulate LLM response
     let completion = create_test_chat_completion("Here is the SSN: 123-45-6789");
@@ -121,13 +95,11 @@ async fn test_e2e_post_call_block_flow() {
 async fn test_e2e_post_call_warn_flow() {
     // Request -> LLM -> guard fail+warn -> 200 + header
     let eval = setup_evaluator(false).await;
-    let guard = guard_with_server(
-        "tone-check",
-        GuardMode::PostCall,
-        OnFailure::Warn,
-        &eval.uri(),
-        "tone-detection",
-    );
+    let guard = TestGuardBuilder::new("tone-check", GuardMode::PostCall)
+        .on_failure(OnFailure::Warn)
+        .api_base(&eval.uri())
+        .evaluator_slug("tone-detection")
+        .build();
 
     let completion = create_test_chat_completion("Mildly concerning response");
     let response_text = completion.extract_completion();
@@ -146,20 +118,16 @@ async fn test_e2e_pre_and_post_both_pass() {
     let pre_eval = setup_evaluator(true).await;
     let post_eval = setup_evaluator(true).await;
 
-    let pre_guard = guard_with_server(
-        "pre-check",
-        GuardMode::PreCall,
-        OnFailure::Block,
-        &pre_eval.uri(),
-        "profanity-detector",
-    );
-    let post_guard = guard_with_server(
-        "post-check",
-        GuardMode::PostCall,
-        OnFailure::Block,
-        &post_eval.uri(),
-        "pii-detector",
-    );
+    let pre_guard = TestGuardBuilder::new("pre-check", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&pre_eval.uri())
+        .evaluator_slug("profanity-detector")
+        .build();
+    let post_guard = TestGuardBuilder::new("post-check", GuardMode::PostCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&post_eval.uri())
+        .evaluator_slug("pii-detector")
+        .build();
 
     let client = TraceloopClient::new();
 
@@ -190,20 +158,16 @@ async fn test_e2e_pre_blocks_post_never_runs() {
         .mount(&post_eval)
         .await;
 
-    let pre_guard = guard_with_server(
-        "blocker",
-        GuardMode::PreCall,
-        OnFailure::Block,
-        &pre_eval.uri(),
-        "toxicity-detector",
-    );
-    let post_guard = guard_with_server(
-        "post-check",
-        GuardMode::PostCall,
-        OnFailure::Block,
-        &post_eval.uri(),
-        "pii-detector",
-    );
+    let pre_guard = TestGuardBuilder::new("blocker", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&pre_eval.uri())
+        .evaluator_slug("toxicity-detector")
+        .build();
+    let post_guard = TestGuardBuilder::new("post-check", GuardMode::PostCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&post_eval.uri())
+        .evaluator_slug("pii-detector")
+        .build();
 
     let client = TraceloopClient::new();
     let request = create_test_chat_request("Bad input");
@@ -225,27 +189,21 @@ async fn test_e2e_mixed_block_and_warn() {
     let eval3 = setup_evaluator(false).await; // fails -> block
 
     let guards = vec![
-        guard_with_server(
-            "passer",
-            GuardMode::PreCall,
-            OnFailure::Block,
-            &eval1.uri(),
-            "profanity-detector",
-        ),
-        guard_with_server(
-            "warner",
-            GuardMode::PreCall,
-            OnFailure::Warn,
-            &eval2.uri(),
-            "tone-detection",
-        ),
-        guard_with_server(
-            "blocker",
-            GuardMode::PreCall,
-            OnFailure::Block,
-            &eval3.uri(),
-            "toxicity-detector",
-        ),
+        TestGuardBuilder::new("passer", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval1.uri())
+        .evaluator_slug("profanity-detector")
+        .build(),
+        TestGuardBuilder::new("warner", GuardMode::PreCall)
+        .on_failure(OnFailure::Warn)
+        .api_base(&eval2.uri())
+        .evaluator_slug("tone-detection")
+        .build(),
+        TestGuardBuilder::new("blocker", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval3.uri())
+        .evaluator_slug("toxicity-detector")
+        .build(),
     ];
 
     let client = TraceloopClient::new();
@@ -260,13 +218,11 @@ async fn test_e2e_mixed_block_and_warn() {
 async fn test_e2e_streaming_post_call_buffer_pass() {
     // Stream buffered, guard passes -> SSE response streamed to client
     let eval = setup_evaluator(true).await;
-    let guard = guard_with_server(
-        "response-check",
-        GuardMode::PostCall,
-        OnFailure::Block,
-        &eval.uri(),
-        "profanity-detector",
-    );
+    let guard = TestGuardBuilder::new("response-check", GuardMode::PostCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval.uri())
+        .evaluator_slug("profanity-detector")
+        .build();
 
     let accumulated = "Hello world!";
 
@@ -280,13 +236,11 @@ async fn test_e2e_streaming_post_call_buffer_pass() {
 async fn test_e2e_streaming_post_call_buffer_block() {
     // Stream buffered, guard blocks -> 403
     let eval = setup_evaluator(false).await;
-    let guard = guard_with_server(
-        "pii-check",
-        GuardMode::PostCall,
-        OnFailure::Block,
-        &eval.uri(),
-        "pii-detector",
-    );
+    let guard = TestGuardBuilder::new("pii-check", GuardMode::PostCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval.uri())
+        .evaluator_slug("pii-detector")
+        .build();
 
     let accumulated = "Here is SSN: 123-45-6789";
 
@@ -409,20 +363,16 @@ async fn test_e2e_multiple_guards_different_evaluators() {
         .await;
 
     let guards = vec![
-        guard_with_server(
-            "tox-guard",
-            GuardMode::PreCall,
-            OnFailure::Block,
-            &server.uri(),
-            "toxicity-detector",
-        ),
-        guard_with_server(
-            "pii-guard",
-            GuardMode::PreCall,
-            OnFailure::Block,
-            &server.uri(),
-            "pii-detector",
-        ),
+        TestGuardBuilder::new("tox-guard", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&server.uri())
+        .evaluator_slug("toxicity-detector")
+        .build(),
+        TestGuardBuilder::new("pii-guard", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&server.uri())
+        .evaluator_slug("pii-detector")
+        .build(),
     ];
 
     let client = TraceloopClient::new();
@@ -442,13 +392,11 @@ async fn test_e2e_fail_open_evaluator_down() {
         .mount(&server)
         .await;
 
-    let mut guard = guard_with_server(
-        "checker",
-        GuardMode::PreCall,
-        OnFailure::Block,
-        &server.uri(),
-        "profanity-detector",
-    );
+    let mut guard = TestGuardBuilder::new("checker", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&server.uri())
+        .evaluator_slug("profanity-detector")
+        .build();
     guard.required = false; // fail-open
 
     let client = TraceloopClient::new();
@@ -466,13 +414,11 @@ async fn test_e2e_fail_closed_evaluator_down() {
         .mount(&server)
         .await;
 
-    let mut guard = guard_with_server(
-        "checker",
-        GuardMode::PreCall,
-        OnFailure::Block,
-        &server.uri(),
-        "profanity-detector",
-    );
+    let mut guard = TestGuardBuilder::new("checker", GuardMode::PreCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&server.uri())
+        .evaluator_slug("profanity-detector")
+        .build();
     guard.required = true; // fail-closed
 
     let client = TraceloopClient::new();
@@ -548,13 +494,11 @@ async fn test_pre_call_guardrails_warn_and_continue() {
         .mount(&eval_server)
         .await;
 
-    let guard = guard_with_server(
-        "tone-check",
-        GuardMode::PreCall,
-        OnFailure::Warn,
-        &eval_server.uri(),
-        "tone-detection",
-    );
+    let guard = TestGuardBuilder::new("tone-check", GuardMode::PreCall)
+        .on_failure(OnFailure::Warn)
+        .api_base(&eval_server.uri())
+        .evaluator_slug("tone-detection")
+        .build();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], "borderline input", &client, None).await;
@@ -576,13 +520,11 @@ async fn test_post_call_guardrails_warn_and_add_header() {
         .mount(&eval_server)
         .await;
 
-    let guard = guard_with_server(
-        "safety-check",
-        GuardMode::PostCall,
-        OnFailure::Warn,
-        &eval_server.uri(),
-        "pii-detector",
-    );
+    let guard = TestGuardBuilder::new("safety-check", GuardMode::PostCall)
+        .on_failure(OnFailure::Warn)
+        .api_base(&eval_server.uri())
+        .evaluator_slug("pii-detector")
+        .build();
 
     let client = TraceloopClient::new();
     let outcome = execute_guards(&[guard], "Some LLM response", &client, None).await;
@@ -644,13 +586,11 @@ async fn test_post_call_skipped_on_empty_response() {
         .mount(&eval_server)
         .await;
 
-    let guard = guard_with_server(
-        "toxicity-filter",
-        GuardMode::PostCall,
-        OnFailure::Block,
-        &eval_server.uri(),
-        "toxicity-detector",
-    );
+    let guard = TestGuardBuilder::new("toxicity-filter", GuardMode::PostCall)
+        .on_failure(OnFailure::Block)
+        .api_base(&eval_server.uri())
+        .evaluator_slug("toxicity-detector")
+        .build();
 
     let guardrails = Guardrails {
         all_guards: Arc::new(vec![guard]),
@@ -684,13 +624,11 @@ async fn test_evaluator_error_not_blocked_by_default() {
         .mount(&server)
         .await;
 
-    let guard = guard_with_server(
-        "warn-guard",
-        GuardMode::PreCall,
-        OnFailure::Warn,
-        &server.uri(),
-        "profanity-detector",
-    );
+    let guard = TestGuardBuilder::new("warn-guard", GuardMode::PreCall)
+        .on_failure(OnFailure::Warn)
+        .api_base(&server.uri())
+        .evaluator_slug("profanity-detector")
+        .build();
     // guard.required is false by default
 
     let client = TraceloopClient::new();

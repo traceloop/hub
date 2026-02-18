@@ -24,18 +24,55 @@ use tower::Service;
 // Guard config builders
 // ---------------------------------------------------------------------------
 
-pub fn create_test_guard(name: &str, mode: GuardMode) -> Guard {
-    Guard {
-        name: name.to_string(),
-        provider: "traceloop".to_string(),
-        evaluator_slug: "pii-detector".to_string(),
-        params: HashMap::new(),
-        mode,
-        on_failure: OnFailure::Block,
-        required: false,
-        api_base: Some("http://localhost:8080".to_string()),
-        api_key: Some("test-api-key".to_string()),
+pub struct TestGuardBuilder {
+    guard: Guard,
+}
+
+impl TestGuardBuilder {
+    pub fn new(name: &str, mode: GuardMode) -> Self {
+        Self {
+            guard: Guard {
+                name: name.to_string(),
+                provider: "traceloop".to_string(),
+                evaluator_slug: "pii-detector".to_string(),
+                params: HashMap::new(),
+                mode,
+                on_failure: OnFailure::Block,
+                required: false,
+                api_base: Some("http://localhost:8080".to_string()),
+                api_key: Some("test-api-key".to_string()),
+            },
+        }
     }
+
+    pub fn on_failure(mut self, on_failure: OnFailure) -> Self {
+        self.guard.on_failure = on_failure;
+        self
+    }
+
+    pub fn required(mut self, required: bool) -> Self {
+        self.guard.required = required;
+        self
+    }
+
+    pub fn api_base(mut self, api_base: &str) -> Self {
+        self.guard.api_base = Some(api_base.to_string());
+        self
+    }
+
+    pub fn evaluator_slug(mut self, slug: &str) -> Self {
+        self.guard.evaluator_slug = slug.to_string();
+        self
+    }
+
+    pub fn build(self) -> Guard {
+        self.guard
+    }
+}
+
+// Backward-compatible helper functions
+pub fn create_test_guard(name: &str, mode: GuardMode) -> Guard {
+    TestGuardBuilder::new(name, mode).build()
 }
 
 pub fn create_test_guard_with_failure_action(
@@ -43,22 +80,15 @@ pub fn create_test_guard_with_failure_action(
     mode: GuardMode,
     on_failure: OnFailure,
 ) -> Guard {
-    let mut guard = create_test_guard(name, mode);
-    guard.on_failure = on_failure;
-    guard
+    TestGuardBuilder::new(name, mode).on_failure(on_failure).build()
 }
 
 pub fn create_test_guard_with_required(name: &str, mode: GuardMode, required: bool) -> Guard {
-    let mut guard = create_test_guard(name, mode);
-    guard.required = required;
-    guard
+    TestGuardBuilder::new(name, mode).required(required).build()
 }
 
-#[allow(dead_code)]
 pub fn create_test_guard_with_api_base(name: &str, mode: GuardMode, api_base: &str) -> Guard {
-    let mut guard = create_test_guard(name, mode);
-    guard.api_base = Some(api_base.to_string());
-    guard
+    TestGuardBuilder::new(name, mode).api_base(api_base).build()
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +124,6 @@ pub fn default_message() -> ChatCompletionMessage {
     }
 }
 
-#[allow(dead_code)]
 pub fn default_request() -> ChatCompletionRequest {
     ChatCompletionRequest {
         model: "gpt-4".to_string(),

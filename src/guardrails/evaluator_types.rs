@@ -107,6 +107,21 @@ macro_rules! evaluator_with_no_config {
     };
 }
 
+macro_rules! evaluator_with_config {
+    ($name:ident, $body_fn:ident, $config:ty, $slug:expr) => {
+        pub struct $name;
+        impl EvaluatorRequest for $name {
+            fn build_body(
+                &self,
+                input: &str,
+                params: &HashMap<String, serde_json::Value>,
+            ) -> Result<serde_json::Value, GuardrailError> {
+                attach_config::<$config>($body_fn(input), params, $slug)
+            }
+        }
+    };
+}
+
 evaluator_with_no_config!(SecretsDetector, text_body);
 evaluator_with_no_config!(ProfanityDetector, text_body);
 evaluator_with_no_config!(SqlValidator, text_body);
@@ -156,68 +171,9 @@ pub struct JsonValidatorConfig {
 // Evaluators with config
 // ---------------------------------------------------------------------------
 
-pub struct PiiDetector;
-impl EvaluatorRequest for PiiDetector {
-    fn build_body(
-        &self,
-        input: &str,
-        params: &HashMap<String, serde_json::Value>,
-    ) -> Result<serde_json::Value, GuardrailError> {
-        attach_config::<PiiDetectorConfig>(text_body(input), params, PII_DETECTOR)
-    }
-}
-
-pub struct PromptInjection;
-impl EvaluatorRequest for PromptInjection {
-    fn build_body(
-        &self,
-        input: &str,
-        params: &HashMap<String, serde_json::Value>,
-    ) -> Result<serde_json::Value, GuardrailError> {
-        attach_config::<ThresholdConfig>(prompt_body(input), params, PROMPT_INJECTION)
-    }
-}
-
-pub struct SexismDetector;
-impl EvaluatorRequest for SexismDetector {
-    fn build_body(
-        &self,
-        input: &str,
-        params: &HashMap<String, serde_json::Value>,
-    ) -> Result<serde_json::Value, GuardrailError> {
-        attach_config::<ThresholdConfig>(text_body(input), params, SEXISM_DETECTOR)
-    }
-}
-
-pub struct ToxicityDetector;
-impl EvaluatorRequest for ToxicityDetector {
-    fn build_body(
-        &self,
-        input: &str,
-        params: &HashMap<String, serde_json::Value>,
-    ) -> Result<serde_json::Value, GuardrailError> {
-        attach_config::<ThresholdConfig>(text_body(input), params, TOXICITY_DETECTOR)
-    }
-}
-
-pub struct RegexValidator;
-impl EvaluatorRequest for RegexValidator {
-    fn build_body(
-        &self,
-        input: &str,
-        params: &HashMap<String, serde_json::Value>,
-    ) -> Result<serde_json::Value, GuardrailError> {
-        attach_config::<RegexValidatorConfig>(text_body(input), params, REGEX_VALIDATOR)
-    }
-}
-
-pub struct JsonValidator;
-impl EvaluatorRequest for JsonValidator {
-    fn build_body(
-        &self,
-        input: &str,
-        params: &HashMap<String, serde_json::Value>,
-    ) -> Result<serde_json::Value, GuardrailError> {
-        attach_config::<JsonValidatorConfig>(text_body(input), params, JSON_VALIDATOR)
-    }
-}
+evaluator_with_config!(PiiDetector, text_body, PiiDetectorConfig, PII_DETECTOR);
+evaluator_with_config!(PromptInjection, prompt_body, ThresholdConfig, PROMPT_INJECTION);
+evaluator_with_config!(SexismDetector, text_body, ThresholdConfig, SEXISM_DETECTOR);
+evaluator_with_config!(ToxicityDetector, text_body, ThresholdConfig, TOXICITY_DETECTOR);
+evaluator_with_config!(RegexValidator, text_body, RegexValidatorConfig, REGEX_VALIDATOR);
+evaluator_with_config!(JsonValidator, text_body, JsonValidatorConfig, JSON_VALIDATOR);

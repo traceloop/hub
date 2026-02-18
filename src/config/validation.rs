@@ -48,31 +48,18 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
 
     // Check 4: Guardrails validation
     if let Some(gr_config) = &config.guardrails {
-        // Guard provider references must exist in guardrails.providers
+        // Validate all guards in a single pass
+        let mut seen_guard_names = HashSet::new();
         for guard in &gr_config.guards {
+            // Check provider reference exists
             if !gr_config.providers.contains_key(&guard.provider) {
                 errors.push(format!(
                     "Guard '{}' references non-existent guardrail provider '{}'.",
                     guard.name, guard.provider
                 ));
             }
-        }
 
-        // Pipeline guard references must exist in guardrails.guards
-        let guard_names: HashSet<&String> = gr_config.guards.iter().map(|g| &g.name).collect();
-        for pipeline in &config.pipelines {
-            for guard_name in &pipeline.guards {
-                if !guard_names.contains(guard_name) {
-                    errors.push(format!(
-                        "Pipeline '{}' references non-existent guard '{}'.",
-                        pipeline.name, guard_name
-                    ));
-                }
-            }
-        }
-
-        // Guards must have api_base and api_key (either directly or via provider)
-        for guard in &gr_config.guards {
+            // Check api_base and api_key (either directly or via provider)
             let has_api_base = guard.api_base.as_ref().is_some_and(|s| !s.is_empty())
                 || gr_config
                     .providers
@@ -96,23 +83,30 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
                     guard.name, guard.provider
                 ));
             }
-        }
 
-        // Evaluator slugs must be recognised
-        for guard in &gr_config.guards {
+            // Check evaluator slug is recognized
             if crate::guardrails::evaluator_types::get_evaluator(&guard.evaluator_slug).is_none() {
                 errors.push(format!(
                     "Guard '{}' has unknown evaluator_slug '{}'.",
                     guard.name, guard.evaluator_slug
                 ));
             }
-        }
 
-        // Guard names must be unique
-        let mut seen_guard_names = HashSet::new();
-        for guard in &gr_config.guards {
+            // Check for duplicate guard names
             if !seen_guard_names.insert(&guard.name) {
                 errors.push(format!("Duplicate guard name: '{}'.", guard.name));
+            }
+        }
+
+        // Pipeline guard references must exist in guardrails.guards
+        for pipeline in &config.pipelines {
+            for guard_name in &pipeline.guards {
+                if !seen_guard_names.contains(guard_name) {
+                    errors.push(format!(
+                        "Pipeline '{}' references non-existent guard '{}'.",
+                        pipeline.name, guard_name
+                    ));
+                }
             }
         }
     }
