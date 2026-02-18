@@ -12,6 +12,7 @@ use tracing::debug;
 use crate::models::chat::{ChatCompletion, ChatCompletionRequest};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
 use crate::models::embeddings::EmbeddingsRequest;
+use crate::pipelines::otel::SharedTracer;
 
 use super::parsing::PromptExtractor;
 use super::runner::GuardrailsRunner;
@@ -244,7 +245,12 @@ where
             }
 
             // Resolve guards from pipeline config + request headers
-            let runner = GuardrailsRunner::new(Some(&guardrails), &parts.headers, None);
+            // Extract parent context from the tracer in request extensions
+            let parent_cx = parts.extensions.get::<SharedTracer>()
+                .and_then(|tracer| {
+                    tracer.lock().ok().map(|t| t.parent_context())
+                });
+            let runner = GuardrailsRunner::new(Some(&guardrails), &parts.headers, parent_cx);
 
             let runner = match runner {
                 Some(r) => r,

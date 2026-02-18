@@ -14,10 +14,13 @@ use opentelemetry_sdk::trace::TracerProvider;
 use opentelemetry_semantic_conventions::attribute::GEN_AI_REQUEST_MODEL;
 use opentelemetry_semantic_conventions::trace::*;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 pub trait RecordSpan {
     fn record_span(&self, span: &mut BoxedSpan);
 }
+
+pub type SharedTracer = Arc<Mutex<OtelTracer>>;
 
 pub struct OtelTracer {
     llm_span: Option<BoxedSpan>,
@@ -100,6 +103,18 @@ impl OtelTracer {
             root_span: span,
             accumulated_completion: None,
         }
+    }
+
+    /// Helper to extract SharedTracer from request extensions with fallback.
+    /// This is primarily used by handlers to get the tracer created by TracingMiddleware.
+    pub fn from_extensions(extensions: &axum::http::Extensions) -> SharedTracer {
+        extensions
+            .get::<SharedTracer>()
+            .cloned()
+            .unwrap_or_else(|| {
+                // Fallback for backwards compatibility
+                Arc::new(Mutex::new(OtelTracer::start()))
+            })
     }
 
     pub fn start_llm_span<T: RecordSpan>(&mut self, operation: &str, request: &T) {

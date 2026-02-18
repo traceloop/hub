@@ -5,7 +5,8 @@ use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
 use crate::models::embeddings::EmbeddingsRequest;
 use crate::models::streaming::ChatCompletionChunk;
-use crate::pipelines::otel::OtelTracer;
+use crate::pipelines::otel::{OtelTracer, SharedTracer};
+use crate::pipelines::tracing_middleware::TracingLayer;
 use crate::providers::provider::get_vendor_name;
 use crate::{
     ai_models::registry::ModelRegistry,
@@ -17,7 +18,7 @@ use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Response, Sse};
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Extension, State},
     http::StatusCode,
     routing::{get, post},
 };
@@ -73,15 +74,15 @@ pub fn create_pipeline(
             PluginConfig::ModelRouter { models } => match pipeline.r#type {
                 PipelineType::Chat => router.route(
                     "/chat/completions",
-                    post(move |state, payload| chat_completions(state, payload, models)),
+                    post(move |tracer, state, payload| chat_completions(tracer, state, payload, models)),
                 ),
                 PipelineType::Completion => router.route(
                     "/completions",
-                    post(move |state, payload| completions(state, payload, models)),
+                    post(move |tracer, state, payload| completions(tracer, state, payload, models)),
                 ),
                 PipelineType::Embeddings => router.route(
                     "/embeddings",
-                    post(move |state, payload| embeddings(state, payload, models)),
+                    post(move |tracer, state, payload| embeddings(tracer, state, payload, models)),
                 ),
             },
             _ => router,
@@ -91,10 +92,11 @@ pub fn create_pipeline(
     router
         .with_state(Arc::new(model_registry.clone()))
         .layer(GuardrailsLayer::new(guardrails))
+        .layer(TracingLayer::new())
 }
 
 fn trace_and_stream(
-    mut tracer: OtelTracer,
+    tracer: SharedTracer,
     stream: BoxStream<'static, Result<ChatCompletionChunk, StreamBodyError>>,
 ) -> impl Stream<Item = Result<Event, axum::Error>> {
     stream! {
@@ -102,45 +104,47 @@ fn trace_and_stream(
         while let Some(result) = stream.next().await {
             yield match result {
                 Ok(chunk) => {
-                    tracer.log_chunk(&chunk);
+                    tracer.lock().unwrap().log_chunk(&chunk);
                     Event::default().json_data(chunk)
                 }
                 Err(e) => {
                     eprintln!("Error in stream: {e:?}");
-                    tracer.log_error(e.to_string());
+                    tracer.lock().unwrap().log_error(e.to_string());
                     Err(axum::Error::new(e))
                 }
             };
         }
-        tracer.streaming_end();
+        tracer.lock().unwrap().streaming_end();
     }
 }
 
 pub async fn chat_completions(
+    Extension(tracer): Extension<SharedTracer>,
     State(model_registry): State<Arc<ModelRegistry>>,
     Json(payload): Json<ChatCompletionRequest>,
     model_keys: Vec<String>,
 ) -> Result<Response, StatusCode> {
-    let mut tracer = OtelTracer::start();
-
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            tracer.start_llm_span("chat", &payload);
-            tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            {
+                let mut tracer_guard = tracer.lock().unwrap();
+                tracer_guard.start_llm_span("chat", &payload);
+                tracer_guard.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            }
 
             let response = match model.chat_completions(payload.clone()).await {
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Chat completion error for model {model_key}: {e:?}");
-                    tracer.log_error(format!("Chat completion failed: {e:?}"));
+                    tracer.lock().unwrap().log_error(format!("Chat completion failed: {e:?}"));
                     return Err(e);
                 }
             };
 
             if let ChatCompletionResponse::NonStream(completion) = response {
-                tracer.log_success(&completion);
+                tracer.lock().unwrap().log_success(&completion);
                 return Ok(Json(completion).into_response());
             }
 
@@ -152,72 +156,76 @@ pub async fn chat_completions(
         }
     }
 
-    tracer.log_error("No matching model found".to_string());
+    tracer.lock().unwrap().log_error("No matching model found".to_string());
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
 
 pub async fn completions(
+    Extension(tracer): Extension<SharedTracer>,
     State(model_registry): State<Arc<ModelRegistry>>,
     Json(payload): Json<CompletionRequest>,
     model_keys: Vec<String>,
 ) -> Result<Response, StatusCode> {
-    let mut tracer = OtelTracer::start();
-
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            tracer.start_llm_span("completion", &payload);
-            tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            {
+                let mut tracer_guard = tracer.lock().unwrap();
+                tracer_guard.start_llm_span("completion", &payload);
+                tracer_guard.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            }
 
             let response = match model.completions(payload.clone()).await {
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Completion error for model {model_key}: {e:?}");
-                    tracer.log_error(format!("Completion failed: {e:?}"));
+                    tracer.lock().unwrap().log_error(format!("Completion failed: {e:?}"));
                     return Err(e);
                 }
             };
-            tracer.log_success(&response);
+            tracer.lock().unwrap().log_success(&response);
 
             return Ok(Json(response).into_response());
         }
     }
 
-    tracer.log_error("No matching model found".to_string());
+    tracer.lock().unwrap().log_error("No matching model found".to_string());
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
 
 pub async fn embeddings(
+    Extension(tracer): Extension<SharedTracer>,
     State(model_registry): State<Arc<ModelRegistry>>,
     Json(payload): Json<EmbeddingsRequest>,
     model_keys: Vec<String>,
 ) -> impl IntoResponse {
-    let mut tracer = OtelTracer::start();
-
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
 
         if payload.model == model.model_type {
-            tracer.start_llm_span("embeddings", &payload);
-            tracer.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            {
+                let mut tracer_guard = tracer.lock().unwrap();
+                tracer_guard.start_llm_span("embeddings", &payload);
+                tracer_guard.set_vendor(&get_vendor_name(&model.provider.r#type()));
+            }
 
             let response = match model.embeddings(payload.clone()).await {
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Embeddings error for model {model_key}: {e:?}");
-                    tracer.log_error(format!("Embeddings failed: {e:?}"));
+                    tracer.lock().unwrap().log_error(format!("Embeddings failed: {e:?}"));
                     return Err(e);
                 }
             };
-            tracer.log_success(&response);
+            tracer.lock().unwrap().log_success(&response);
             return Ok(Json(response));
         }
     }
 
-    tracer.log_error("No matching model found".to_string());
+    tracer.lock().unwrap().log_error("No matching model found".to_string());
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
