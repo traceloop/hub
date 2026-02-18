@@ -1,12 +1,24 @@
 use std::collections::HashMap;
+use std::convert::Infallible;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use async_trait::async_trait;
+use axum::body::Body;
+use axum::extract::Request;
+use axum::http::StatusCode;
+use axum::response::Response;
 use hub_lib::guardrails::types::GuardrailClient;
 use hub_lib::guardrails::types::{EvaluatorResponse, Guard, GuardMode, GuardrailError, OnFailure};
 use hub_lib::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
+use hub_lib::models::completion::{CompletionChoice, CompletionRequest, CompletionResponse};
 use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent};
-use hub_lib::models::usage::Usage;
+use hub_lib::models::embeddings::{Embedding, Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
+use hub_lib::models::usage::{EmbeddingUsage, Usage};
+use serde::Serialize;
 use serde_json::json;
+use tower::Service;
 
 // ---------------------------------------------------------------------------
 // Guard config builders
@@ -161,6 +173,132 @@ pub fn create_test_chat_completion(response_text: &str) -> ChatCompletion {
         }],
         usage: Usage::default(),
         system_fingerprint: None,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Completion request/response builders
+// ---------------------------------------------------------------------------
+
+pub fn create_test_completion_request(prompt: &str) -> CompletionRequest {
+    CompletionRequest {
+        model: "gpt-3.5-turbo-instruct".to_string(),
+        prompt: prompt.to_string(),
+        suffix: None,
+        max_tokens: Some(100),
+        temperature: None,
+        top_p: None,
+        n: None,
+        stream: None,
+        logprobs: None,
+        echo: None,
+        stop: None,
+        presence_penalty: None,
+        frequency_penalty: None,
+        best_of: None,
+        logit_bias: None,
+        user: None,
+    }
+}
+
+pub fn create_test_completion_response(text: &str) -> CompletionResponse {
+    CompletionResponse {
+        id: "cmpl-test".to_string(),
+        object: "text_completion".to_string(),
+        created: 1234567890,
+        model: "gpt-3.5-turbo-instruct".to_string(),
+        choices: vec![CompletionChoice {
+            text: text.to_string(),
+            index: 0,
+            logprobs: None,
+            finish_reason: Some("stop".to_string()),
+        }],
+        usage: Usage::default(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Embeddings request/response builders
+// ---------------------------------------------------------------------------
+
+pub fn create_test_embeddings_request(text: &str) -> EmbeddingsRequest {
+    EmbeddingsRequest {
+        model: "text-embedding-ada-002".to_string(),
+        input: EmbeddingsInput::Single(text.to_string()),
+        user: None,
+        encoding_format: None,
+    }
+}
+
+pub fn create_test_embeddings_response() -> EmbeddingsResponse {
+    EmbeddingsResponse {
+        object: "list".to_string(),
+        data: vec![Embeddings {
+            object: "embedding".to_string(),
+            embedding: Embedding::Float(vec![0.1, 0.2, 0.3]),
+            index: 0,
+        }],
+        model: "text-embedding-ada-002".to_string(),
+        usage: EmbeddingUsage {
+            prompt_tokens: Some(8),
+            total_tokens: Some(8),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Streaming request builders
+// ---------------------------------------------------------------------------
+
+pub fn create_streaming_chat_request(message: &str) -> ChatCompletionRequest {
+    let mut req = create_test_chat_request(message);
+    req.stream = Some(true);
+    req
+}
+
+pub fn create_streaming_completion_request(prompt: &str) -> CompletionRequest {
+    let mut req = create_test_completion_request(prompt);
+    req.stream = Some(true);
+    req
+}
+
+// ---------------------------------------------------------------------------
+// Mock Service for middleware testing
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct MockService {
+    status: StatusCode,
+    body: Vec<u8>,
+}
+
+impl MockService {
+    pub fn with_json<T: Serialize>(status: StatusCode, data: &T) -> Self {
+        let body = serde_json::to_vec(data).unwrap();
+        Self { status, body }
+    }
+}
+
+impl Service<Request<Body>> for MockService {
+    type Response = Response;
+    type Error = Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _req: Request<Body>) -> Self::Future {
+        let status = self.status;
+        let body = self.body.clone();
+        Box::pin(async move {
+            let response = Response::builder()
+                .status(status)
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap();
+            Ok(response)
+        })
     }
 }
 
