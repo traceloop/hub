@@ -682,7 +682,7 @@ mod tests {
         use opentelemetry_sdk::export::trace::SpanData;
         use opentelemetry_sdk::testing::trace::InMemorySpanExporter;
         use opentelemetry_sdk::trace::TracerProvider;
-        use std::sync::LazyLock;
+        use std::sync::{LazyLock, Mutex};
 
         /// Shared OTel exporter, initialized once for all span tests
         /// Tests are isolated by tracking span count before/after each request
@@ -694,6 +694,10 @@ mod tests {
             opentelemetry::global::set_tracer_provider(provider);
             exporter
         });
+
+        /// Mutex to serialize span tests and prevent race conditions
+        /// with the shared TEST_EXPORTER
+        static SPAN_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
         // Mock provider that returns realistic responses with Usage data
         #[derive(Clone)]
@@ -886,34 +890,49 @@ mod tests {
         }
 
         // Helper: Collect spans added since before_count
+        // Retries for up to 100ms to handle async span finalization
         fn get_spans_for_test(before_count: usize) -> Vec<SpanData> {
-            // Get all spans
-            let all_spans = TEST_EXPORTER.get_finished_spans().unwrap();
+            use std::time::Duration;
 
-            // Skip the before_count spans and take only the next few
-            // We expect exactly 2 spans per test (root + LLM)
-            let new_spans: Vec<SpanData> = all_spans.into_iter().skip(before_count).collect();
+            // Retry for up to 100ms to wait for spans to be flushed
+            for _ in 0..10 {
+                // Get all spans
+                let all_spans = TEST_EXPORTER.get_finished_spans().unwrap();
 
-            // If we have more than 2 spans, try to find the most recent root span
-            // and its immediate child
-            if new_spans.len() > 2 {
-                // Find the last root span (traceloop_hub with Server kind)
-                if let Some(root_idx) = new_spans
-                    .iter()
-                    .rposition(|s| s.name == "traceloop_hub" && s.span_kind == SpanKind::Server)
-                {
-                    let root = &new_spans[root_idx];
-                    let root_trace_id = root.span_context.trace_id();
+                // Skip the before_count spans and take only the next few
+                // We expect exactly 2 spans per test (root + LLM)
+                let new_spans: Vec<SpanData> = all_spans.into_iter().skip(before_count).collect();
 
-                    // Collect all spans with the same trace_id
-                    return new_spans
-                        .into_iter()
-                        .filter(|s| s.span_context.trace_id() == root_trace_id)
-                        .collect();
+                // If we have at least 2 spans, we can proceed
+                if new_spans.len() >= 2 {
+                    // If we have more than 2 spans, try to find the most recent root span
+                    // and its immediate child
+                    if new_spans.len() > 2 {
+                        // Find the last root span (traceloop_hub with Server kind)
+                        if let Some(root_idx) = new_spans.iter().rposition(|s| {
+                            s.name == "traceloop_hub" && s.span_kind == SpanKind::Server
+                        }) {
+                            let root = &new_spans[root_idx];
+                            let root_trace_id = root.span_context.trace_id();
+
+                            // Collect all spans with the same trace_id
+                            return new_spans
+                                .into_iter()
+                                .filter(|s| s.span_context.trace_id() == root_trace_id)
+                                .collect();
+                        }
+                    }
+
+                    return new_spans;
                 }
+
+                // Wait a bit before retrying
+                std::thread::sleep(Duration::from_millis(10));
             }
 
-            new_spans
+            // Last attempt - return whatever we have
+            let all_spans = TEST_EXPORTER.get_finished_spans().unwrap();
+            all_spans.into_iter().skip(before_count).collect()
         }
 
         // Helper: Find root span (name="traceloop_hub", SpanKind::Server)
@@ -962,6 +981,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_chat_completions_success_spans() {
+            // Serialize span tests to avoid race conditions
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             // Initialize exporter
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
@@ -1080,6 +1101,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_completions_success_spans() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
@@ -1148,6 +1170,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_embeddings_success_spans() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
@@ -1204,6 +1227,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_chat_completions_error_spans() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
@@ -1285,6 +1309,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_completions_error_spans() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
@@ -1341,6 +1366,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_embeddings_error_spans() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
@@ -1385,6 +1411,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_span_request_attributes_recorded() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
@@ -1467,6 +1494,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_span_response_attributes_recorded() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
@@ -1551,6 +1579,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_vendor_attribute_mapping() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
 
             // Test each provider type maps to correct vendor name
@@ -1632,6 +1661,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_span_parent_child_relationship() {
+            let _lock = SPAN_TEST_LOCK.lock().unwrap();
             let _ = &*TEST_EXPORTER;
             let before_count = TEST_EXPORTER.get_finished_spans().unwrap().len();
 
