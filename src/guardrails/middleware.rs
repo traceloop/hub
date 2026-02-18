@@ -40,9 +40,9 @@ impl EndpointType {
 
 /// Enum representing the type of request being processed.
 enum ParsedRequest {
-    Chat(ChatCompletionRequest),
-    Completion(CompletionRequest),
-    Embeddings(EmbeddingsRequest),
+    Chat(Box<ChatCompletionRequest>),
+    Completion(Box<CompletionRequest>),
+    Embeddings(Box<EmbeddingsRequest>),
 }
 
 impl ParsedRequest {
@@ -188,7 +188,10 @@ where
                 Some(t) => t,
                 None => {
                     // Unsupported endpoint — pass through
-                    debug!("Guardrails middleware: unsupported endpoint {}, passing through", parts.uri.path());
+                    debug!(
+                        "Guardrails middleware: unsupported endpoint {}, passing through",
+                        parts.uri.path()
+                    );
                     let request = Request::from_parts(parts, body);
                     return inner.call(request).await;
                 }
@@ -207,7 +210,7 @@ where
             let parsed_request = match endpoint_type {
                 EndpointType::Chat => {
                     match serde_json::from_slice::<ChatCompletionRequest>(&bytes) {
-                        Ok(req) => ParsedRequest::Chat(req),
+                        Ok(req) => ParsedRequest::Chat(Box::new(req)),
                         Err(e) => {
                             debug!("Guardrails middleware: failed to parse chat request: {}", e);
                             let request = Request::from_parts(parts, Body::from(bytes));
@@ -217,9 +220,12 @@ where
                 }
                 EndpointType::Completion => {
                     match serde_json::from_slice::<CompletionRequest>(&bytes) {
-                        Ok(req) => ParsedRequest::Completion(req),
+                        Ok(req) => ParsedRequest::Completion(Box::new(req)),
                         Err(e) => {
-                            debug!("Guardrails middleware: failed to parse completion request: {}", e);
+                            debug!(
+                                "Guardrails middleware: failed to parse completion request: {}",
+                                e
+                            );
                             let request = Request::from_parts(parts, Body::from(bytes));
                             return inner.call(request).await;
                         }
@@ -227,9 +233,12 @@ where
                 }
                 EndpointType::Embeddings => {
                     match serde_json::from_slice::<EmbeddingsRequest>(&bytes) {
-                        Ok(req) => ParsedRequest::Embeddings(req),
+                        Ok(req) => ParsedRequest::Embeddings(Box::new(req)),
                         Err(e) => {
-                            debug!("Guardrails middleware: failed to parse embeddings request: {}", e);
+                            debug!(
+                                "Guardrails middleware: failed to parse embeddings request: {}",
+                                e
+                            );
                             let request = Request::from_parts(parts, Body::from(bytes));
                             return inner.call(request).await;
                         }
@@ -246,10 +255,10 @@ where
 
             // Resolve guards from pipeline config + request headers
             // Extract parent context from the tracer in request extensions
-            let parent_cx = parts.extensions.get::<SharedTracer>()
-                .and_then(|tracer| {
-                    tracer.lock().ok().map(|t| t.parent_context())
-                });
+            let parent_cx = parts
+                .extensions
+                .get::<SharedTracer>()
+                .and_then(|tracer| tracer.lock().ok().map(|t| t.parent_context()));
             let runner = GuardrailsRunner::new(Some(&guardrails), &parts.headers, parent_cx);
 
             let runner = match runner {
@@ -276,7 +285,14 @@ where
             let (resp_parts, resp_body) = response.into_parts();
 
             if parsed_request.supports_post_call() {
-                Ok(handle_post_call_guards(&parsed_request, resp_parts, resp_body, &runner, all_warnings).await)
+                Ok(handle_post_call_guards(
+                    &parsed_request,
+                    resp_parts,
+                    resp_body,
+                    &runner,
+                    all_warnings,
+                )
+                .await)
             } else {
                 // No post-call guards for this request type (e.g., embeddings)
                 // Pass through response with pre-call warnings attached

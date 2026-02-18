@@ -14,7 +14,9 @@ use hub_lib::guardrails::types::{EvaluatorResponse, Guard, GuardMode, GuardrailE
 use hub_lib::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
 use hub_lib::models::completion::{CompletionChoice, CompletionRequest, CompletionResponse};
 use hub_lib::models::content::{ChatCompletionMessage, ChatMessageContent};
-use hub_lib::models::embeddings::{Embedding, Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse};
+use hub_lib::models::embeddings::{
+    Embedding, Embeddings, EmbeddingsInput, EmbeddingsRequest, EmbeddingsResponse,
+};
 use hub_lib::models::usage::{EmbeddingUsage, Usage};
 use serde::Serialize;
 use serde_json::json;
@@ -80,7 +82,9 @@ pub fn create_test_guard_with_failure_action(
     mode: GuardMode,
     on_failure: OnFailure,
 ) -> Guard {
-    TestGuardBuilder::new(name, mode).on_failure(on_failure).build()
+    TestGuardBuilder::new(name, mode)
+        .on_failure(on_failure)
+        .build()
 }
 
 pub fn create_test_guard_with_required(name: &str, mode: GuardMode, required: bool) -> Guard {

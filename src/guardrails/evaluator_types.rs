@@ -172,8 +172,28 @@ pub struct JsonValidatorConfig {
 // ---------------------------------------------------------------------------
 
 evaluator_with_config!(PiiDetector, text_body, PiiDetectorConfig, PII_DETECTOR);
-evaluator_with_config!(PromptInjection, prompt_body, ThresholdConfig, PROMPT_INJECTION);
+evaluator_with_config!(
+    PromptInjection,
+    prompt_body,
+    ThresholdConfig,
+    PROMPT_INJECTION
+);
 evaluator_with_config!(SexismDetector, text_body, ThresholdConfig, SEXISM_DETECTOR);
-evaluator_with_config!(ToxicityDetector, text_body, ThresholdConfig, TOXICITY_DETECTOR);
-evaluator_with_config!(RegexValidator, text_body, RegexValidatorConfig, REGEX_VALIDATOR);
-evaluator_with_config!(JsonValidator, text_body, JsonValidatorConfig, JSON_VALIDATOR);
+evaluator_with_config!(
+    ToxicityDetector,
+    text_body,
+    ThresholdConfig,
+    TOXICITY_DETECTOR
+);
+evaluator_with_config!(
+    RegexValidator,
+    text_body,
+    RegexValidatorConfig,
+    REGEX_VALIDATOR
+);
+evaluator_with_config!(
+    JsonValidator,
+    text_body,
+    JsonValidatorConfig,
+    JSON_VALIDATOR
+);

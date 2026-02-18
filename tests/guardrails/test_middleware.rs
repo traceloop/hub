@@ -2,7 +2,7 @@ use hub_lib::guardrails::middleware::GuardrailsLayer;
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::types::{Guard, GuardMode, Guardrails, OnFailure};
 
-use axum::body::{to_bytes, Body};
+use axum::body::{Body, to_bytes};
 use axum::extract::Request;
 use axum::http::StatusCode;
 use serde_json::json;
@@ -87,7 +87,13 @@ async fn test_chat_completions_endpoint_detected() {
         .unwrap();
 
     // Call middleware
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify response is 200 OK (guard passed)
     assert_eq!(response.status(), StatusCode::OK);
@@ -131,7 +137,13 @@ async fn test_completions_endpoint_detected() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 }
@@ -172,7 +184,13 @@ async fn test_embeddings_endpoint_detected() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 }
@@ -216,7 +234,13 @@ async fn test_pre_call_guard_blocks_chat() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify blocked
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -261,13 +285,24 @@ async fn test_pre_call_guard_warns_chat() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify passes with warning
     assert_eq!(response.status(), StatusCode::OK);
-    assert!(response.headers().contains_key("x-traceloop-guardrail-warning"));
+    assert!(
+        response
+            .headers()
+            .contains_key("x-traceloop-guardrail-warning")
+    );
 
-    let warning_header = response.headers()
+    let warning_header = response
+        .headers()
         .get("x-traceloop-guardrail-warning")
         .unwrap()
         .to_str()
@@ -314,7 +349,13 @@ async fn test_post_call_guard_blocks_chat() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify blocked by post-call guard
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -333,7 +374,7 @@ async fn test_post_call_guard_skipped_for_embeddings() {
             "result": {},
             "pass": true
         })))
-        .expect(1)  // Pre-call should run
+        .expect(1) // Pre-call should run
         .mount(&pre_eval_server)
         .await;
 
@@ -344,7 +385,7 @@ async fn test_post_call_guard_skipped_for_embeddings() {
             "result": {},
             "pass": false  // Would block if called
         })))
-        .expect(0)  // Post-call should NOT run for embeddings
+        .expect(0) // Post-call should NOT run for embeddings
         .mount(&post_eval_server)
         .await;
 
@@ -377,13 +418,23 @@ async fn test_post_call_guard_skipped_for_embeddings() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify response is 200 OK (no post-call blocking)
     assert_eq!(response.status(), StatusCode::OK);
 
     // Verify no warning header
-    assert!(!response.headers().contains_key("x-traceloop-guardrail-warning"));
+    assert!(
+        !response
+            .headers()
+            .contains_key("x-traceloop-guardrail-warning")
+    );
 
     // Verify response body contains embeddings
     let body_bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
@@ -408,7 +459,7 @@ async fn test_streaming_chat_bypasses_guards() {
             "result": {},
             "pass": false  // Would block if evaluated
         })))
-        .expect(0)  // Should never be called for streaming
+        .expect(0) // Should never be called for streaming
         .mount(&eval_server)
         .await;
 
@@ -435,13 +486,23 @@ async fn test_streaming_chat_bypasses_guards() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify response is 200 OK (streaming bypasses guards)
     assert_eq!(response.status(), StatusCode::OK);
 
     // Verify no warning header
-    assert!(!response.headers().contains_key("x-traceloop-guardrail-warning"));
+    assert!(
+        !response
+            .headers()
+            .contains_key("x-traceloop-guardrail-warning")
+    );
 
     // Wiremock verifies evaluator was never called (expect(0))
 }
@@ -455,7 +516,7 @@ async fn test_streaming_completion_bypasses_guards() {
             "result": {},
             "pass": false  // Would block if evaluated
         })))
-        .expect(0)  // Should never be called for streaming
+        .expect(0) // Should never be called for streaming
         .mount(&eval_server)
         .await;
 
@@ -482,13 +543,23 @@ async fn test_streaming_completion_bypasses_guards() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify response is 200 OK (streaming bypasses guards)
     assert_eq!(response.status(), StatusCode::OK);
 
     // Verify no warning header
-    assert!(!response.headers().contains_key("x-traceloop-guardrail-warning"));
+    assert!(
+        !response
+            .headers()
+            .contains_key("x-traceloop-guardrail-warning")
+    );
 
     // Wiremock verifies evaluator was never called (expect(0))
 }
@@ -503,7 +574,7 @@ async fn test_no_guardrails_configured_passes() {
     let completion = create_test_chat_completion("Response");
     let inner_service = MockService::with_json(StatusCode::OK, &completion);
 
-    let layer = GuardrailsLayer::new(None);  // No guardrails
+    let layer = GuardrailsLayer::new(None); // No guardrails
     let mut service = layer.layer(inner_service);
 
     let request = create_test_chat_request("Any input");
@@ -514,7 +585,13 @@ async fn test_no_guardrails_configured_passes() {
         .body(Body::from(serde_json::to_vec(&request).unwrap()))
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify response passes through unchanged
     assert_eq!(response.status(), StatusCode::OK);
@@ -528,7 +605,7 @@ async fn test_unsupported_endpoint_passes() {
             "result": {},
             "pass": false
         })))
-        .expect(0)  // Should never be called
+        .expect(0) // Should never be called
         .mount(&eval_server)
         .await;
 
@@ -540,10 +617,8 @@ async fn test_unsupported_endpoint_passes() {
     );
     let guardrails = create_guardrails(vec![guard]);
 
-    let inner_service = MockService::with_json(
-        StatusCode::OK,
-        &json!({"data": [{"id": "model-1"}]}),
-    );
+    let inner_service =
+        MockService::with_json(StatusCode::OK, &json!({"data": [{"id": "model-1"}]}));
 
     let layer = GuardrailsLayer::new(Some(Arc::new(guardrails)));
     let mut service = layer.layer(inner_service);
@@ -551,11 +626,17 @@ async fn test_unsupported_endpoint_passes() {
     // Request to unsupported endpoint
     let http_request = Request::builder()
         .method("GET")
-        .uri("/v1/models")  // Unsupported endpoint
+        .uri("/v1/models") // Unsupported endpoint
         .body(Body::empty())
         .unwrap();
 
-    let response = service.ready().await.unwrap().call(http_request).await.unwrap();
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
 
     // Verify passes through
     assert_eq!(response.status(), StatusCode::OK);

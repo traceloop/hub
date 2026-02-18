@@ -6,8 +6,6 @@ use tower::{Layer, Service};
 
 use super::otel::OtelTracer;
 
-pub type SharedTracer = Arc<Mutex<OtelTracer>>;
-
 #[derive(Clone)]
 pub struct TracingLayer;
 

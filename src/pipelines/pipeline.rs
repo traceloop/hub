@@ -74,7 +74,9 @@ pub fn create_pipeline(
             PluginConfig::ModelRouter { models } => match pipeline.r#type {
                 PipelineType::Chat => router.route(
                     "/chat/completions",
-                    post(move |tracer, state, payload| chat_completions(tracer, state, payload, models)),
+                    post(move |tracer, state, payload| {
+                        chat_completions(tracer, state, payload, models)
+                    }),
                 ),
                 PipelineType::Completion => router.route(
                     "/completions",
@@ -138,7 +140,10 @@ pub async fn chat_completions(
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Chat completion error for model {model_key}: {e:?}");
-                    tracer.lock().unwrap().log_error(format!("Chat completion failed: {e:?}"));
+                    tracer
+                        .lock()
+                        .unwrap()
+                        .log_error(format!("Chat completion failed: {e:?}"));
                     return Err(e);
                 }
             };
@@ -156,7 +161,10 @@ pub async fn chat_completions(
         }
     }
 
-    tracer.lock().unwrap().log_error("No matching model found".to_string());
+    tracer
+        .lock()
+        .unwrap()
+        .log_error("No matching model found".to_string());
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
@@ -181,7 +189,10 @@ pub async fn completions(
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Completion error for model {model_key}: {e:?}");
-                    tracer.lock().unwrap().log_error(format!("Completion failed: {e:?}"));
+                    tracer
+                        .lock()
+                        .unwrap()
+                        .log_error(format!("Completion failed: {e:?}"));
                     return Err(e);
                 }
             };
@@ -191,7 +202,10 @@ pub async fn completions(
         }
     }
 
-    tracer.lock().unwrap().log_error("No matching model found".to_string());
+    tracer
+        .lock()
+        .unwrap()
+        .log_error("No matching model found".to_string());
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
@@ -216,7 +230,10 @@ pub async fn embeddings(
                 Ok(response) => response,
                 Err(e) => {
                     eprintln!("Embeddings error for model {model_key}: {e:?}");
-                    tracer.lock().unwrap().log_error(format!("Embeddings failed: {e:?}"));
+                    tracer
+                        .lock()
+                        .unwrap()
+                        .log_error(format!("Embeddings failed: {e:?}"));
                     return Err(e);
                 }
             };
@@ -225,7 +242,10 @@ pub async fn embeddings(
         }
     }
 
-    tracer.lock().unwrap().log_error("No matching model found".to_string());
+    tracer
+        .lock()
+        .unwrap()
+        .log_error("No matching model found".to_string());
     eprintln!("No matching model found for: {}", payload.model);
     Err(StatusCode::NOT_FOUND)
 }
@@ -335,7 +355,10 @@ mod tests {
     }
 
     // Helper function to create test pipeline with specific type (for otel tests)
-    fn create_test_pipeline_with_type(model_keys: Vec<&str>, pipeline_type: PipelineType) -> Pipeline {
+    fn create_test_pipeline_with_type(
+        model_keys: Vec<&str>,
+        pipeline_type: PipelineType,
+    ) -> Pipeline {
         Pipeline {
             name: "test".to_string(),
             r#type: pipeline_type,
@@ -702,7 +725,9 @@ mod tests {
                 payload: crate::models::chat::ChatCompletionRequest,
                 _model_config: &ModelConfig,
             ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
-                use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionResponse};
+                use crate::models::chat::{
+                    ChatCompletion, ChatCompletionChoice, ChatCompletionResponse,
+                };
                 use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
                 use crate::models::usage::Usage;
 
@@ -876,9 +901,10 @@ mod tests {
             // and its immediate child
             if new_spans.len() > 2 {
                 // Find the last root span (traceloop_hub with Server kind)
-                if let Some(root_idx) = new_spans.iter().rposition(|s| {
-                    s.name == "traceloop_hub" && s.span_kind == SpanKind::Server
-                }) {
+                if let Some(root_idx) = new_spans
+                    .iter()
+                    .rposition(|s| s.name == "traceloop_hub" && s.span_kind == SpanKind::Server)
+                {
                     let root = &new_spans[root_idx];
                     let root_trace_id = root.span_context.trace_id();
 
@@ -1005,7 +1031,12 @@ mod tests {
 
             // Collect new spans
             let spans = get_spans_for_test(before_count);
-            assert_eq!(spans.len(), 2, "Expected root + LLM span, got {}", spans.len());
+            assert_eq!(
+                spans.len(),
+                2,
+                "Expected root + LLM span, got {}",
+                spans.len()
+            );
 
             // Verify root span
             let root = get_root_span(&spans).expect("Root span not found");
@@ -1060,7 +1091,8 @@ mod tests {
             let model_configs = create_model_configs(vec!["test-model"]);
             let model_registry =
                 Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
-            let pipeline = create_test_pipeline_with_type(vec!["test-model"], PipelineType::Completion);
+            let pipeline =
+                create_test_pipeline_with_type(vec!["test-model"], PipelineType::Completion);
             let app = create_pipeline(&pipeline, &model_registry, None);
 
             use crate::models::completion::CompletionRequest;
@@ -1127,7 +1159,8 @@ mod tests {
             let model_configs = create_model_configs(vec!["test-model"]);
             let model_registry =
                 Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
-            let pipeline = create_test_pipeline_with_type(vec!["test-model"], PipelineType::Embeddings);
+            let pipeline =
+                create_test_pipeline_with_type(vec!["test-model"], PipelineType::Embeddings);
             let app = create_pipeline(&pipeline, &model_registry, None);
 
             use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
@@ -1263,7 +1296,8 @@ mod tests {
             let model_configs = create_model_configs(vec!["test-model"]);
             let model_registry =
                 Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
-            let pipeline = create_test_pipeline_with_type(vec!["test-model"], PipelineType::Completion);
+            let pipeline =
+                create_test_pipeline_with_type(vec!["test-model"], PipelineType::Completion);
             let app = create_pipeline(&pipeline, &model_registry, None);
 
             use crate::models::completion::CompletionRequest;
@@ -1318,7 +1352,8 @@ mod tests {
             let model_configs = create_model_configs(vec!["test-model"]);
             let model_registry =
                 Arc::new(ModelRegistry::new(&model_configs, provider_registry).unwrap());
-            let pipeline = create_test_pipeline_with_type(vec!["test-model"], PipelineType::Embeddings);
+            let pipeline =
+                create_test_pipeline_with_type(vec!["test-model"], PipelineType::Embeddings);
             let app = create_pipeline(&pipeline, &model_registry, None);
 
             use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest};
@@ -1565,7 +1600,7 @@ mod tests {
                     logit_bias: None,
                     user: None,
                     response_format: None,
-                        tools: None,
+                    tools: None,
                     tool_choice: None,
                     parallel_tool_calls: None,
                     logprobs: None,

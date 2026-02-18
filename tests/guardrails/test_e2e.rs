@@ -190,20 +190,20 @@ async fn test_e2e_mixed_block_and_warn() {
 
     let guards = vec![
         TestGuardBuilder::new("passer", GuardMode::PreCall)
-        .on_failure(OnFailure::Block)
-        .api_base(&eval1.uri())
-        .evaluator_slug("profanity-detector")
-        .build(),
+            .on_failure(OnFailure::Block)
+            .api_base(&eval1.uri())
+            .evaluator_slug("profanity-detector")
+            .build(),
         TestGuardBuilder::new("warner", GuardMode::PreCall)
-        .on_failure(OnFailure::Warn)
-        .api_base(&eval2.uri())
-        .evaluator_slug("tone-detection")
-        .build(),
+            .on_failure(OnFailure::Warn)
+            .api_base(&eval2.uri())
+            .evaluator_slug("tone-detection")
+            .build(),
         TestGuardBuilder::new("blocker", GuardMode::PreCall)
-        .on_failure(OnFailure::Block)
-        .api_base(&eval3.uri())
-        .evaluator_slug("toxicity-detector")
-        .build(),
+            .on_failure(OnFailure::Block)
+            .api_base(&eval3.uri())
+            .evaluator_slug("toxicity-detector")
+            .build(),
     ];
 
     let client = TraceloopClient::new();
@@ -364,15 +364,15 @@ async fn test_e2e_multiple_guards_different_evaluators() {
 
     let guards = vec![
         TestGuardBuilder::new("tox-guard", GuardMode::PreCall)
-        .on_failure(OnFailure::Block)
-        .api_base(&server.uri())
-        .evaluator_slug("toxicity-detector")
-        .build(),
+            .on_failure(OnFailure::Block)
+            .api_base(&server.uri())
+            .evaluator_slug("toxicity-detector")
+            .build(),
         TestGuardBuilder::new("pii-guard", GuardMode::PreCall)
-        .on_failure(OnFailure::Block)
-        .api_base(&server.uri())
-        .evaluator_slug("pii-detector")
-        .build(),
+            .on_failure(OnFailure::Block)
+            .api_base(&server.uri())
+            .evaluator_slug("pii-detector")
+            .build(),
     ];
 
     let client = TraceloopClient::new();
