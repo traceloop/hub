@@ -1,6 +1,6 @@
 use crate::config::models::PipelineType;
-use crate::guardrails::runner::GuardrailsRunner;
-use crate::guardrails::types::{GuardrailResources, Guardrails};
+use crate::guardrails::middleware::GuardrailsLayer;
+use crate::guardrails::types::GuardrailResources;
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
 use crate::models::embeddings::EmbeddingsRequest;
@@ -13,7 +13,6 @@ use crate::{
     models::chat::ChatCompletionRequest,
 };
 use async_stream::stream;
-use axum::http::HeaderMap;
 use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Response, Sse};
 use axum::{
@@ -38,7 +37,7 @@ pub fn create_pipeline(
     model_registry: &ModelRegistry,
     guardrail_resources: Option<&GuardrailResources>,
 ) -> Router {
-    let guardrails: Option<Arc<Guardrails>> =
+    let guardrails =
         guardrail_resources.map(|shared| build_pipeline_guardrails(shared, &pipeline.guards));
     let mut router = Router::new();
 
@@ -65,7 +64,6 @@ pub fn create_pipeline(
     );
 
     for plugin in pipeline.plugins.clone() {
-        let gr = guardrails.clone();
         router = match plugin {
             PluginConfig::Tracing { endpoint, api_key } => {
                 tracing::info!("Initializing OtelTracer for pipeline {}", pipeline.name);
@@ -75,9 +73,7 @@ pub fn create_pipeline(
             PluginConfig::ModelRouter { models } => match pipeline.r#type {
                 PipelineType::Chat => router.route(
                     "/chat/completions",
-                    post(move |state, headers, payload| {
-                        chat_completions(state, headers, payload, models, gr)
-                    }),
+                    post(move |state, payload| chat_completions(state, payload, models)),
                 ),
                 PipelineType::Completion => router.route(
                     "/completions",
@@ -92,7 +88,9 @@ pub fn create_pipeline(
         };
     }
 
-    router.with_state(Arc::new(model_registry.clone()))
+    router
+        .with_state(Arc::new(model_registry.clone()))
+        .layer(GuardrailsLayer::new(guardrails))
 }
 
 fn trace_and_stream(
@@ -120,24 +118,10 @@ fn trace_and_stream(
 
 pub async fn chat_completions(
     State(model_registry): State<Arc<ModelRegistry>>,
-    headers: HeaderMap,
     Json(payload): Json<ChatCompletionRequest>,
     model_keys: Vec<String>,
-    guardrails: Option<Arc<Guardrails>>,
 ) -> Result<Response, StatusCode> {
     let mut tracer = OtelTracer::start();
-    let parent_cx = tracer.parent_context();
-    let orchestrator = GuardrailsRunner::new(guardrails.as_deref(), &headers, Some(parent_cx));
-
-    // Pre-call guardrails
-    let mut all_warnings = Vec::new();
-    if let Some(orch) = &orchestrator {
-        let pre = orch.run_pre_call(&payload).await;
-        if let Some(resp) = pre.blocked_response {
-            return Ok(resp);
-        }
-        all_warnings = pre.warnings;
-    }
 
     for model_key in model_keys {
         let model = model_registry.get(&model_key).unwrap();
@@ -155,20 +139,7 @@ pub async fn chat_completions(
 
             if let ChatCompletionResponse::NonStream(completion) = response {
                 tracer.log_success(&completion);
-
-                // Post-call guardrails (non-streaming)
-                if let Some(orch) = &orchestrator {
-                    let post = orch.run_post_call(&completion).await;
-                    if let Some(resp) = post.blocked_response {
-                        return Ok(resp);
-                    }
-                    all_warnings.extend(post.warnings);
-                }
-
-                return Ok(GuardrailsRunner::finalize_response(
-                    Json(completion).into_response(),
-                    &all_warnings,
-                ));
+                return Ok(Json(completion).into_response());
             }
 
             if let ChatCompletionResponse::Stream(stream) = response {

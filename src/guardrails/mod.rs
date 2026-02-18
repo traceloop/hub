@@ -1,4 +1,5 @@
 pub mod evaluator_types;
+pub mod middleware;
 pub mod parsing;
 pub mod providers;
 pub mod runner;
