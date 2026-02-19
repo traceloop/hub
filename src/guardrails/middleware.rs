@@ -20,6 +20,10 @@ use super::parsing::PromptExtractor;
 use super::runner::GuardrailsRunner;
 use super::types::Guardrails;
 
+/// Maximum allowed body size for request/response buffering (10 MB).
+/// Prevents unbounded memory allocation when guardrails need to inspect bodies.
+pub const MAX_BODY_SIZE: usize = 10 * 1024 * 1024;
+
 /// Enum representing the endpoint type.
 #[derive(Debug, Clone, Copy)]
 enum EndpointType {
@@ -89,7 +93,7 @@ async fn handle_post_call_guards(
     runner: &GuardrailsRunner<'_>,
     mut warnings: Vec<super::types::GuardWarning>,
 ) -> Response {
-    let resp_bytes = match axum::body::to_bytes(resp_body, usize::MAX).await {
+    let resp_bytes = match axum::body::to_bytes(resp_body, MAX_BODY_SIZE).await {
         Ok(b) => b,
         Err(_) => {
             debug!("Guardrails middleware: failed to buffer response body, skipping post-call");
@@ -220,7 +224,7 @@ where
             };
 
             // Buffer request body
-            let bytes = match axum::body::to_bytes(body, usize::MAX).await {
+            let bytes = match axum::body::to_bytes(body, MAX_BODY_SIZE).await {
                 Ok(b) => b,
                 Err(_) => {
                     debug!("Guardrails middleware: failed to buffer request body, passing through");

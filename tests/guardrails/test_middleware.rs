@@ -1,4 +1,4 @@
-use hub_lib::guardrails::middleware::GuardrailsLayer;
+use hub_lib::guardrails::middleware::{GuardrailsLayer, MAX_BODY_SIZE};
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::types::{Guard, GuardMode, Guardrails, OnFailure};
 
@@ -857,5 +857,101 @@ async fn test_unsupported_endpoint_passes() {
         .unwrap();
 
     // Verify passes through
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+// ===========================================================================
+// Category 6: Body Size Limits
+// ===========================================================================
+
+#[tokio::test]
+async fn test_request_body_exceeding_limit_returns_400() {
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": {},
+            "pass": true
+        })))
+        .expect(0) // Should never reach the evaluator
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "detector",
+        GuardMode::PreCall,
+        OnFailure::Block,
+        &eval_server.uri(),
+    );
+    let guardrails = create_guardrails(vec![guard]);
+
+    let completion = create_test_chat_completion("Response");
+    let inner_service = MockService::with_json(StatusCode::OK, &completion);
+
+    let layer = GuardrailsLayer::new(Some(Arc::new(guardrails)));
+    let mut service = layer.layer(inner_service);
+
+    // Body larger than MAX_BODY_SIZE (10 MB)
+    let oversized = vec![b'x'; MAX_BODY_SIZE + 1];
+    let http_request = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .body(Body::from(oversized))
+        .unwrap();
+
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_request_body_within_limit_is_accepted() {
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": {},
+            "pass": true
+        })))
+        .expect(1)
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "detector",
+        GuardMode::PreCall,
+        OnFailure::Block,
+        &eval_server.uri(),
+    );
+    let guardrails = create_guardrails(vec![guard]);
+
+    let completion = create_test_chat_completion("Response");
+    let inner_service = MockService::with_json(StatusCode::OK, &completion);
+
+    let layer = GuardrailsLayer::new(Some(Arc::new(guardrails)));
+    let mut service = layer.layer(inner_service);
+
+    let request = create_test_chat_request("Test input");
+    let http_request = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&request).unwrap()))
+        .unwrap();
+
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
+
+    // Should pass through (200 from inner service)
     assert_eq!(response.status(), StatusCode::OK);
 }
