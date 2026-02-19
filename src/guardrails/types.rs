@@ -7,7 +7,10 @@ use thiserror::Error;
 
 /// Shared guardrail resources: resolved guards + client.
 /// Built once per router build and shared across all pipelines.
-pub type GuardrailResources = (Arc<Vec<Guard>>, Arc<dyn GuardrailClient>);
+pub struct GuardrailResources {
+    pub guards: Arc<Vec<Guard>>,
+    pub client: Arc<dyn GuardrailClient>,
+}
 
 fn default_on_failure() -> OnFailure {
     OnFailure::Warn

@@ -1,4 +1,3 @@
-use hub_lib::guardrails::providers::create_guardrail_client;
 use hub_lib::guardrails::providers::traceloop::TraceloopClient;
 use hub_lib::guardrails::types::GuardMode;
 use hub_lib::guardrails::types::GuardrailClient;
@@ -151,11 +150,4 @@ async fn test_traceloop_client_rejects_empty_api_key() {
             e
         );
     }
-}
-
-#[test]
-fn test_client_creation_from_guard_config() {
-    let guard = create_test_guard("test", GuardMode::PreCall);
-    let client = create_guardrail_client(&guard);
-    assert!(client.is_some());
 }

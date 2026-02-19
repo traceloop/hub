@@ -83,7 +83,10 @@ pub fn build_guardrail_resources(config: &GuardrailsConfig) -> Option<GuardrailR
     let all_guards = Arc::new(resolve_guard_defaults(config));
     let client: Arc<dyn GuardrailClient> =
         Arc::new(super::providers::traceloop::TraceloopClient::new());
-    Some((all_guards, client))
+    Some(GuardrailResources {
+        guards: all_guards,
+        client,
+    })
 }
 
 /// Build per-pipeline Guardrails from shared resources.
@@ -93,8 +96,8 @@ pub fn build_pipeline_guardrails(
     pipeline_guard_names: &[String],
 ) -> Arc<Guardrails> {
     Arc::new(Guardrails {
-        all_guards: shared.0.clone(),
+        all_guards: shared.guards.clone(),
         pipeline_guard_names: pipeline_guard_names.to_vec(),
-        client: shared.1.clone(),
+        client: shared.client.clone(),
     })
 }
