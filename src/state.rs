@@ -326,7 +326,7 @@ impl tower::Service<Request<Body>> for PipelineSteeringService {
         };
 
         Box::pin(async move {
-            let router = Arc::try_unwrap(router).unwrap_or_else(|arc_router| (*arc_router).clone());
+            let router: Router = (*router).clone();
 
             match router.oneshot(request).await {
                 Ok(response) => Ok(response),

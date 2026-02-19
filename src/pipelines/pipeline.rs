@@ -1,5 +1,6 @@
 use crate::config::models::PipelineType;
 use crate::guardrails::middleware::GuardrailsLayer;
+use crate::guardrails::setup::build_pipeline_guardrails;
 use crate::guardrails::types::GuardrailResources;
 use crate::models::chat::ChatCompletionResponse;
 use crate::models::completion::CompletionRequest;
@@ -32,12 +33,6 @@ use std::sync::Arc;
 fn with_tracer<R>(tracer: &SharedTracer, f: impl FnOnce(&mut OtelTracer) -> R) -> R {
     f(&mut tracer.lock().unwrap())
 }
-
-// Re-export builder and orchestrator functions for backward compatibility with tests
-pub use crate::guardrails::runner::{blocked_response, warning_header_value};
-pub use crate::guardrails::setup::{
-    build_guardrail_resources, build_pipeline_guardrails, resolve_guard_defaults,
-};
 
 pub fn create_pipeline(
     pipeline: &Pipeline,

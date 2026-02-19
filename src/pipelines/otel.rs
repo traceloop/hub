@@ -223,29 +223,28 @@ impl OtelTracer {
     }
 }
 
+fn set_optional_f64(span: &mut BoxedSpan, key: &'static str, value: Option<f32>) {
+    if let Some(v) = value {
+        span.set_attribute(KeyValue::new(key, v as f64));
+    }
+}
+
+fn content_to_string(content: &ChatMessageContent) -> String {
+    match content {
+        ChatMessageContent::String(s) => s.clone(),
+        ChatMessageContent::Array(parts) => serde_json::to_string(parts).unwrap_or_default(),
+    }
+}
+
 impl RecordSpan for ChatCompletionRequest {
     fn record_span(&self, span: &mut BoxedSpan) {
         span.set_attribute(KeyValue::new("llm.request.type", "chat"));
         span.set_attribute(KeyValue::new(GEN_AI_REQUEST_MODEL, self.model.clone()));
 
-        if let Some(freq_penalty) = self.frequency_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                freq_penalty as f64,
-            ));
-        }
-        if let Some(pres_penalty) = self.presence_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_PRESENCE_PENALTY,
-                pres_penalty as f64,
-            ));
-        }
-        if let Some(top_p) = self.top_p {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TOP_P, top_p as f64));
-        }
-        if let Some(temp) = self.temperature {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TEMPERATURE, temp as f64));
-        }
+        set_optional_f64(span, GEN_AI_REQUEST_FREQUENCY_PENALTY, self.frequency_penalty);
+        set_optional_f64(span, GEN_AI_REQUEST_PRESENCE_PENALTY, self.presence_penalty);
+        set_optional_f64(span, GEN_AI_REQUEST_TOP_P, self.top_p);
+        set_optional_f64(span, GEN_AI_REQUEST_TEMPERATURE, self.temperature);
 
         if get_trace_content_enabled() {
             for (i, message) in self.messages.iter().enumerate() {
@@ -256,12 +255,7 @@ impl RecordSpan for ChatCompletionRequest {
                     ));
                     span.set_attribute(KeyValue::new(
                         format!("gen_ai.prompt.{i}.content"),
-                        match &content {
-                            ChatMessageContent::String(content) => content.clone(),
-                            ChatMessageContent::Array(content) => {
-                                serde_json::to_string(content).unwrap_or_default()
-                            }
-                        },
+                        content_to_string(content),
                     ));
                 }
             }
@@ -285,12 +279,7 @@ impl RecordSpan for ChatCompletion {
                     ));
                     span.set_attribute(KeyValue::new(
                         format!("gen_ai.completion.{}.content", choice.index),
-                        match &content {
-                            ChatMessageContent::String(content) => content.clone(),
-                            ChatMessageContent::Array(content) => {
-                                serde_json::to_string(content).unwrap_or_default()
-                            }
-                        },
+                        content_to_string(content),
                     ));
                 }
                 span.set_attribute(KeyValue::new(
@@ -308,24 +297,10 @@ impl RecordSpan for CompletionRequest {
         span.set_attribute(KeyValue::new(GEN_AI_REQUEST_MODEL, self.model.clone()));
         span.set_attribute(KeyValue::new("gen_ai.prompt", self.prompt.clone()));
 
-        if let Some(freq_penalty) = self.frequency_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                freq_penalty as f64,
-            ));
-        }
-        if let Some(pres_penalty) = self.presence_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_PRESENCE_PENALTY,
-                pres_penalty as f64,
-            ));
-        }
-        if let Some(top_p) = self.top_p {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TOP_P, top_p as f64));
-        }
-        if let Some(temp) = self.temperature {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TEMPERATURE, temp as f64));
-        }
+        set_optional_f64(span, GEN_AI_REQUEST_FREQUENCY_PENALTY, self.frequency_penalty);
+        set_optional_f64(span, GEN_AI_REQUEST_PRESENCE_PENALTY, self.presence_penalty);
+        set_optional_f64(span, GEN_AI_REQUEST_TOP_P, self.top_p);
+        set_optional_f64(span, GEN_AI_REQUEST_TEMPERATURE, self.temperature);
     }
 }
 

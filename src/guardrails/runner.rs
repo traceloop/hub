@@ -194,10 +194,8 @@ pub async fn execute_guards(
     }
 }
 
-pub struct GuardPhaseResult {
-    pub blocked_response: Option<Response>,
-    pub warnings: Vec<GuardWarning>,
-}
+/// Result of a guard phase: Ok(warnings) on pass, Err(blocked_response) on block.
+pub type GuardPhaseResult = Result<Vec<GuardWarning>, Response>;
 
 pub struct GuardrailsRunner<'a> {
     pre_call: Vec<Guard>,
@@ -210,15 +208,9 @@ pub struct GuardrailsRunner<'a> {
 /// If the outcome is blocked, produces a blocked response; otherwise, forwards warnings.
 fn outcome_to_phase_result(outcome: GuardrailsOutcome) -> GuardPhaseResult {
     if outcome.blocked {
-        GuardPhaseResult {
-            blocked_response: Some(blocked_response(&outcome)),
-            warnings: Vec::new(),
-        }
+        Err(blocked_response(&outcome))
     } else {
-        GuardPhaseResult {
-            blocked_response: None,
-            warnings: outcome.warnings,
-        }
+        Ok(outcome.warnings)
     }
 }
 
@@ -247,10 +239,7 @@ impl<'a> GuardrailsRunner<'a> {
     /// Run pre-call guards, extracting input from the request only if guards exist.
     pub async fn run_pre_call(&self, request: &impl PromptExtractor) -> GuardPhaseResult {
         if self.pre_call.is_empty() {
-            return GuardPhaseResult {
-                blocked_response: None,
-                warnings: Vec::new(),
-            };
+            return Ok(Vec::new());
         }
         let input = request.extract_prompt();
         let outcome =
@@ -261,22 +250,16 @@ impl<'a> GuardrailsRunner<'a> {
     /// Run post-call guards, extracting input from the response only if guards exist.
     pub async fn run_post_call(&self, response: &impl CompletionExtractor) -> GuardPhaseResult {
         if self.post_call.is_empty() {
-            return GuardPhaseResult {
-                blocked_response: None,
-                warnings: Vec::new(),
-            };
+            return Ok(Vec::new());
         }
         let completion = response.extract_completion();
 
         if completion.is_empty() {
             warn!("Skipping post-call guardrails: LLM response content is empty");
-            return GuardPhaseResult {
-                blocked_response: None,
-                warnings: vec![GuardWarning {
-                    guard_name: "all post_call guards".to_string(),
-                    reason: "skipped due to empty response content".to_string(),
-                }],
-            };
+            return Ok(vec![GuardWarning {
+                guard_name: "all post_call guards".to_string(),
+                reason: "skipped due to empty response content".to_string(),
+            }]);
         }
 
         let outcome = execute_guards(

@@ -32,9 +32,9 @@ impl EndpointType {
     /// Determine endpoint type from request path.
     fn from_path(path: &str) -> Option<Self> {
         match path {
-            p if p.contains("/chat/completions") => Some(Self::Chat),
-            p if p.contains("/completions") => Some(Self::Completion),
-            p if p.contains("/embeddings") => Some(Self::Embeddings),
+            p if p.ends_with("/chat/completions") => Some(Self::Chat),
+            p if p.ends_with("/completions") => Some(Self::Completion),
+            p if p.ends_with("/embeddings") => Some(Self::Embeddings),
             _ => None,
         }
     }
@@ -114,10 +114,10 @@ async fn handle_post_call_guards(
     };
 
     if let Some(result) = post_result {
-        if let Some(blocked) = result.blocked_response {
-            return blocked;
+        match result {
+            Err(blocked) => return blocked,
+            Ok(w) => warnings.extend(w),
         }
-        warnings.extend(result.warnings);
     }
 
     let response = Response::from_parts(resp_parts, Body::from(resp_bytes));
@@ -265,11 +265,10 @@ where
             };
 
             // --- Pre-call guards ---
-            let pre_result = runner.run_pre_call(&parsed_request).await;
-            if let Some(blocked) = pre_result.blocked_response {
-                return Ok(blocked);
-            }
-            let all_warnings = pre_result.warnings;
+            let all_warnings = match runner.run_pre_call(&parsed_request).await {
+                Ok(warnings) => warnings,
+                Err(blocked) => return Ok(blocked),
+            };
 
             // --- Call inner service ---
             let request = Request::from_parts(parts, Body::from(bytes));
