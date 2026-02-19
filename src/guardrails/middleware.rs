@@ -58,7 +58,12 @@ impl ParsedRequest {
     }
 
     /// Returns true if this request type supports post-call guards.
+    /// Streaming requests do not support post-call guards because the response
+    /// is sent as chunks and cannot be buffered for evaluation.
     fn supports_post_call(&self) -> bool {
+        if self.is_streaming() {
+            return false;
+        }
         match self {
             ParsedRequest::Chat(_) | ParsedRequest::Completion(_) => true,
             ParsedRequest::Embeddings(_) => false,
@@ -143,7 +148,7 @@ fn try_parse<T: DeserializeOwned>(bytes: &[u8], label: &str) -> Option<T> {
 ///
 /// - **Pre-call guards** run before the inner service, inspecting the request body.
 /// - **Post-call guards** run after the inner service, inspecting the response body.
-/// - Streaming requests (`"stream": true`) bypass guardrails entirely.
+/// - Streaming requests (`"stream": true`) run pre-call guards but skip post-call guards.
 #[derive(Clone)]
 pub struct GuardrailsLayer {
     guardrails: Option<Arc<Guardrails>>,
@@ -239,13 +244,6 @@ where
                     return inner.call(request).await;
                 }
             };
-
-            // Skip guardrails for streaming requests
-            if parsed_request.is_streaming() {
-                debug!("Guardrails middleware: streaming request, skipping guardrails");
-                let request = Request::from_parts(parts, Body::from(bytes));
-                return inner.call(request).await;
-            }
 
             // Resolve guards from pipeline config + request headers
             // Extract parent context from the tracer in request extensions

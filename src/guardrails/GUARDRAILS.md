@@ -46,7 +46,7 @@ This document focuses on **config mode** available in Traceloop Hub v1.
 - ✅ Chat Completions (`/v1/chat/completions`) — pre-call and post-call guards
 - ✅ Completions (`/v1/completions`) — pre-call and post-call guards
 - ✅ Embeddings (`/v1/embeddings`) — **pre-call guards only**
-- ❌ Streaming requests are **not supported** — guardrails require the complete request/response for evaluation
+- ⚠️ Streaming requests (`"stream": true`) — **pre-call guards only** (post-call guards are skipped because the response is sent as incremental chunks)
 
 ---
 

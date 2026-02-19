@@ -451,20 +451,20 @@ async fn test_post_call_guard_skipped_for_embeddings() {
 // ===========================================================================
 
 #[tokio::test]
-async fn test_streaming_chat_bypasses_guards() {
-    // Set up mock evaluator (should never be called)
+async fn test_streaming_chat_runs_pre_call_guards() {
+    // Set up mock evaluator (should be called for pre-call)
     let eval_server = MockServer::start().await;
-    Mock::given(matchers::any())
+    Mock::given(matchers::method("POST"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "result": {},
-            "pass": false  // Would block if evaluated
+            "pass": true
         })))
-        .expect(0) // Should never be called for streaming
+        .expect(1) // Pre-call guard should run even for streaming
         .mount(&eval_server)
         .await;
 
     let guard = guard_with_server(
-        "blocker",
+        "detector",
         GuardMode::PreCall,
         OnFailure::Block,
         &eval_server.uri(),
@@ -478,7 +478,7 @@ async fn test_streaming_chat_bypasses_guards() {
     let mut service = layer.layer(inner_service);
 
     // Create STREAMING chat request
-    let request = create_streaming_chat_request("This would fail guards if checked");
+    let request = create_streaming_chat_request("Safe input");
     let http_request = Request::builder()
         .method("POST")
         .uri("/v1/chat/completions")
@@ -494,34 +494,27 @@ async fn test_streaming_chat_bypasses_guards() {
         .await
         .unwrap();
 
-    // Verify response is 200 OK (streaming bypasses guards)
+    // Verify response is 200 OK (pre-call guard passed)
     assert_eq!(response.status(), StatusCode::OK);
 
-    // Verify no warning header
-    assert!(
-        !response
-            .headers()
-            .contains_key("x-traceloop-guardrail-warning")
-    );
-
-    // Wiremock verifies evaluator was never called (expect(0))
+    // Wiremock verifies evaluator was called exactly once (expect(1))
 }
 
 #[tokio::test]
-async fn test_streaming_completion_bypasses_guards() {
-    // Set up mock evaluator (should never be called)
+async fn test_streaming_completion_runs_pre_call_guards() {
+    // Set up mock evaluator (should be called for pre-call)
     let eval_server = MockServer::start().await;
-    Mock::given(matchers::any())
+    Mock::given(matchers::method("POST"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "result": {},
-            "pass": false  // Would block if evaluated
+            "pass": true
         })))
-        .expect(0) // Should never be called for streaming
+        .expect(1) // Pre-call guard should run even for streaming
         .mount(&eval_server)
         .await;
 
     let guard = guard_with_server(
-        "blocker",
+        "detector",
         GuardMode::PreCall,
         OnFailure::Block,
         &eval_server.uri(),
@@ -535,7 +528,7 @@ async fn test_streaming_completion_bypasses_guards() {
     let mut service = layer.layer(inner_service);
 
     // Create STREAMING completion request
-    let request = create_streaming_completion_request("This would fail guards if checked");
+    let request = create_streaming_completion_request("Safe input");
     let http_request = Request::builder()
         .method("POST")
         .uri("/v1/completions")
@@ -551,17 +544,242 @@ async fn test_streaming_completion_bypasses_guards() {
         .await
         .unwrap();
 
-    // Verify response is 200 OK (streaming bypasses guards)
+    // Verify response is 200 OK (pre-call guard passed)
     assert_eq!(response.status(), StatusCode::OK);
 
-    // Verify no warning header
+    // Wiremock verifies evaluator was called exactly once (expect(1))
+}
+
+#[tokio::test]
+async fn test_streaming_chat_pre_call_blocks() {
+    // Set up mock evaluator that fails
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": {"reason": "toxic content"},
+            "pass": false
+        })))
+        .expect(1)
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "blocker",
+        GuardMode::PreCall,
+        OnFailure::Block,
+        &eval_server.uri(),
+    );
+    let guardrails = create_guardrails(vec![guard]);
+
+    let completion = create_test_chat_completion("This won't be returned");
+    let inner_service = MockService::with_json(StatusCode::OK, &completion);
+
+    let layer = GuardrailsLayer::new(Some(Arc::new(guardrails)));
+    let mut service = layer.layer(inner_service);
+
+    // Create STREAMING chat request with bad input
+    let request = create_streaming_chat_request("Bad input");
+    let http_request = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&request).unwrap()))
+        .unwrap();
+
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
+
+    // Verify blocked by pre-call guard even for streaming
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body_bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+    assert_eq!(response_json["error"]["guardrail"], "blocker");
+}
+
+#[tokio::test]
+async fn test_streaming_chat_pre_call_warns() {
+    // Set up mock evaluator that fails with warn
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": {"reason": "borderline"},
+            "pass": false
+        })))
+        .expect(1)
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "warner",
+        GuardMode::PreCall,
+        OnFailure::Warn,
+        &eval_server.uri(),
+    );
+    let guardrails = create_guardrails(vec![guard]);
+
+    let completion = create_test_chat_completion("Response text");
+    let inner_service = MockService::with_json(StatusCode::OK, &completion);
+
+    let layer = GuardrailsLayer::new(Some(Arc::new(guardrails)));
+    let mut service = layer.layer(inner_service);
+
+    let request = create_streaming_chat_request("Borderline input");
+    let http_request = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&request).unwrap()))
+        .unwrap();
+
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
+
+    // Verify passes with warning even for streaming
+    assert_eq!(response.status(), StatusCode::OK);
     assert!(
-        !response
+        response
             .headers()
             .contains_key("x-traceloop-guardrail-warning")
     );
 
-    // Wiremock verifies evaluator was never called (expect(0))
+    let warning_header = response
+        .headers()
+        .get("x-traceloop-guardrail-warning")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(warning_header.contains("warner"));
+}
+
+#[tokio::test]
+async fn test_streaming_chat_post_call_skipped() {
+    // Set up mock evaluator for pre-call (should pass)
+    let pre_eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": {},
+            "pass": true
+        })))
+        .expect(1) // Pre-call should run
+        .mount(&pre_eval_server)
+        .await;
+
+    // Set up mock evaluator for post-call (should NOT be called)
+    let post_eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": {},
+            "pass": false  // Would block if called
+        })))
+        .expect(0) // Post-call should NOT run for streaming
+        .mount(&post_eval_server)
+        .await;
+
+    let pre_guard = guard_with_server(
+        "pre-guard",
+        GuardMode::PreCall,
+        OnFailure::Block,
+        &pre_eval_server.uri(),
+    );
+    let post_guard = guard_with_server(
+        "post-guard",
+        GuardMode::PostCall,
+        OnFailure::Block,
+        &post_eval_server.uri(),
+    );
+    let guardrails = create_guardrails(vec![pre_guard, post_guard]);
+
+    let completion = create_test_chat_completion("Streamed response");
+    let inner_service = MockService::with_json(StatusCode::OK, &completion);
+
+    let layer = GuardrailsLayer::new(Some(Arc::new(guardrails)));
+    let mut service = layer.layer(inner_service);
+
+    let request = create_streaming_chat_request("Safe input");
+    let http_request = Request::builder()
+        .method("POST")
+        .uri("/v1/chat/completions")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&request).unwrap()))
+        .unwrap();
+
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
+
+    // Verify 200 OK — post-call guard was skipped for streaming
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // Wiremock verifies:
+    // - pre-call evaluator called exactly once (expect(1))
+    // - post-call evaluator never called (expect(0))
+}
+
+#[tokio::test]
+async fn test_streaming_completion_pre_call_blocks() {
+    // Set up mock evaluator that fails
+    let eval_server = MockServer::start().await;
+    Mock::given(matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "result": {"reason": "toxic content"},
+            "pass": false
+        })))
+        .expect(1)
+        .mount(&eval_server)
+        .await;
+
+    let guard = guard_with_server(
+        "blocker",
+        GuardMode::PreCall,
+        OnFailure::Block,
+        &eval_server.uri(),
+    );
+    let guardrails = create_guardrails(vec![guard]);
+
+    let completion = create_test_completion_response("This won't be returned");
+    let inner_service = MockService::with_json(StatusCode::OK, &completion);
+
+    let layer = GuardrailsLayer::new(Some(Arc::new(guardrails)));
+    let mut service = layer.layer(inner_service);
+
+    // Create STREAMING completion request with bad input
+    let request = create_streaming_completion_request("Bad input");
+    let http_request = Request::builder()
+        .method("POST")
+        .uri("/v1/completions")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&request).unwrap()))
+        .unwrap();
+
+    let response = service
+        .ready()
+        .await
+        .unwrap()
+        .call(http_request)
+        .await
+        .unwrap();
+
+    // Verify blocked by pre-call guard even for streaming
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body_bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+    assert_eq!(response_json["error"]["guardrail"], "blocker");
 }
 
 // ===========================================================================
