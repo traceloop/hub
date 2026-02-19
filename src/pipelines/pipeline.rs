@@ -497,24 +497,20 @@ mod tests {
         assert!(!ids.contains(&"test-model-2"));
     }
 
-    // Test providers with different types for vendor testing
+    // Parameterized test provider for vendor testing
     #[derive(Clone)]
-    struct TestProviderOpenAI;
-    #[derive(Clone)]
-    struct TestProviderAnthropic;
-    #[derive(Clone)]
-    struct TestProviderAzure;
+    struct TestProvider(ProviderType);
 
     #[async_trait]
-    impl Provider for TestProviderOpenAI {
+    impl Provider for TestProvider {
         fn new(_config: &ProviderConfig) -> Self {
-            Self
+            Self(ProviderType::OpenAI)
         }
         fn key(&self) -> String {
-            "openai-key".to_string()
+            format!("{:?}-key", self.0).to_lowercase()
         }
         fn r#type(&self) -> ProviderType {
-            ProviderType::OpenAI
+            self.0.clone()
         }
 
         async fn chat_completions(
@@ -527,101 +523,7 @@ mod tests {
                     id: "test".to_string(),
                     object: None,
                     created: None,
-                    model: "gpt-4".to_string(),
-                    choices: vec![],
-                    usage: crate::models::usage::Usage::default(),
-                    system_fingerprint: None,
-                },
-            ))
-        }
-
-        async fn completions(
-            &self,
-            _payload: CompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::completion::CompletionResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-
-        async fn embeddings(
-            &self,
-            _payload: EmbeddingsRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::embeddings::EmbeddingsResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-    }
-
-    #[async_trait]
-    impl Provider for TestProviderAnthropic {
-        fn new(_config: &ProviderConfig) -> Self {
-            Self
-        }
-        fn key(&self) -> String {
-            "anthropic-key".to_string()
-        }
-        fn r#type(&self) -> ProviderType {
-            ProviderType::Anthropic
-        }
-
-        async fn chat_completions(
-            &self,
-            _payload: crate::models::chat::ChatCompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
-            Ok(crate::models::chat::ChatCompletionResponse::NonStream(
-                crate::models::chat::ChatCompletion {
-                    id: "test".to_string(),
-                    object: None,
-                    created: None,
-                    model: "claude-3".to_string(),
-                    choices: vec![],
-                    usage: crate::models::usage::Usage::default(),
-                    system_fingerprint: None,
-                },
-            ))
-        }
-
-        async fn completions(
-            &self,
-            _payload: CompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::completion::CompletionResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-
-        async fn embeddings(
-            &self,
-            _payload: EmbeddingsRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::embeddings::EmbeddingsResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-    }
-
-    #[async_trait]
-    impl Provider for TestProviderAzure {
-        fn new(_config: &ProviderConfig) -> Self {
-            Self
-        }
-        fn key(&self) -> String {
-            "azure-key".to_string()
-        }
-        fn r#type(&self) -> ProviderType {
-            ProviderType::Azure
-        }
-
-        async fn chat_completions(
-            &self,
-            _payload: crate::models::chat::ChatCompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
-            Ok(crate::models::chat::ChatCompletionResponse::NonStream(
-                crate::models::chat::ChatCompletion {
-                    id: "test".to_string(),
-                    object: None,
-                    created: None,
-                    model: "gpt-4".to_string(),
+                    model: "test".to_string(),
                     choices: vec![],
                     usage: crate::models::usage::Usage::default(),
                     system_fingerprint: None,
@@ -659,20 +561,18 @@ mod tests {
 
     #[test]
     fn test_provider_type_methods() {
-        // Test that our test providers return the correct types
-        // This ensures the pipeline would call set_vendor with the right values
-        let openai_provider = TestProviderOpenAI;
-        let anthropic_provider = TestProviderAnthropic;
-        let azure_provider = TestProviderAzure;
-
-        assert_eq!(openai_provider.r#type(), ProviderType::OpenAI);
-        assert_eq!(anthropic_provider.r#type(), ProviderType::Anthropic);
-        assert_eq!(azure_provider.r#type(), ProviderType::Azure);
-
-        // Test that these map to the correct vendor names
-        assert_eq!(get_vendor_name(&openai_provider.r#type()), "openai");
-        assert_eq!(get_vendor_name(&anthropic_provider.r#type()), "Anthropic");
-        assert_eq!(get_vendor_name(&azure_provider.r#type()), "Azure");
+        // Test that our test provider returns the correct types
+        // and maps to the correct vendor names
+        let cases = [
+            (ProviderType::OpenAI, "openai"),
+            (ProviderType::Anthropic, "Anthropic"),
+            (ProviderType::Azure, "Azure"),
+        ];
+        for (provider_type, expected_vendor) in cases {
+            let provider = TestProvider(provider_type.clone());
+            assert_eq!(provider.r#type(), provider_type);
+            assert_eq!(get_vendor_name(&provider.r#type()), expected_vendor);
+        }
     }
 
     // OpenTelemetry span verification tests

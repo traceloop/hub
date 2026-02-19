@@ -138,47 +138,46 @@ pub async fn execute_guards(
         if let Some(s) = span {
             guard_spans.push(s);
         }
+        let name = guard.name.clone();
         match result {
             Ok(response) => {
                 if response.pass {
-                    results.push(GuardResult::Passed {
-                        name: guard.name.clone(),
-                    });
+                    results.push(GuardResult::Passed { name });
                 } else {
-                    results.push(GuardResult::Failed {
-                        name: guard.name.clone(),
-                        result: response.result,
-                        on_failure: guard.on_failure.clone(),
-                    });
                     match guard.on_failure {
                         OnFailure::Block => {
                             blocked = true;
                             if blocking_guard.is_none() {
-                                blocking_guard = Some(guard.name.clone());
+                                blocking_guard = Some(name.clone());
                             }
                         }
                         OnFailure::Warn => {
                             warnings.push(GuardWarning {
-                                guard_name: guard.name.clone(),
+                                guard_name: name.clone(),
                                 reason: "failed".to_string(),
                             });
                         }
                     }
+                    results.push(GuardResult::Failed {
+                        name,
+                        result: response.result,
+                        on_failure: guard.on_failure,
+                    });
                 }
             }
             Err(err) => {
                 let is_required = guard.required;
-                results.push(GuardResult::Error {
-                    name: guard.name.clone(),
-                    error: err.to_string(),
-                    required: is_required,
-                });
                 if is_required {
                     blocked = true;
                     if blocking_guard.is_none() {
-                        blocking_guard = Some(guard.name.clone());
+                        blocking_guard = Some(name.clone());
                     }
                 }
+                results.push(GuardResult::Error {
+                    name,
+                    error: err.to_string(),
+                    required: is_required,
+                });
             }
         }
     }

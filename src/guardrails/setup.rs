@@ -42,17 +42,10 @@ pub fn resolve_guards_by_name(
 
 /// Split guards into (pre_call, post_call) lists by mode.
 pub fn split_guards_by_mode(guards: &[Guard]) -> (Vec<Guard>, Vec<Guard>) {
-    let pre_call: Vec<Guard> = guards
+    guards
         .iter()
-        .filter(|g| g.mode == GuardMode::PreCall)
         .cloned()
-        .collect();
-    let post_call: Vec<Guard> = guards
-        .iter()
-        .filter(|g| g.mode == GuardMode::PostCall)
-        .cloned()
-        .collect();
-    (pre_call, post_call)
+        .partition(|g| g.mode == GuardMode::PreCall)
 }
 
 /// Resolve provider defaults (api_base/api_key) for all guards in the config.

@@ -20,14 +20,14 @@ fn default_required() -> bool {
     false
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum GuardMode {
     PreCall,
     PostCall,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum OnFailure {
     Block,
@@ -68,7 +68,7 @@ impl Hash for Guard {
         self.evaluator_slug.hash(state);
         // Hash params by sorting keys and hashing serialized values
         let mut params_vec: Vec<_> = self.params.iter().collect();
-        params_vec.sort_by_key(|(k, _)| (*k).clone());
+        params_vec.sort_by(|a, b| a.0.cmp(b.0));
         for (k, v) in params_vec {
             k.hash(state);
             v.to_string().hash(state);
@@ -117,7 +117,7 @@ where
 impl Hash for GuardrailsConfig {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut entries: Vec<_> = self.providers.iter().collect();
-        entries.sort_by_key(|(k, _)| (*k).clone());
+        entries.sort_by(|a, b| a.0.cmp(b.0));
         for (k, v) in entries {
             k.hash(state);
             v.hash(state);
