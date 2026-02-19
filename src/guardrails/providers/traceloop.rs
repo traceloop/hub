@@ -9,7 +9,7 @@ const DEFAULT_TRACELOOP_API: &str = "https://api.traceloop.com";
 const DEFAULT_TIMEOUT_SEC: u64 = 3;
 
 /// HTTP client for the Traceloop evaluator API service.
-/// Calls `POST {api_base}/v2/guardrails/{evaluator_slug}`.
+/// Calls `POST {api_base}/v2/guardrails/execute/{evaluator_slug}`.
 pub struct TraceloopClient {
     http_client: reqwest::Client,
 }
@@ -74,7 +74,6 @@ impl GuardrailClient for TraceloopClient {
             .http_client
             .post(&url)
             .header("Authorization", format!("Bearer {api_key}"))
-            .header("Content-Type", "application/json")
             .json(&body)
             .send()
             .await?;

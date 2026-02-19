@@ -7,7 +7,7 @@ use axum::body::Body;
 use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
 use tower::{Layer, Service};
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::models::chat::{ChatCompletion, ChatCompletionRequest};
 use crate::models::completion::{CompletionRequest, CompletionResponse};
@@ -227,8 +227,18 @@ where
             let bytes = match axum::body::to_bytes(body, MAX_BODY_SIZE).await {
                 Ok(b) => b,
                 Err(_) => {
-                    debug!("Guardrails middleware: failed to buffer request body, passing through");
-                    return Ok(axum::http::StatusCode::BAD_REQUEST.into_response());
+                    warn!("Guardrails middleware: request body too large or unreadable");
+                    let body = serde_json::json!({
+                        "error": {
+                            "message": "Request body too large or unreadable",
+                            "type": "invalid_request_error",
+                        }
+                    });
+                    return Ok((
+                        axum::http::StatusCode::BAD_REQUEST,
+                        axum::Json(body),
+                    )
+                        .into_response());
                 }
             };
 
