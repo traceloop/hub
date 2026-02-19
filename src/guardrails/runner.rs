@@ -167,15 +167,21 @@ pub async fn execute_guards(
             }
             Err(err) => {
                 let is_required = guard.required;
+                let error_msg = err.to_string();
                 if is_required {
                     blocked = true;
                     if blocking_guard.is_none() {
                         blocking_guard = Some(name.clone());
                     }
+                } else {
+                    warnings.push(GuardWarning {
+                        guard_name: name.clone(),
+                        reason: format!("evaluator error: {error_msg}"),
+                    });
                 }
                 results.push(GuardResult::Error {
                     name,
-                    error: err.to_string(),
+                    error: error_msg,
                     required: is_required,
                 });
             }

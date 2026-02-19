@@ -111,6 +111,10 @@ async fn test_guard_evaluator_unavailable_required_false() {
             ..
         }
     ));
+    // Non-required guard error should produce a warning header (fail-open)
+    assert_eq!(outcome.warnings.len(), 1);
+    assert_eq!(outcome.warnings[0].guard_name, "check");
+    assert!(outcome.warnings[0].reason.contains("evaluator error"));
 }
 
 #[tokio::test]
@@ -124,6 +128,8 @@ async fn test_guard_evaluator_unavailable_required_true() {
     );
     let outcome = execute_guards(&[guard], "input", &mock_client, None).await;
     assert!(outcome.blocked); // Fail-closed
+    // Required guard error should NOT produce a warning (it blocks instead)
+    assert!(outcome.warnings.is_empty());
 }
 
 #[tokio::test]

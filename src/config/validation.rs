@@ -51,37 +51,38 @@ pub fn validate_gateway_config(config: &GatewayConfig) -> Result<(), Vec<String>
         // Validate all guards in a single pass
         let mut seen_guard_names = HashSet::new();
         for guard in &gr_config.guards {
-            // Check provider reference exists
+            // Check provider reference exists; skip api_base/api_key checks
+            // when the provider is missing since those would be redundant.
             if !gr_config.providers.contains_key(&guard.provider) {
                 errors.push(format!(
                     "Guard '{}' references non-existent guardrail provider '{}'.",
                     guard.name, guard.provider
                 ));
-            }
+            } else {
+                // Check api_base and api_key (either directly or via provider)
+                let has_api_base = guard.api_base.as_ref().is_some_and(|s| !s.is_empty())
+                    || gr_config
+                        .providers
+                        .get(&guard.provider)
+                        .is_some_and(|p| !p.api_base.is_empty());
+                let has_api_key = guard.api_key.as_ref().is_some_and(|s| !s.is_empty())
+                    || gr_config
+                        .providers
+                        .get(&guard.provider)
+                        .is_some_and(|p| !p.api_key.is_empty());
 
-            // Check api_base and api_key (either directly or via provider)
-            let has_api_base = guard.api_base.as_ref().is_some_and(|s| !s.is_empty())
-                || gr_config
-                    .providers
-                    .get(&guard.provider)
-                    .is_some_and(|p| !p.api_base.is_empty());
-            let has_api_key = guard.api_key.as_ref().is_some_and(|s| !s.is_empty())
-                || gr_config
-                    .providers
-                    .get(&guard.provider)
-                    .is_some_and(|p| !p.api_key.is_empty());
-
-            if !has_api_base {
-                errors.push(format!(
-                    "Guard '{}' has no api_base configured (neither on the guard nor on provider '{}').",
-                    guard.name, guard.provider
-                ));
-            }
-            if !has_api_key {
-                errors.push(format!(
-                    "Guard '{}' has no api_key configured (neither on the guard nor on provider '{}').",
-                    guard.name, guard.provider
-                ));
+                if !has_api_base {
+                    errors.push(format!(
+                        "Guard '{}' has no api_base configured (neither on the guard nor on provider '{}').",
+                        guard.name, guard.provider
+                    ));
+                }
+                if !has_api_key {
+                    errors.push(format!(
+                        "Guard '{}' has no api_key configured (neither on the guard nor on provider '{}').",
+                        guard.name, guard.provider
+                    ));
+                }
             }
 
             // Check evaluator slug is recognized
