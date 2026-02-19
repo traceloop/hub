@@ -256,10 +256,6 @@ async fn test_e2e_config_from_yaml_with_env_vars() {
     use std::io::Write;
     use tempfile::NamedTempFile;
 
-    unsafe {
-        std::env::set_var("E2E_TEST_API_KEY", "resolved-key-123");
-    }
-
     let config_yaml = r#"
 providers:
   - key: openai
@@ -297,9 +293,14 @@ guardrails:
 
     let mut temp_file = NamedTempFile::new().unwrap();
     temp_file.write_all(config_yaml.as_bytes()).unwrap();
+    let temp_path = temp_file.path().to_str().unwrap().to_owned();
 
-    let config = hub_lib::config::load_config(temp_file.path().to_str().unwrap()).unwrap();
-    let gr = config.guardrails.unwrap();
+    let gr =
+        temp_env::with_var("E2E_TEST_API_KEY", Some("resolved-key-123"), || {
+            let config =
+                hub_lib::config::load_config(&temp_path).unwrap();
+            config.guardrails.unwrap()
+        });
 
     assert_eq!(gr.providers.len(), 1);
     assert_eq!(gr.providers["traceloop"].api_key, "resolved-key-123");
@@ -337,10 +338,6 @@ guardrails:
     assert_eq!(pre_guard.api_key.as_deref(), Some("resolved-key-123"));
     // Guard with override keeps its own api_key
     assert_eq!(post_guard.api_key.as_deref(), Some("override-key"));
-
-    unsafe {
-        std::env::remove_var("E2E_TEST_API_KEY");
-    }
 }
 
 #[tokio::test]

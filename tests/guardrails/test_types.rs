@@ -127,9 +127,6 @@ fn test_gateway_config_without_guardrails_backward_compat() {
 
 #[test]
 fn test_guard_config_env_var_in_api_key() {
-    unsafe {
-        std::env::set_var("TEST_GUARD_API_KEY_UNIQUE", "tl-secret-key");
-    }
     let config_content = r#"
 providers:
   - key: openai
@@ -157,12 +154,12 @@ guardrails:
 "#;
     let mut temp_file = NamedTempFile::new().unwrap();
     temp_file.write_all(config_content.as_bytes()).unwrap();
-    let config = hub_lib::config::load_config(temp_file.path().to_str().unwrap()).unwrap();
-    let guards = config.guardrails.unwrap().guards;
-    assert_eq!(guards[0].api_key.as_deref(), Some("tl-secret-key"));
-    unsafe {
-        std::env::remove_var("TEST_GUARD_API_KEY_UNIQUE");
-    }
+    let temp_path = temp_file.path().to_str().unwrap().to_owned();
+    temp_env::with_var("TEST_GUARD_API_KEY_UNIQUE", Some("tl-secret-key"), || {
+        let config = hub_lib::config::load_config(&temp_path).unwrap();
+        let guards = config.guardrails.unwrap().guards;
+        assert_eq!(guards[0].api_key.as_deref(), Some("tl-secret-key"));
+    });
 }
 
 // ---------------------------------------------------------------------------

@@ -73,6 +73,7 @@ tempfile = "3.8"
 testcontainers = "0.20.0"
 testcontainers-modules = { version = "0.8.0", features = ["postgres"] }
 axum-test = "17"
+temp-env = "0.3"
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "migrate"] }
 tokio = { version = "1.45.0", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
