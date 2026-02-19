@@ -195,7 +195,7 @@ pub async fn execute_guards(
 }
 
 /// Result of a guard phase: Ok(warnings) on pass, Err(blocked_response) on block.
-pub type GuardPhaseResult = Result<Vec<GuardWarning>, Response>;
+pub type GuardPhaseResult = Result<Vec<GuardWarning>, Box<Response>>;
 
 pub struct GuardrailsRunner<'a> {
     pre_call: Vec<Guard>,
@@ -208,7 +208,7 @@ pub struct GuardrailsRunner<'a> {
 /// If the outcome is blocked, produces a blocked response; otherwise, forwards warnings.
 fn outcome_to_phase_result(outcome: GuardrailsOutcome) -> GuardPhaseResult {
     if outcome.blocked {
-        Err(blocked_response(&outcome))
+        Err(Box::new(blocked_response(&outcome)))
     } else {
         Ok(outcome.warnings)
     }

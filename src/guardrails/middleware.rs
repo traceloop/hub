@@ -115,7 +115,7 @@ async fn handle_post_call_guards(
 
     if let Some(result) = post_result {
         match result {
-            Err(blocked) => return blocked,
+            Err(blocked) => return *blocked,
             Ok(w) => warnings.extend(w),
         }
     }
@@ -267,7 +267,7 @@ where
             // --- Pre-call guards ---
             let all_warnings = match runner.run_pre_call(&parsed_request).await {
                 Ok(warnings) => warnings,
-                Err(blocked) => return Ok(blocked),
+                Err(blocked) => return Ok(*blocked),
             };
 
             // --- Call inner service ---

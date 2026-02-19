@@ -241,7 +241,11 @@ impl RecordSpan for ChatCompletionRequest {
         span.set_attribute(KeyValue::new("llm.request.type", "chat"));
         span.set_attribute(KeyValue::new(GEN_AI_REQUEST_MODEL, self.model.clone()));
 
-        set_optional_f64(span, GEN_AI_REQUEST_FREQUENCY_PENALTY, self.frequency_penalty);
+        set_optional_f64(
+            span,
+            GEN_AI_REQUEST_FREQUENCY_PENALTY,
+            self.frequency_penalty,
+        );
         set_optional_f64(span, GEN_AI_REQUEST_PRESENCE_PENALTY, self.presence_penalty);
         set_optional_f64(span, GEN_AI_REQUEST_TOP_P, self.top_p);
         set_optional_f64(span, GEN_AI_REQUEST_TEMPERATURE, self.temperature);
@@ -297,7 +301,11 @@ impl RecordSpan for CompletionRequest {
         span.set_attribute(KeyValue::new(GEN_AI_REQUEST_MODEL, self.model.clone()));
         span.set_attribute(KeyValue::new("gen_ai.prompt", self.prompt.clone()));
 
-        set_optional_f64(span, GEN_AI_REQUEST_FREQUENCY_PENALTY, self.frequency_penalty);
+        set_optional_f64(
+            span,
+            GEN_AI_REQUEST_FREQUENCY_PENALTY,
+            self.frequency_penalty,
+        );
         set_optional_f64(span, GEN_AI_REQUEST_PRESENCE_PENALTY, self.presence_penalty);
         set_optional_f64(span, GEN_AI_REQUEST_TOP_P, self.top_p);
         set_optional_f64(span, GEN_AI_REQUEST_TEMPERATURE, self.temperature);

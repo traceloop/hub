@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
-use crate::guardrails::types::GuardrailClient;
 use crate::guardrails::evaluator_types::get_evaluator;
 use crate::guardrails::parsing::parse_evaluator_http_response;
+use crate::guardrails::types::GuardrailClient;
 use crate::guardrails::types::{EvaluatorResponse, Guard, GuardrailError};
 
 const DEFAULT_TRACELOOP_API: &str = "https://api.traceloop.com";

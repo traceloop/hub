@@ -605,11 +605,11 @@ async fn test_post_call_skipped_on_empty_response() {
     let empty_completion = create_test_chat_completion("");
     let result = runner.run_post_call(&empty_completion).await;
 
-    assert!(result.blocked_response.is_none());
-    assert_eq!(result.warnings.len(), 1);
-    assert!(result.warnings[0].reason.contains("empty response content"));
+    let warnings = result.expect("should not be blocked");
+    assert_eq!(warnings.len(), 1);
+    assert!(warnings[0].reason.contains("empty response content"));
 
-    let header = warning_header_value(&result.warnings);
+    let header = warning_header_value(&warnings);
     assert!(header.contains("skipped"));
     // wiremock will verify expect(0) — evaluator was never called
 }
