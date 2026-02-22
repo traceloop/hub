@@ -295,12 +295,10 @@ guardrails:
     temp_file.write_all(config_yaml.as_bytes()).unwrap();
     let temp_path = temp_file.path().to_str().unwrap().to_owned();
 
-    let gr =
-        temp_env::with_var("E2E_TEST_API_KEY", Some("resolved-key-123"), || {
-            let config =
-                hub_lib::config::load_config(&temp_path).unwrap();
-            config.guardrails.unwrap()
-        });
+    let gr = temp_env::with_var("E2E_TEST_API_KEY", Some("resolved-key-123"), || {
+        let config = hub_lib::config::load_config(&temp_path).unwrap();
+        config.guardrails.unwrap()
+    });
 
     assert_eq!(gr.providers.len(), 1);
     assert_eq!(gr.providers["traceloop"].api_key, "resolved-key-123");

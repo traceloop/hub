@@ -234,11 +234,9 @@ where
                             "type": "invalid_request_error",
                         }
                     });
-                    return Ok((
-                        axum::http::StatusCode::BAD_REQUEST,
-                        axum::Json(body),
-                    )
-                        .into_response());
+                    return Ok(
+                        (axum::http::StatusCode::BAD_REQUEST, axum::Json(body)).into_response()
+                    );
                 }
             };
 

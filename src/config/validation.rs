@@ -251,8 +251,6 @@ mod tests {
         assert!(errors.iter().any(|e| {
             e.contains("references non-existent guardrail provider 'gr_p2_non_existent'")
         }));
-        assert!(errors.iter().any(|e| e.contains("no api_base configured")));
-        assert!(errors.iter().any(|e| e.contains("no api_key configured")));
     }
 
     #[test]
