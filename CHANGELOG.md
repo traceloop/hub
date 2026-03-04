@@ -1,3 +1,9 @@
+## v0.8.0 (2026-03-04)
+
+### Feat
+
+- add base_url support for OpenAI provider in managed mode (#98)
+
 ## v0.7.7 (2026-02-08)
 
 ### Fix
