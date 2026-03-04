@@ -96,6 +96,7 @@ async fn create_test_provider(
         ProviderType::OpenAI => ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal(format!("openai_key_{}", key_suffix)),
             organization_id: Some(format!("openai_org_{}", key_suffix)),
+            base_url: None,
         }),
         ProviderType::Azure => ProviderConfig::Azure(AzureProviderConfig {
             api_key: SecretObject::literal(format!("azure_key_{}", key_suffix)),
