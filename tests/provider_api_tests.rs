@@ -880,3 +880,40 @@ async fn test_create_anthropic_provider_success() {
         );
     }
 }
+
+#[tokio::test]
+async fn test_create_openai_provider_with_base_url() {
+    let (client, _pool, _container) = setup_test_environment().await;
+
+    let request_payload = CreateProviderRequest {
+        name: "OpenAI with Base URL".to_string(),
+        provider_type: ProviderType::OpenAI,
+        config: ProviderConfig::OpenAI(OpenAIProviderConfig {
+            api_key: SecretObject::literal("test_openai_key".to_string()),
+            organization_id: Some("test_org".to_string()),
+            base_url: Some("https://eu.api.openai.com/v1".to_string()),
+        }),
+        enabled: Some(true),
+    };
+
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
+    assert_eq!(response.status_code(), axum::http::StatusCode::CREATED);
+
+    let provider_response: ProviderResponse = response.json::<ProviderResponse>();
+    assert_eq!(provider_response.config, request_payload.config);
+
+    // Verify the value persisted via GET
+    let get_response = client
+        .get(&format!(
+            "/api/v1/management/providers/{}",
+            provider_response.id
+        ))
+        .await;
+    assert_eq!(get_response.status_code(), axum::http::StatusCode::OK);
+
+    let fetched: ProviderResponse = get_response.json::<ProviderResponse>();
+    assert_eq!(fetched.config, request_payload.config);
+}
