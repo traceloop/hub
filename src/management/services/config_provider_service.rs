@@ -133,6 +133,9 @@ impl ConfigProviderService {
                 if let Some(org_id) = c.organization_id {
                     params.insert("organization_id".to_string(), org_id);
                 }
+                if let Some(base_url) = c.base_url {
+                    params.insert("base_url".to_string(), base_url);
+                }
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
             }
             ProviderConfig::Azure(c) => {
