@@ -81,6 +81,7 @@ async fn create_test_provider(
         ProviderType::OpenAI => ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal("test_openai_key".to_string()),
             organization_id: None,
+            base_url: None,
         }),
         _ => panic!("Unsupported provider type for test helper"),
     };

@@ -57,6 +57,7 @@ impl SecretObject {
 pub struct OpenAIProviderConfig {
     pub api_key: SecretObject,
     pub organization_id: Option<String>,
+    pub base_url: Option<String>,
 }
 
 /// Configuration specific to Anthropic providers.

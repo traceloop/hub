@@ -45,10 +45,12 @@ fn get_all_provider_test_data() -> Vec<ProviderTestData> {
             config: ProviderConfig::OpenAI(OpenAIProviderConfig {
                 api_key: SecretObject::literal("test_openai_key".to_string()),
                 organization_id: Some("test_org".to_string()),
+                base_url: None,
             }),
             updated_config: ProviderConfig::OpenAI(OpenAIProviderConfig {
                 api_key: SecretObject::literal("updated_openai_key".to_string()),
                 organization_id: Some("updated_org".to_string()),
+                base_url: None,
             }),
         },
         ProviderTestData {
@@ -167,6 +169,7 @@ async fn test_create_provider_success() {
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal("test_openai_key".to_string()),
             organization_id: Some("test_org".to_string()),
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -287,6 +290,7 @@ async fn test_create_provider_duplicate_name() {
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal("openai_key_1".to_string()),
             organization_id: None,
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -423,6 +427,7 @@ async fn test_list_providers_multiple() {
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal("key1".to_string()),
             organization_id: None,
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -491,6 +496,7 @@ async fn test_update_provider_success() {
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal("initial_openai_key".to_string()),
             organization_id: Some("org_initial".to_string()),
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -509,6 +515,7 @@ async fn test_update_provider_success() {
     let updated_config = ProviderConfig::OpenAI(OpenAIProviderConfig {
         api_key: SecretObject::literal("updated_openai_key".to_string()),
         organization_id: Some("org_updated".to_string()),
+        base_url: None,
     });
     let updated_enabled = false;
 
@@ -641,6 +648,7 @@ async fn test_update_provider_duplicate_name_conflict() {
         config: ProviderConfig::OpenAI(OpenAIProviderConfig {
             api_key: SecretObject::literal("key_A".to_string()),
             organization_id: None,
+            base_url: None,
         }),
         enabled: Some(true),
     };
@@ -871,4 +879,41 @@ async fn test_create_anthropic_provider_success() {
             provider_response.config
         );
     }
+}
+
+#[tokio::test]
+async fn test_create_openai_provider_with_base_url() {
+    let (client, _pool, _container) = setup_test_environment().await;
+
+    let request_payload = CreateProviderRequest {
+        name: "OpenAI with Base URL".to_string(),
+        provider_type: ProviderType::OpenAI,
+        config: ProviderConfig::OpenAI(OpenAIProviderConfig {
+            api_key: SecretObject::literal("test_openai_key".to_string()),
+            organization_id: Some("test_org".to_string()),
+            base_url: Some("https://eu.api.openai.com/v1".to_string()),
+        }),
+        enabled: Some(true),
+    };
+
+    let response = client
+        .post("/api/v1/management/providers")
+        .json(&request_payload)
+        .await;
+    assert_eq!(response.status_code(), axum::http::StatusCode::CREATED);
+
+    let provider_response: ProviderResponse = response.json::<ProviderResponse>();
+    assert_eq!(provider_response.config, request_payload.config);
+
+    // Verify the value persisted via GET
+    let get_response = client
+        .get(&format!(
+            "/api/v1/management/providers/{}",
+            provider_response.id
+        ))
+        .await;
+    assert_eq!(get_response.status_code(), axum::http::StatusCode::OK);
+
+    let fetched: ProviderResponse = get_response.json::<ProviderResponse>();
+    assert_eq!(fetched.config, request_payload.config);
 }
