@@ -133,11 +133,7 @@ impl ConfigProviderService {
                 if let Some(org_id) = c.organization_id {
                     params.insert("organization_id".to_string(), org_id);
                 }
-                if let Some(base_url) = c
-                    .base_url
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                {
+                if let Some(base_url) = c.base_url {
                     params.insert("base_url".to_string(), base_url);
                 }
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
@@ -145,11 +141,7 @@ impl ConfigProviderService {
             ProviderConfig::Azure(c) => {
                 params.insert("resource_name".to_string(), c.resource_name);
                 params.insert("api_version".to_string(), c.api_version);
-                if let Some(base_url) = c
-                    .base_url
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                {
+                if let Some(base_url) = c.base_url {
                     params.insert("base_url".to_string(), base_url);
                 }
                 Some(self.secret_resolver.resolve_secret(&c.api_key).await?)
