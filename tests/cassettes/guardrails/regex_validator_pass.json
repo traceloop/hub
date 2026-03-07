@@ -1,0 +1,31 @@
+{
+  "evaluator_slug": "regex-validator",
+  "input_text": "Order ID: ABC-12345",
+  "params": {
+    "regex": "^[A-Z]{3}-\\d{5}$",
+    "should_match": true,
+    "case_sensitive": true,
+    "dot_include_nl": true,
+    "multi_line": true
+  },
+  "request_body": {
+    "input": {
+      "text": "Order ID: ABC-12345"
+    },
+    "config": {
+      "regex": "^[A-Z]{3}-\\d{5}$",
+      "should_match": true,
+      "case_sensitive": true,
+      "dot_include_nl": true,
+      "multi_line": true
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "is_valid_regex": true
+    },
+    "pass": true
+  },
+  "expected_pass": true
+}

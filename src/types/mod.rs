@@ -149,8 +149,8 @@ pub struct Pipeline {
     // #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<PluginConfig>,
-    // ee_id: Option<Uuid>, // Removed
-    // enabled: bool, // Removed
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guards: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Hash)]
@@ -169,4 +169,6 @@ pub struct GatewayConfig {
     pub models: Vec<ModelConfig>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pipelines: Vec<Pipeline>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guardrails: Option<crate::guardrails::types::GuardrailsConfig>,
 }

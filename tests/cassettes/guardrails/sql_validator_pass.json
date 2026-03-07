@@ -1,0 +1,18 @@
+{
+  "evaluator_slug": "sql-validator",
+  "input_text": "SELECT id, name FROM users WHERE active = true ORDER BY name",
+  "params": {},
+  "request_body": {
+    "input": {
+      "text": "SELECT id, name FROM users WHERE active = true ORDER BY name"
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "is_valid_sql": true
+    },
+    "pass": true
+  },
+  "expected_pass": true
+}

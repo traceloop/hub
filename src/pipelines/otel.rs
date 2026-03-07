@@ -6,21 +6,25 @@ use crate::models::embeddings::{EmbeddingsInput, EmbeddingsRequest, EmbeddingsRe
 use crate::models::streaming::ChatCompletionChunk;
 use crate::models::usage::{EmbeddingUsage, Usage};
 use opentelemetry::global::{BoxedSpan, ObjectSafeSpan};
-use opentelemetry::trace::{SpanKind, Status, Tracer};
-use opentelemetry::{KeyValue, global};
+use opentelemetry::trace::{SpanKind, Status, TraceContextExt, Tracer};
+use opentelemetry::{Context, KeyValue, global};
 use opentelemetry_otlp::{SpanExporter, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::TracerProvider;
 use opentelemetry_semantic_conventions::attribute::GEN_AI_REQUEST_MODEL;
 use opentelemetry_semantic_conventions::trace::*;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 pub trait RecordSpan {
     fn record_span(&self, span: &mut BoxedSpan);
 }
 
+pub type SharedTracer = Arc<Mutex<OtelTracer>>;
+
 pub struct OtelTracer {
-    span: BoxedSpan,
+    llm_span: Option<BoxedSpan>,
+    root_span: BoxedSpan,
     accumulated_completion: Option<ChatCompletion>,
 }
 
@@ -87,19 +91,42 @@ impl OtelTracer {
         }
     }
 
-    pub fn start<T: RecordSpan>(operation: &str, request: &T) -> Self {
+    pub fn start() -> Self {
         let tracer = global::tracer("traceloop_hub");
+        let span = tracer
+            .span_builder("traceloop_hub")
+            .with_kind(SpanKind::Server)
+            .start(&tracer);
+
+        Self {
+            llm_span: None,
+            root_span: span,
+            accumulated_completion: None,
+        }
+    }
+
+    /// Helper to extract SharedTracer from request extensions with fallback.
+    /// This is primarily used by handlers to get the tracer created by TracingMiddleware.
+    pub fn from_extensions(extensions: &axum::http::Extensions) -> SharedTracer {
+        extensions
+            .get::<SharedTracer>()
+            .cloned()
+            .unwrap_or_else(|| {
+                // Fallback for backwards compatibility
+                Arc::new(Mutex::new(OtelTracer::start()))
+            })
+    }
+
+    pub fn start_llm_span<T: RecordSpan>(&mut self, operation: &str, request: &T) {
+        let tracer = global::tracer("traceloop_hub");
+        let parent_cx = self.parent_context();
         let mut span = tracer
             .span_builder(format!("traceloop_hub.{operation}"))
             .with_kind(SpanKind::Client)
-            .start(&tracer);
+            .start_with_context(&tracer, &parent_cx);
 
         request.record_span(&mut span);
-
-        Self {
-            span,
-            accumulated_completion: None,
-        }
+        self.llm_span = Some(span);
     }
 
     pub fn log_chunk(&mut self, chunk: &ChatCompletionChunk) {
@@ -160,23 +187,52 @@ impl OtelTracer {
 
     pub fn streaming_end(&mut self) {
         if let Some(completion) = self.accumulated_completion.take() {
-            completion.record_span(&mut self.span);
-            self.span.set_status(Status::Ok);
+            if let Some(span) = &mut self.llm_span {
+                completion.record_span(span);
+                span.set_status(Status::Ok);
+            }
         }
+        self.root_span.set_status(Status::Ok);
     }
 
     pub fn log_success<T: RecordSpan>(&mut self, response: &T) {
-        response.record_span(&mut self.span);
-        self.span.set_status(Status::Ok);
+        if let Some(span) = &mut self.llm_span {
+            response.record_span(span);
+            span.set_status(Status::Ok);
+        }
+        self.root_span.set_status(Status::Ok);
     }
 
     pub fn log_error(&mut self, description: String) {
-        self.span.set_status(Status::error(description));
+        if let Some(span) = &mut self.llm_span {
+            span.set_status(Status::error(description.clone()));
+        }
+        self.root_span.set_status(Status::error(description));
+    }
+
+    /// Returns an OTel Context carrying this tracer's root span as parent,
+    /// suitable for creating child spans.
+    pub fn parent_context(&self) -> Context {
+        Context::current().with_remote_span_context(self.root_span.span_context().clone())
     }
 
     pub fn set_vendor(&mut self, vendor: &str) {
-        self.span
-            .set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
+        if let Some(span) = &mut self.llm_span {
+            span.set_attribute(KeyValue::new(GEN_AI_SYSTEM, vendor.to_string()));
+        }
+    }
+}
+
+fn set_optional_f64(span: &mut BoxedSpan, key: &'static str, value: Option<f32>) {
+    if let Some(v) = value {
+        span.set_attribute(KeyValue::new(key, v as f64));
+    }
+}
+
+fn content_to_string(content: &ChatMessageContent) -> String {
+    match content {
+        ChatMessageContent::String(s) => s.clone(),
+        ChatMessageContent::Array(parts) => serde_json::to_string(parts).unwrap_or_default(),
     }
 }
 
@@ -185,24 +241,14 @@ impl RecordSpan for ChatCompletionRequest {
         span.set_attribute(KeyValue::new("llm.request.type", "chat"));
         span.set_attribute(KeyValue::new(GEN_AI_REQUEST_MODEL, self.model.clone()));
 
-        if let Some(freq_penalty) = self.frequency_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                freq_penalty as f64,
-            ));
-        }
-        if let Some(pres_penalty) = self.presence_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_PRESENCE_PENALTY,
-                pres_penalty as f64,
-            ));
-        }
-        if let Some(top_p) = self.top_p {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TOP_P, top_p as f64));
-        }
-        if let Some(temp) = self.temperature {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TEMPERATURE, temp as f64));
-        }
+        set_optional_f64(
+            span,
+            GEN_AI_REQUEST_FREQUENCY_PENALTY,
+            self.frequency_penalty,
+        );
+        set_optional_f64(span, GEN_AI_REQUEST_PRESENCE_PENALTY, self.presence_penalty);
+        set_optional_f64(span, GEN_AI_REQUEST_TOP_P, self.top_p);
+        set_optional_f64(span, GEN_AI_REQUEST_TEMPERATURE, self.temperature);
 
         if get_trace_content_enabled() {
             for (i, message) in self.messages.iter().enumerate() {
@@ -213,12 +259,7 @@ impl RecordSpan for ChatCompletionRequest {
                     ));
                     span.set_attribute(KeyValue::new(
                         format!("gen_ai.prompt.{i}.content"),
-                        match &content {
-                            ChatMessageContent::String(content) => content.clone(),
-                            ChatMessageContent::Array(content) => {
-                                serde_json::to_string(content).unwrap_or_default()
-                            }
-                        },
+                        content_to_string(content),
                     ));
                 }
             }
@@ -242,12 +283,7 @@ impl RecordSpan for ChatCompletion {
                     ));
                     span.set_attribute(KeyValue::new(
                         format!("gen_ai.completion.{}.content", choice.index),
-                        match &content {
-                            ChatMessageContent::String(content) => content.clone(),
-                            ChatMessageContent::Array(content) => {
-                                serde_json::to_string(content).unwrap_or_default()
-                            }
-                        },
+                        content_to_string(content),
                     ));
                 }
                 span.set_attribute(KeyValue::new(
@@ -265,24 +301,14 @@ impl RecordSpan for CompletionRequest {
         span.set_attribute(KeyValue::new(GEN_AI_REQUEST_MODEL, self.model.clone()));
         span.set_attribute(KeyValue::new("gen_ai.prompt", self.prompt.clone()));
 
-        if let Some(freq_penalty) = self.frequency_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                freq_penalty as f64,
-            ));
-        }
-        if let Some(pres_penalty) = self.presence_penalty {
-            span.set_attribute(KeyValue::new(
-                GEN_AI_REQUEST_PRESENCE_PENALTY,
-                pres_penalty as f64,
-            ));
-        }
-        if let Some(top_p) = self.top_p {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TOP_P, top_p as f64));
-        }
-        if let Some(temp) = self.temperature {
-            span.set_attribute(KeyValue::new(GEN_AI_REQUEST_TEMPERATURE, temp as f64));
-        }
+        set_optional_f64(
+            span,
+            GEN_AI_REQUEST_FREQUENCY_PENALTY,
+            self.frequency_penalty,
+        );
+        set_optional_f64(span, GEN_AI_REQUEST_PRESENCE_PENALTY, self.presence_penalty);
+        set_optional_f64(span, GEN_AI_REQUEST_TOP_P, self.top_p);
+        set_optional_f64(span, GEN_AI_REQUEST_TEMPERATURE, self.temperature);
     }
 }
 
@@ -413,7 +439,8 @@ mod tests {
         // Test that set_vendor method compiles and can be called
         // This ensures the method signature is correct
         let mut tracer = OtelTracer {
-            span: opentelemetry::global::tracer("test").start("test"),
+            llm_span: Some(opentelemetry::global::tracer("test").start("test_llm")),
+            root_span: opentelemetry::global::tracer("test").start("test"),
             accumulated_completion: None,
         };
 

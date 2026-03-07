@@ -1,0 +1,18 @@
+{
+  "evaluator_slug": "profanity-detector",
+  "input_text": "This is damn bullshit and I think it's a total crap product.",
+  "params": {},
+  "request_body": {
+    "input": {
+      "text": "This is damn bullshit and I think it's a total crap product."
+    }
+  },
+  "response_status": 200,
+  "response_body": {
+    "result": {
+      "is_safe": false
+    },
+    "pass": false
+  },
+  "expected_pass": false
+}
