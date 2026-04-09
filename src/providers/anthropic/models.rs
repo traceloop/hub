@@ -129,7 +129,14 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             model: request.model,
             messages,
             temperature: request.temperature,
-            top_p: request.top_p,
+            top_p: if request.temperature.is_some() && request.top_p.is_some() {
+                tracing::warn!(
+                    "Both temperature and top_p specified for Anthropic model; dropping top_p"
+                );
+                None
+            } else {
+                request.top_p
+            },
             stream: request.stream,
             system,
             tool_choice: request.tool_choice.map(|choice| match choice {
