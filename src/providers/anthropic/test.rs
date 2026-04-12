@@ -1,7 +1,3 @@
-use serde_json::{Value, json};
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
 use super::models::{AnthropicChatCompletionResponse, ContentBlock};
 use super::provider::AnthropicProvider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
@@ -10,6 +6,10 @@ use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::tool_choice::{SimpleToolChoice, ToolChoice};
 use crate::models::tool_definition::{FunctionDefinition, ToolDefinition};
 use crate::providers::provider::Provider;
+use serde_json::{Value, json};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 
 #[allow(unused_imports)]
 use tracing::debug;
@@ -186,15 +186,9 @@ async fn test_chat_completions_basic() {
         ChatCompletionResponse::NonStream(completion) => {
             save_to_cassette(test_name, &serde_json::to_value(completion).unwrap()).await;
 
-            assert!(
-                !completion.choices.is_empty(),
-                "No choices in response"
-            );
+            assert!(!completion.choices.is_empty(), "No choices in response");
             let message = &completion.choices[0].message;
-            assert!(
-                message.content.is_some(),
-                "Response should have content"
-            );
+            assert!(message.content.is_some(), "Response should have content");
 
             debug!("Test completed successfully! Cassette saved.");
         }
@@ -316,10 +310,7 @@ async fn test_chat_completions_with_tool_calls() {
         ChatCompletionResponse::NonStream(completion) => {
             save_to_cassette(test_name, &serde_json::to_value(completion).unwrap()).await;
 
-            assert!(
-                !completion.choices.is_empty(),
-                "No choices in response"
-            );
+            assert!(!completion.choices.is_empty(), "No choices in response");
             let message = &completion.choices[0].message;
 
             assert!(
@@ -334,10 +325,7 @@ async fn test_chat_completions_with_tool_calls() {
                 "Tool call must have a non-empty id"
             );
 
-            debug!(
-                "Tool call recorded, id: {}",
-                tool_calls[0].id
-            );
+            debug!("Tool call recorded, id: {}", tool_calls[0].id);
             debug!("Test completed successfully! Cassette saved.");
         }
         ChatCompletionResponse::Stream(_) => {
@@ -454,10 +442,7 @@ fn test_anthropic_response_to_chat_completion() {
     assert_eq!(completion.model, "claude-sonnet-4-20250514");
     assert_eq!(completion.choices.len(), 1);
     assert_eq!(completion.choices[0].index, 0);
-    assert_eq!(
-        completion.choices[0].finish_reason.as_deref(),
-        Some("stop")
-    );
+    assert_eq!(completion.choices[0].finish_reason.as_deref(), Some("stop"));
     assert_eq!(completion.usage.prompt_tokens, 10);
     assert_eq!(completion.usage.completion_tokens, 5);
     assert_eq!(completion.usage.total_tokens, 15);
