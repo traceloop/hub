@@ -18,19 +18,19 @@ use tracing::debug;
 
 async fn save_to_cassette(test_name: &str, response: &Value) {
     let cassettes_dir = PathBuf::from("tests/cassettes/anthropic");
-    std::fs::create_dir_all(&cassettes_dir).ok();
+    std::fs::create_dir_all(&cassettes_dir).expect("Failed to create cassettes directory");
 
     let cassette_path = cassettes_dir.join(format!("{}.json", test_name));
 
     let interactions = vec![response.clone()];
 
-    if let Ok(content) = serde_json::to_string_pretty(&interactions) {
-        fs::write(&cassette_path, content).expect("Failed to write cassette");
-        debug!(
-            "Successfully saved interaction to cassette: {:?}",
-            cassette_path
-        );
-    }
+    let content =
+        serde_json::to_string_pretty(&interactions).expect("Failed to serialize cassette");
+    fs::write(&cassette_path, content).expect("Failed to write cassette");
+    debug!(
+        "Successfully saved interaction to cassette: {:?}",
+        cassette_path
+    );
 }
 
 fn create_test_provider() -> AnthropicProvider {
@@ -117,6 +117,10 @@ async fn test_chat_completions_basic() {
         let response = &interactions[0];
         assert!(response["id"].is_string(), "Response ID missing");
         assert!(response["choices"].is_array(), "Choices array missing");
+        assert!(
+            !response["choices"].as_array().unwrap().is_empty(),
+            "Choices array should not be empty"
+        );
         assert!(response["usage"].is_object(), "Usage object missing");
 
         let message = &response["choices"][0]["message"];
@@ -223,6 +227,10 @@ async fn test_chat_completions_with_tool_calls() {
         let response = &interactions[0];
         assert!(response["id"].is_string(), "Response ID missing");
         assert!(response["choices"].is_array(), "Choices array missing");
+        assert!(
+            !response["choices"].as_array().unwrap().is_empty(),
+            "Choices array should not be empty"
+        );
 
         let message = &response["choices"][0]["message"];
         assert_eq!(
