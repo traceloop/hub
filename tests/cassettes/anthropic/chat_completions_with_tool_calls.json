@@ -1,0 +1,37 @@
+[
+  {
+    "id": "msg_01CFudCZdBtaUVJ2YVzQucCu",
+    "model": "claude-sonnet-4-20250514",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I'll check the current weather in San Francisco for you."
+            }
+          ],
+          "tool_calls": [
+            {
+              "id": "toolu_01KyWCHEsiDTGAzp68Ab8GkG",
+              "function": {
+                "arguments": "{\"location\":\"San Francisco, CA\"}",
+                "name": "get_weather"
+              },
+              "type": "function"
+            }
+          ]
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 429,
+      "completion_tokens": 69,
+      "total_tokens": 498
+    },
+    "system_fingerprint": null
+  }
+]

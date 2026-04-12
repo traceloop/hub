@@ -1,0 +1,27 @@
+[
+  {
+    "id": "msg_01JhjWHpxSKsJ9dsqfgGvyjM",
+    "model": "claude-sonnet-4-20250514",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Hello, it's nice to meet you!"
+            }
+          ]
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 13,
+      "completion_tokens": 12,
+      "total_tokens": 25
+    },
+    "system_fingerprint": null
+  }
+]
