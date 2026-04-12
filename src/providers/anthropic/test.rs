@@ -1,4 +1,6 @@
-use super::models::{AnthropicChatCompletionResponse, ContentBlock};
+use super::models::{
+    AnthropicChatCompletionRequest, AnthropicChatCompletionResponse, ContentBlock,
+};
 use super::provider::AnthropicProvider;
 use crate::config::models::{ModelConfig, Provider as ProviderConfig};
 use crate::models::chat::{ChatCompletionRequest, ChatCompletionResponse};
@@ -20,15 +22,7 @@ async fn save_to_cassette(test_name: &str, response: &Value) {
 
     let cassette_path = cassettes_dir.join(format!("{}.json", test_name));
 
-    let mut interactions = Vec::new();
-
-    if let Ok(content) = fs::read_to_string(&cassette_path) {
-        if let Ok(mut existing) = serde_json::from_str::<Vec<Value>>(&content) {
-            interactions.append(&mut existing);
-        }
-    }
-
-    interactions.push(response.clone());
+    let interactions = vec![response.clone()];
 
     if let Ok(content) = serde_json::to_string_pretty(&interactions) {
         fs::write(&cassette_path, content).expect("Failed to write cassette");
@@ -292,7 +286,7 @@ async fn test_chat_completions_with_tool_calls() {
         logit_bias: None,
         user: None,
         tools: Some(vec![create_weather_tool_definition()]),
-        tool_choice: Some(ToolChoice::Simple(SimpleToolChoice::Auto)),
+        tool_choice: Some(ToolChoice::Simple(SimpleToolChoice::Required)),
         parallel_tool_calls: None,
         max_completion_tokens: None,
         logprobs: None,
@@ -355,16 +349,8 @@ fn test_content_block_to_message_text_only() {
     let json = serde_json::to_value(&message).unwrap();
     let content = &json["content"];
 
-    // This test documents current behavior (array format).
-    // After the fix, this should assert content is a string.
-    if content.is_string() {
-        assert_eq!(content.as_str().unwrap(), "Hello world!");
-    } else if content.is_array() {
-        // Current (broken) behavior: content is an array of objects
-        assert_eq!(content.as_array().unwrap().len(), 2);
-    } else {
-        panic!("Content should be either a string or an array, got: {content}");
-    }
+    assert!(content.is_string(), "Content should be a plain string");
+    assert_eq!(content.as_str().unwrap(), "Hello world!");
 
     assert!(message.tool_calls.is_none());
 }
@@ -405,21 +391,10 @@ fn test_content_block_to_message_tool_calls_only() {
     let message: ChatCompletionMessage = blocks.into();
     assert!(message.tool_calls.is_some());
 
-    // Verify content serialization
-    let json = serde_json::to_value(&message).unwrap();
-    let content = &json["content"];
-
-    // When there are only tool calls, content should ideally be null
-    // This documents current behavior
-    if content.is_null() {
-        // Expected after fix: no text blocks → content is None/null
-    } else if content.is_array() {
-        // Current behavior: empty array
-        assert!(content.as_array().unwrap().is_empty());
-    } else if content.is_string() {
-        // Also acceptable: empty string or null
-    }
-
+    assert!(
+        message.content.is_none(),
+        "Tool-only response should have no content"
+    );
     assert_eq!(message.tool_calls.as_ref().unwrap().len(), 1);
 }
 
@@ -446,4 +421,85 @@ fn test_anthropic_response_to_chat_completion() {
     assert_eq!(completion.usage.prompt_tokens, 10);
     assert_eq!(completion.usage.completion_tokens, 5);
     assert_eq!(completion.usage.total_tokens, 15);
+}
+
+#[test]
+fn test_request_drops_top_p_when_both_temperature_and_top_p_set() {
+    let request = ChatCompletionRequest {
+        model: "claude-sonnet-4-20250514".to_string(),
+        messages: vec![ChatCompletionMessage {
+            role: "user".to_string(),
+            content: Some(ChatMessageContent::String("hi".to_string())),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            refusal: None,
+        }],
+        temperature: Some(0.7),
+        top_p: Some(0.9),
+        n: None,
+        stream: None,
+        stop: None,
+        max_tokens: Some(100),
+        presence_penalty: None,
+        frequency_penalty: None,
+        logit_bias: None,
+        user: None,
+        tools: None,
+        tool_choice: None,
+        parallel_tool_calls: None,
+        max_completion_tokens: None,
+        logprobs: None,
+        top_logprobs: None,
+        response_format: None,
+        reasoning: None,
+    };
+
+    let anthropic_request = AnthropicChatCompletionRequest::from(request);
+    assert_eq!(anthropic_request.temperature, Some(0.7));
+    assert!(
+        anthropic_request.top_p.is_none(),
+        "top_p should be dropped when temperature is also set"
+    );
+}
+
+#[test]
+fn test_request_preserves_top_p_when_temperature_absent() {
+    let request = ChatCompletionRequest {
+        model: "claude-sonnet-4-20250514".to_string(),
+        messages: vec![ChatCompletionMessage {
+            role: "user".to_string(),
+            content: Some(ChatMessageContent::String("hi".to_string())),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            refusal: None,
+        }],
+        temperature: None,
+        top_p: Some(0.9),
+        n: None,
+        stream: None,
+        stop: None,
+        max_tokens: Some(100),
+        presence_penalty: None,
+        frequency_penalty: None,
+        logit_bias: None,
+        user: None,
+        tools: None,
+        tool_choice: None,
+        parallel_tool_calls: None,
+        max_completion_tokens: None,
+        logprobs: None,
+        top_logprobs: None,
+        response_format: None,
+        reasoning: None,
+    };
+
+    let anthropic_request = AnthropicChatCompletionRequest::from(request);
+    assert!(anthropic_request.temperature.is_none());
+    assert_eq!(
+        anthropic_request.top_p,
+        Some(0.9),
+        "top_p should be preserved when temperature is absent"
+    );
 }
