@@ -34,4 +34,11 @@ impl ProviderRegistry {
     pub fn get(&self, name: &str) -> Option<Arc<dyn Provider>> {
         self.providers.get(name).cloned()
     }
+
+    #[cfg(test)]
+    pub fn from_mock(key: String, provider: Arc<dyn Provider>) -> Self {
+        let mut providers = HashMap::new();
+        providers.insert(key, provider);
+        Self { providers }
+    }
 }
