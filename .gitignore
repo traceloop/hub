@@ -35,6 +35,3 @@ service.json
 
 # Ignore postgres data for docker-compose
 example/docker/pgdata
-node_modules
-package-lock.json
-package.json
