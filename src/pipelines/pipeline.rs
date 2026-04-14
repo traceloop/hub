@@ -30,7 +30,9 @@ const HEADER_PROVIDER: HeaderName = HeaderName::from_static("x-traceloop-provide
 
 fn inject_provider_header(response: &mut axum::response::Response, provider_type: &ProviderType) {
     if let Ok(value) = HeaderValue::from_str(&provider_type.to_string()) {
-        response.headers_mut().insert(HEADER_PROVIDER.clone(), value);
+        response
+            .headers_mut()
+            .insert(HEADER_PROVIDER.clone(), value);
     }
 }
 
@@ -536,8 +538,7 @@ mod tests {
             provider_type,
         }) as Arc<dyn Provider>;
 
-        let provider_registry =
-            ProviderRegistry::from_mock("mock-provider".to_string(), provider);
+        let provider_registry = ProviderRegistry::from_mock("mock-provider".to_string(), provider);
 
         let model_configs = vec![ModelConfig {
             key: "mock-model".to_string(),
@@ -708,22 +709,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_completion_headers_openai() {
-        assert_completion_provider_header(
-            ProviderType::OpenAI,
-            "gpt-3.5-turbo-instruct",
-            "openai",
-        )
-        .await;
+        assert_completion_provider_header(ProviderType::OpenAI, "gpt-3.5-turbo-instruct", "openai")
+            .await;
     }
 
     #[tokio::test]
     async fn test_completion_headers_azure() {
-        assert_completion_provider_header(
-            ProviderType::Azure,
-            "gpt-35-turbo-instruct",
-            "azure",
-        )
-        .await;
+        assert_completion_provider_header(ProviderType::Azure, "gpt-35-turbo-instruct", "azure")
+            .await;
     }
 
     // ── Provider header tests: embeddings ───────────────────────────────
@@ -756,32 +749,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_embedding_headers_openai_text_embedding_3_large() {
-        assert_embedding_provider_header(
-            ProviderType::OpenAI,
-            "text-embedding-3-large",
-            "openai",
-        )
-        .await;
+        assert_embedding_provider_header(ProviderType::OpenAI, "text-embedding-3-large", "openai")
+            .await;
     }
 
     #[tokio::test]
     async fn test_embedding_headers_openai_text_embedding_3_small() {
-        assert_embedding_provider_header(
-            ProviderType::OpenAI,
-            "text-embedding-3-small",
-            "openai",
-        )
-        .await;
+        assert_embedding_provider_header(ProviderType::OpenAI, "text-embedding-3-small", "openai")
+            .await;
     }
 
     #[tokio::test]
     async fn test_embedding_headers_azure() {
-        assert_embedding_provider_header(
-            ProviderType::Azure,
-            "text-embedding-ada-002",
-            "azure",
-        )
-        .await;
+        assert_embedding_provider_header(ProviderType::Azure, "text-embedding-ada-002", "azure")
+            .await;
     }
 
     #[tokio::test]
@@ -796,12 +777,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_embedding_headers_vertexai() {
-        assert_embedding_provider_header(
-            ProviderType::VertexAI,
-            "text-embedding-005",
-            "vertexai",
-        )
-        .await;
+        assert_embedding_provider_header(ProviderType::VertexAI, "text-embedding-005", "vertexai")
+            .await;
     }
 
     // ── ProviderType Display (used for header serialization) ────────────
