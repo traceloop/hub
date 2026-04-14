@@ -26,7 +26,7 @@ use futures::{Stream, StreamExt};
 use reqwest_streams::error::StreamBodyError;
 use std::sync::Arc;
 
-const HEADER_PROVIDER: HeaderName = HeaderName::from_static("x-traceloop-provider");
+const HEADER_PROVIDER: HeaderName = HeaderName::from_static("x-genai-provider-name");
 
 fn inject_provider_header(response: &mut axum::response::Response, provider_type: &ProviderType) {
     if let Ok(value) = HeaderValue::from_str(&provider_type.to_string()) {
@@ -608,9 +608,9 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
-            response.headers().get("x-traceloop-provider").unwrap(),
+            response.headers().get("x-genai-provider-name").unwrap(),
             expected_provider,
-            "X-Traceloop-Provider mismatch for {provider_type}"
+            "X-GenAI-Provider-Name mismatch for {provider_type}"
         );
     }
 
@@ -702,7 +702,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
-            response.headers().get("x-traceloop-provider").unwrap(),
+            response.headers().get("x-genai-provider-name").unwrap(),
             expected_provider,
         );
     }
@@ -742,7 +742,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
-            response.headers().get("x-traceloop-provider").unwrap(),
+            response.headers().get("x-genai-provider-name").unwrap(),
             expected_provider,
         );
     }
@@ -811,6 +811,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        assert!(response.headers().get("x-traceloop-provider").is_none());
+        assert!(response.headers().get("x-genai-provider-name").is_none());
     }
 }
