@@ -1,6 +1,6 @@
 use crate::config::constants::default_max_tokens;
 use crate::models::chat::{ChatCompletion, ChatCompletionChoice, ChatCompletionRequest};
-use crate::models::content::{ChatCompletionMessage, ChatMessageContent, ChatMessageContentPart};
+use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
 use crate::models::tool_calls::{ChatMessageToolCall, FunctionCall};
 use serde::{Deserialize, Serialize};
 
@@ -129,7 +129,14 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
             model: request.model,
             messages,
             temperature: request.temperature,
-            top_p: request.top_p,
+            top_p: if request.temperature.is_some() && request.top_p.is_some() {
+                tracing::warn!(
+                    "Both temperature and top_p specified for Anthropic model; dropping top_p"
+                );
+                None
+            } else {
+                request.top_p
+            },
             stream: request.stream,
             system,
             tool_choice: request.tool_choice.map(|choice| match choice {
@@ -168,16 +175,13 @@ impl From<ChatCompletionRequest> for AnthropicChatCompletionRequest {
 
 impl From<Vec<ContentBlock>> for ChatCompletionMessage {
     fn from(blocks: Vec<ContentBlock>) -> Self {
-        let mut text_content = Vec::<ChatMessageContentPart>::new();
+        let mut text_parts = Vec::<String>::new();
         let mut tool_calls = Vec::<ChatMessageToolCall>::new();
 
         for block in blocks {
             match block {
                 ContentBlock::Text { text } => {
-                    text_content.push(ChatMessageContentPart {
-                        r#type: "text".to_string(),
-                        text,
-                    });
+                    text_parts.push(text);
                 }
                 ContentBlock::ToolUse { name, input, id } => {
                     tool_calls.push(ChatMessageToolCall {
@@ -194,7 +198,11 @@ impl From<Vec<ContentBlock>> for ChatCompletionMessage {
 
         ChatCompletionMessage {
             role: "assistant".to_string(),
-            content: Some(ChatMessageContent::Array(text_content)),
+            content: if text_parts.is_empty() {
+                None
+            } else {
+                Some(ChatMessageContent::String(text_parts.join("")))
+            },
             name: None,
             refusal: None,
             tool_calls: if tool_calls.is_empty() {
