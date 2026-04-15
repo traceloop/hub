@@ -1,3 +1,13 @@
+## v0.9.0 (2026-04-15)
+
+### Feat
+
+- Expose model provider header (#100)
+
+### Fix
+
+- **anthropic**: drop top_p when both temperature and top_p are set  + flatten response (#99)
+
 ## v0.8.0 (2026-03-04)
 
 ### Feat
