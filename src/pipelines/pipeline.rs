@@ -5,12 +5,14 @@ use crate::models::embeddings::EmbeddingsRequest;
 use crate::models::streaming::ChatCompletionChunk;
 use crate::pipelines::otel::OtelTracer;
 use crate::providers::provider::get_vendor_name;
+use crate::types::ProviderType;
 use crate::{
     ai_models::registry::ModelRegistry,
     config::models::{Pipeline, PluginConfig},
     models::chat::ChatCompletionRequest,
 };
 use async_stream::stream;
+use axum::http::{HeaderName, HeaderValue};
 use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Sse};
 use axum::{
@@ -23,6 +25,16 @@ use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
 use reqwest_streams::error::StreamBodyError;
 use std::sync::Arc;
+
+const HEADER_PROVIDER: HeaderName = HeaderName::from_static("x-genai-provider-name");
+
+fn inject_provider_header(response: &mut axum::response::Response, provider_type: &ProviderType) {
+    if let Ok(value) = HeaderValue::from_str(&provider_type.to_string()) {
+        response
+            .headers_mut()
+            .insert(HEADER_PROVIDER.clone(), value);
+    }
+}
 
 pub fn create_pipeline(pipeline: &Pipeline, model_registry: &ModelRegistry) -> Router {
     let mut router = Router::new();
@@ -121,15 +133,21 @@ pub async fn chat_completions(
                     eprintln!("Chat completion error for model {model_key}: {e:?}");
                 })?;
 
+            let provider_type = model.provider.r#type();
+
             if let ChatCompletionResponse::NonStream(completion) = response {
                 tracer.log_success(&completion);
-                return Ok(Json(completion).into_response());
+                let mut resp = Json(completion).into_response();
+                inject_provider_header(&mut resp, &provider_type);
+                return Ok(resp);
             }
 
             if let ChatCompletionResponse::Stream(stream) = response {
-                return Ok(Sse::new(trace_and_stream(tracer, stream))
+                let mut resp = Sse::new(trace_and_stream(tracer, stream))
                     .keep_alive(KeepAlive::default())
-                    .into_response());
+                    .into_response();
+                inject_provider_header(&mut resp, &provider_type);
+                return Ok(resp);
             }
         }
     }
@@ -157,7 +175,9 @@ pub async fn completions(
                 eprintln!("Completion error for model {model_key}: {e:?}");
             })?;
             tracer.log_success(&response);
-            return Ok(Json(response));
+            let mut resp = Json(response).into_response();
+            inject_provider_header(&mut resp, &model.provider.r#type());
+            return Ok(resp);
         }
     }
 
@@ -184,7 +204,9 @@ pub async fn embeddings(
                 eprintln!("Embeddings error for model {model_key}: {e:?}");
             })?;
             tracer.log_success(&response);
-            return Ok(Json(response));
+            let mut resp = Json(response).into_response();
+            inject_provider_header(&mut resp, &model.provider.r#type());
+            return Ok(resp);
         }
     }
 
@@ -427,159 +449,8 @@ mod tests {
         assert!(!ids.contains(&"test-model-2"));
     }
 
-    // Test providers with different types for vendor testing
-    #[derive(Clone)]
-    struct TestProviderOpenAI;
-    #[derive(Clone)]
-    struct TestProviderAnthropic;
-    #[derive(Clone)]
-    struct TestProviderAzure;
-
-    #[async_trait]
-    impl Provider for TestProviderOpenAI {
-        fn new(_config: &ProviderConfig) -> Self {
-            Self
-        }
-        fn key(&self) -> String {
-            "openai-key".to_string()
-        }
-        fn r#type(&self) -> ProviderType {
-            ProviderType::OpenAI
-        }
-
-        async fn chat_completions(
-            &self,
-            _payload: crate::models::chat::ChatCompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
-            Ok(crate::models::chat::ChatCompletionResponse::NonStream(
-                crate::models::chat::ChatCompletion {
-                    id: "test".to_string(),
-                    object: None,
-                    created: None,
-                    model: "gpt-4".to_string(),
-                    choices: vec![],
-                    usage: crate::models::usage::Usage::default(),
-                    system_fingerprint: None,
-                },
-            ))
-        }
-
-        async fn completions(
-            &self,
-            _payload: CompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::completion::CompletionResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-
-        async fn embeddings(
-            &self,
-            _payload: EmbeddingsRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::embeddings::EmbeddingsResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-    }
-
-    #[async_trait]
-    impl Provider for TestProviderAnthropic {
-        fn new(_config: &ProviderConfig) -> Self {
-            Self
-        }
-        fn key(&self) -> String {
-            "anthropic-key".to_string()
-        }
-        fn r#type(&self) -> ProviderType {
-            ProviderType::Anthropic
-        }
-
-        async fn chat_completions(
-            &self,
-            _payload: crate::models::chat::ChatCompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
-            Ok(crate::models::chat::ChatCompletionResponse::NonStream(
-                crate::models::chat::ChatCompletion {
-                    id: "test".to_string(),
-                    object: None,
-                    created: None,
-                    model: "claude-3".to_string(),
-                    choices: vec![],
-                    usage: crate::models::usage::Usage::default(),
-                    system_fingerprint: None,
-                },
-            ))
-        }
-
-        async fn completions(
-            &self,
-            _payload: CompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::completion::CompletionResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-
-        async fn embeddings(
-            &self,
-            _payload: EmbeddingsRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::embeddings::EmbeddingsResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-    }
-
-    #[async_trait]
-    impl Provider for TestProviderAzure {
-        fn new(_config: &ProviderConfig) -> Self {
-            Self
-        }
-        fn key(&self) -> String {
-            "azure-key".to_string()
-        }
-        fn r#type(&self) -> ProviderType {
-            ProviderType::Azure
-        }
-
-        async fn chat_completions(
-            &self,
-            _payload: crate::models::chat::ChatCompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
-            Ok(crate::models::chat::ChatCompletionResponse::NonStream(
-                crate::models::chat::ChatCompletion {
-                    id: "test".to_string(),
-                    object: None,
-                    created: None,
-                    model: "gpt-4".to_string(),
-                    choices: vec![],
-                    usage: crate::models::usage::Usage::default(),
-                    system_fingerprint: None,
-                },
-            ))
-        }
-
-        async fn completions(
-            &self,
-            _payload: CompletionRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::completion::CompletionResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-
-        async fn embeddings(
-            &self,
-            _payload: EmbeddingsRequest,
-            _model_config: &ModelConfig,
-        ) -> Result<crate::models::embeddings::EmbeddingsResponse, StatusCode> {
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
-    }
-
     #[test]
     fn test_vendor_mapping_integration() {
-        // Test that different provider types map to correct vendor names
-        // This tests the integration between provider types and vendor names
         assert_eq!(get_vendor_name(&ProviderType::OpenAI), "openai");
         assert_eq!(get_vendor_name(&ProviderType::Anthropic), "Anthropic");
         assert_eq!(get_vendor_name(&ProviderType::Azure), "Azure");
@@ -587,21 +458,359 @@ mod tests {
         assert_eq!(get_vendor_name(&ProviderType::VertexAI), "Google");
     }
 
+    // ── Configurable mock provider for header tests ──────────────────────
+
+    #[derive(Clone)]
+    struct ConfigurableMockProvider {
+        key: String,
+        provider_type: ProviderType,
+    }
+
+    #[async_trait]
+    impl Provider for ConfigurableMockProvider {
+        fn new(_config: &ProviderConfig) -> Self {
+            unimplemented!("Use struct literal instead")
+        }
+
+        fn key(&self) -> String {
+            self.key.clone()
+        }
+
+        fn r#type(&self) -> ProviderType {
+            self.provider_type
+        }
+
+        async fn chat_completions(
+            &self,
+            _payload: crate::models::chat::ChatCompletionRequest,
+            _model_config: &ModelConfig,
+        ) -> Result<crate::models::chat::ChatCompletionResponse, StatusCode> {
+            Ok(crate::models::chat::ChatCompletionResponse::NonStream(
+                crate::models::chat::ChatCompletion {
+                    id: "test-id".to_string(),
+                    object: Some("chat.completion".to_string()),
+                    created: Some(1700000000),
+                    model: "resolved-model".to_string(),
+                    choices: vec![],
+                    usage: crate::models::usage::Usage::default(),
+                    system_fingerprint: None,
+                },
+            ))
+        }
+
+        async fn completions(
+            &self,
+            _payload: CompletionRequest,
+            _model_config: &ModelConfig,
+        ) -> Result<crate::models::completion::CompletionResponse, StatusCode> {
+            Ok(crate::models::completion::CompletionResponse {
+                id: "test-id".to_string(),
+                object: "text_completion".to_string(),
+                created: 1700000000,
+                model: "resolved-model".to_string(),
+                choices: vec![],
+                usage: crate::models::usage::Usage::default(),
+            })
+        }
+
+        async fn embeddings(
+            &self,
+            _payload: EmbeddingsRequest,
+            _model_config: &ModelConfig,
+        ) -> Result<crate::models::embeddings::EmbeddingsResponse, StatusCode> {
+            Ok(crate::models::embeddings::EmbeddingsResponse {
+                object: "list".to_string(),
+                data: vec![],
+                model: "resolved-model".to_string(),
+                usage: crate::models::usage::EmbeddingUsage::default(),
+            })
+        }
+    }
+
+    /// Build a pipeline router backed by a single ConfigurableMockProvider.
+    fn build_mock_pipeline(
+        provider_type: ProviderType,
+        model: &str,
+        pipeline_type: PipelineType,
+    ) -> Router {
+        let provider = Arc::new(ConfigurableMockProvider {
+            key: "mock-provider".to_string(),
+            provider_type,
+        }) as Arc<dyn Provider>;
+
+        let provider_registry = ProviderRegistry::from_mock("mock-provider".to_string(), provider);
+
+        let model_configs = vec![ModelConfig {
+            key: "mock-model".to_string(),
+            r#type: model.to_string(),
+            provider: "mock-provider".to_string(),
+            params: HashMap::new(),
+        }];
+
+        let model_registry =
+            ModelRegistry::new(&model_configs, Arc::new(provider_registry)).unwrap();
+
+        let pipeline = Pipeline {
+            name: "test".to_string(),
+            r#type: pipeline_type,
+            plugins: vec![PluginConfig::ModelRouter {
+                models: vec!["mock-model".to_string()],
+            }],
+        };
+
+        create_pipeline(&pipeline, &model_registry)
+    }
+
+    fn chat_request_body(model: &str) -> String {
+        serde_json::json!({
+            "model": model,
+            "messages": [{"role": "user", "content": "hello"}]
+        })
+        .to_string()
+    }
+
+    fn completion_request_body(model: &str) -> String {
+        serde_json::json!({
+            "model": model,
+            "prompt": "hello"
+        })
+        .to_string()
+    }
+
+    fn embedding_request_body(model: &str) -> String {
+        serde_json::json!({
+            "model": model,
+            "input": "hello"
+        })
+        .to_string()
+    }
+
+    // ── Provider header tests: chat completions ─────────────────────────
+
+    async fn assert_chat_provider_header(
+        provider_type: ProviderType,
+        model: &str,
+        expected_provider: &str,
+    ) {
+        let app = build_mock_pipeline(provider_type, model, PipelineType::Chat);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/chat/completions")
+                    .method("POST")
+                    .header("content-type", "application/json")
+                    .body(Body::from(chat_request_body(model)))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get("x-genai-provider-name").unwrap(),
+            expected_provider,
+            "X-GenAI-Provider-Name mismatch for {provider_type}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_openai_gpt4o() {
+        assert_chat_provider_header(ProviderType::OpenAI, "gpt-4o", "openai").await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_openai_gpt4o_mini() {
+        assert_chat_provider_header(ProviderType::OpenAI, "gpt-4o-mini", "openai").await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_openai_o1() {
+        assert_chat_provider_header(ProviderType::OpenAI, "o1", "openai").await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_openai_o3() {
+        assert_chat_provider_header(ProviderType::OpenAI, "o3", "openai").await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_openai_o3_mini() {
+        assert_chat_provider_header(ProviderType::OpenAI, "o3-mini", "openai").await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_anthropic_claude_sonnet() {
+        assert_chat_provider_header(
+            ProviderType::Anthropic,
+            "claude-sonnet-4-20250514",
+            "anthropic",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_anthropic_claude_haiku() {
+        assert_chat_provider_header(
+            ProviderType::Anthropic,
+            "claude-haiku-4-5-20251001",
+            "anthropic",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_azure_gpt4o() {
+        assert_chat_provider_header(ProviderType::Azure, "gpt-4o", "azure").await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_bedrock_claude() {
+        assert_chat_provider_header(
+            ProviderType::Bedrock,
+            "anthropic.claude-sonnet-4-20250514-v1:0",
+            "bedrock",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_chat_headers_vertexai_gemini() {
+        assert_chat_provider_header(ProviderType::VertexAI, "gemini-2.5-pro", "vertexai").await;
+    }
+
+    // ── Provider header tests: completions ──────────────────────────────
+
+    async fn assert_completion_provider_header(
+        provider_type: ProviderType,
+        model: &str,
+        expected_provider: &str,
+    ) {
+        let app = build_mock_pipeline(provider_type, model, PipelineType::Completion);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/completions")
+                    .method("POST")
+                    .header("content-type", "application/json")
+                    .body(Body::from(completion_request_body(model)))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get("x-genai-provider-name").unwrap(),
+            expected_provider,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_completion_headers_openai() {
+        assert_completion_provider_header(ProviderType::OpenAI, "gpt-3.5-turbo-instruct", "openai")
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_completion_headers_azure() {
+        assert_completion_provider_header(ProviderType::Azure, "gpt-35-turbo-instruct", "azure")
+            .await;
+    }
+
+    // ── Provider header tests: embeddings ───────────────────────────────
+
+    async fn assert_embedding_provider_header(
+        provider_type: ProviderType,
+        model: &str,
+        expected_provider: &str,
+    ) {
+        let app = build_mock_pipeline(provider_type, model, PipelineType::Embeddings);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/embeddings")
+                    .method("POST")
+                    .header("content-type", "application/json")
+                    .body(Body::from(embedding_request_body(model)))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get("x-genai-provider-name").unwrap(),
+            expected_provider,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_embedding_headers_openai_text_embedding_3_large() {
+        assert_embedding_provider_header(ProviderType::OpenAI, "text-embedding-3-large", "openai")
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_embedding_headers_openai_text_embedding_3_small() {
+        assert_embedding_provider_header(ProviderType::OpenAI, "text-embedding-3-small", "openai")
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_embedding_headers_azure() {
+        assert_embedding_provider_header(ProviderType::Azure, "text-embedding-ada-002", "azure")
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_embedding_headers_bedrock_titan() {
+        assert_embedding_provider_header(
+            ProviderType::Bedrock,
+            "amazon.titan-embed-text-v2:0",
+            "bedrock",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_embedding_headers_vertexai() {
+        assert_embedding_provider_header(ProviderType::VertexAI, "text-embedding-005", "vertexai")
+            .await;
+    }
+
+    // ── ProviderType Display (used for header serialization) ────────────
+
     #[test]
-    fn test_provider_type_methods() {
-        // Test that our test providers return the correct types
-        // This ensures the pipeline would call set_vendor with the right values
-        let openai_provider = TestProviderOpenAI;
-        let anthropic_provider = TestProviderAnthropic;
-        let azure_provider = TestProviderAzure;
+    fn test_provider_type_display_all_variants() {
+        assert_eq!(ProviderType::OpenAI.to_string(), "openai");
+        assert_eq!(ProviderType::Anthropic.to_string(), "anthropic");
+        assert_eq!(ProviderType::Azure.to_string(), "azure");
+        assert_eq!(ProviderType::Bedrock.to_string(), "bedrock");
+        assert_eq!(ProviderType::VertexAI.to_string(), "vertexai");
+    }
 
-        assert_eq!(openai_provider.r#type(), ProviderType::OpenAI);
-        assert_eq!(anthropic_provider.r#type(), ProviderType::Anthropic);
-        assert_eq!(azure_provider.r#type(), ProviderType::Azure);
+    // ── No-match returns 404 without header ─────────────────────────────
 
-        // Test that these map to the correct vendor names
-        assert_eq!(get_vendor_name(&openai_provider.r#type()), "openai");
-        assert_eq!(get_vendor_name(&anthropic_provider.r#type()), "Anthropic");
-        assert_eq!(get_vendor_name(&azure_provider.r#type()), "Azure");
+    #[tokio::test]
+    async fn test_chat_no_match_returns_404() {
+        let app = build_mock_pipeline(ProviderType::OpenAI, "gpt-4o", PipelineType::Chat);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/chat/completions")
+                    .method("POST")
+                    .header("content-type", "application/json")
+                    .body(Body::from(chat_request_body("nonexistent-model")))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert!(response.headers().get("x-genai-provider-name").is_none());
     }
 }
