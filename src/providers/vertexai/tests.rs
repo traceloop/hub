@@ -284,6 +284,7 @@ async fn test_chat_completions() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let model_config = ModelConfig {
@@ -533,6 +534,7 @@ async fn test_chat_completions_with_tools() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let model_config = ModelConfig {
@@ -675,6 +677,7 @@ async fn test_chat_completions_with_api_key() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let model_config = ModelConfig {
@@ -803,6 +806,7 @@ fn test_empty_message_handling() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -856,6 +860,7 @@ fn test_tool_choice_none() {
         logprobs: None,
         top_logprobs: None,
         reasoning: None,
+        reasoning_effort: None,
         response_format: None,
     };
 
@@ -896,6 +901,7 @@ fn test_generation_config_limits() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -980,6 +986,7 @@ fn test_gemini_request_conversion() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -1090,6 +1097,7 @@ fn test_gemini_request_with_tools() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -1184,6 +1192,7 @@ fn test_gemini_request_with_system_message() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -1235,6 +1244,7 @@ fn test_gemini_request_with_array_content() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -1455,6 +1465,7 @@ fn test_gemini_request_conversion_with_response_format() {
         top_logprobs: None,
         response_format: Some(response_format),
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -1515,6 +1526,7 @@ fn test_gemini_request_conversion_without_response_format() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -1562,6 +1574,7 @@ fn test_gemini_request_conversion_with_json_object() {
         top_logprobs: None,
         response_format: Some(response_format),
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);
@@ -1697,6 +1710,7 @@ fn test_gemini_request_conversion_with_exact_user_format() {
         top_logprobs: None,
         response_format: Some(response_format),
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let gemini_request = GeminiChatRequest::from(chat_request);

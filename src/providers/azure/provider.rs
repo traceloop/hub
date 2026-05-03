@@ -24,7 +24,10 @@ struct AzureChatCompletionRequest {
 
 impl From<ChatCompletionRequest> for AzureChatCompletionRequest {
     fn from(mut base: ChatCompletionRequest) -> Self {
-        let reasoning_effort = base.reasoning.as_ref().and_then(|r| r.to_openai_effort());
+        let reasoning_effort = base
+            .reasoning_effort
+            .take()
+            .or_else(|| base.reasoning.as_ref().and_then(|r| r.to_openai_effort()));
 
         // Remove reasoning field from base request since Azure uses reasoning_effort
         base.reasoning = None;
@@ -79,29 +82,32 @@ impl Provider for AzureProvider {
         payload: ChatCompletionRequest,
         model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-        // Validate reasoning config if present
-        if let Some(reasoning) = &payload.reasoning {
-            if let Err(e) = reasoning.validate() {
-                tracing::error!("Invalid reasoning config: {}", e);
-                return Err(StatusCode::BAD_REQUEST);
-            }
+        // Validate legacy `reasoning` only when top-level `reasoning_effort` isn't set,
+        // mirroring the construction precedence in AzureChatCompletionRequest::from.
+        if payload.reasoning_effort.is_none() {
+            if let Some(reasoning) = &payload.reasoning {
+                if let Err(e) = reasoning.validate() {
+                    tracing::error!("Invalid reasoning config: {}", e);
+                    return Err(StatusCode::BAD_REQUEST);
+                }
 
-            if let Some(max_tokens) = reasoning.max_tokens {
-                info!(
-                    "✅ Azure reasoning with max_tokens: {} (note: Azure uses effort levels, max_tokens ignored)",
-                    max_tokens
-                );
-            } else if let Some(effort) = reasoning.to_openai_effort() {
-                info!(
-                    "✅ Azure reasoning enabled with effort level: \"{}\"",
-                    effort
-                );
-            } else {
-                tracing::debug!(
-                    "ℹ️ Azure reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
-                    reasoning.effort,
-                    reasoning.max_tokens
-                );
+                if let Some(max_tokens) = reasoning.max_tokens {
+                    info!(
+                        "✅ Azure reasoning with max_tokens: {} (note: Azure uses effort levels, max_tokens ignored)",
+                        max_tokens
+                    );
+                } else if let Some(effort) = reasoning.to_openai_effort() {
+                    info!(
+                        "✅ Azure reasoning enabled with effort level: \"{}\"",
+                        effort
+                    );
+                } else {
+                    tracing::debug!(
+                        "ℹ️ Azure reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
+                        reasoning.effort,
+                        reasoning.max_tokens
+                    );
+                }
             }
         }
 
@@ -235,5 +241,90 @@ impl Provider for AzureProvider {
             );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
+    }
+}
+
+#[cfg(test)]
+mod reasoning_effort_precedence_tests {
+    use super::*;
+    use crate::models::chat::ReasoningConfig;
+    use crate::models::content::{ChatCompletionMessage, ChatMessageContent};
+
+    fn base_request() -> ChatCompletionRequest {
+        ChatCompletionRequest {
+            model: "gpt-4o".to_string(),
+            messages: vec![ChatCompletionMessage {
+                role: "user".to_string(),
+                content: Some(ChatMessageContent::String("hi".to_string())),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+                refusal: None,
+            }],
+            temperature: None,
+            top_p: None,
+            n: None,
+            stream: None,
+            stop: None,
+            max_tokens: None,
+            max_completion_tokens: None,
+            parallel_tool_calls: None,
+            presence_penalty: None,
+            frequency_penalty: None,
+            logit_bias: None,
+            tool_choice: None,
+            tools: None,
+            user: None,
+            logprobs: None,
+            top_logprobs: None,
+            response_format: None,
+            reasoning: None,
+            reasoning_effort: None,
+        }
+    }
+
+    #[test]
+    fn top_level_reasoning_effort_wins_when_both_present() {
+        let mut req = base_request();
+        req.reasoning_effort = Some("minimal".to_string());
+        req.reasoning = Some(ReasoningConfig {
+            effort: Some("high".to_string()),
+            max_tokens: None,
+            exclude: None,
+        });
+
+        let converted = AzureChatCompletionRequest::from(req);
+        assert_eq!(converted.reasoning_effort, Some("minimal".to_string()));
+        assert!(converted.base.reasoning.is_none());
+        assert!(converted.base.reasoning_effort.is_none());
+    }
+
+    #[test]
+    fn falls_back_to_nested_reasoning_when_top_level_absent() {
+        let mut req = base_request();
+        req.reasoning = Some(ReasoningConfig {
+            effort: Some("low".to_string()),
+            max_tokens: None,
+            exclude: None,
+        });
+
+        let converted = AzureChatCompletionRequest::from(req);
+        assert_eq!(converted.reasoning_effort, Some("low".to_string()));
+        assert!(converted.base.reasoning.is_none());
+    }
+
+    #[test]
+    fn uses_top_level_when_only_top_level_set() {
+        let mut req = base_request();
+        req.reasoning_effort = Some("none".to_string());
+
+        let converted = AzureChatCompletionRequest::from(req);
+        assert_eq!(converted.reasoning_effort, Some("none".to_string()));
+    }
+
+    #[test]
+    fn omits_effort_when_neither_set() {
+        let converted = AzureChatCompletionRequest::from(base_request());
+        assert_eq!(converted.reasoning_effort, None);
     }
 }
