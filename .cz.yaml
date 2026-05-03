@@ -5,7 +5,7 @@ commitizen:
   name: cz_conventional_commits
   tag_format: v$version
   update_changelog_on_bump: true
-  version: 0.9.0
+  version: 0.9.1
   version_files:
   - Cargo.toml:^version
   - helm/Chart.yaml:version

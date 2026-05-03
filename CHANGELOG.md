@@ -1,3 +1,9 @@
+## v0.9.1 (2026-05-03)
+
+### Fix
+
+- **openai**: support reasoning effort (#101)
+
 ## v0.9.0 (2026-04-15)
 
 ### Feat
