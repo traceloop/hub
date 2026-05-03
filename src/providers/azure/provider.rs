@@ -82,29 +82,32 @@ impl Provider for AzureProvider {
         payload: ChatCompletionRequest,
         model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-        // Validate reasoning config if present
-        if let Some(reasoning) = &payload.reasoning {
-            if let Err(e) = reasoning.validate() {
-                tracing::error!("Invalid reasoning config: {}", e);
-                return Err(StatusCode::BAD_REQUEST);
-            }
+        // Validate legacy `reasoning` only when top-level `reasoning_effort` isn't set,
+        // mirroring the construction precedence in AzureChatCompletionRequest::from.
+        if payload.reasoning_effort.is_none() {
+            if let Some(reasoning) = &payload.reasoning {
+                if let Err(e) = reasoning.validate() {
+                    tracing::error!("Invalid reasoning config: {}", e);
+                    return Err(StatusCode::BAD_REQUEST);
+                }
 
-            if let Some(max_tokens) = reasoning.max_tokens {
-                info!(
-                    "✅ Azure reasoning with max_tokens: {} (note: Azure uses effort levels, max_tokens ignored)",
-                    max_tokens
-                );
-            } else if let Some(effort) = reasoning.to_openai_effort() {
-                info!(
-                    "✅ Azure reasoning enabled with effort level: \"{}\"",
-                    effort
-                );
-            } else {
-                tracing::debug!(
-                    "ℹ️ Azure reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
-                    reasoning.effort,
-                    reasoning.max_tokens
-                );
+                if let Some(max_tokens) = reasoning.max_tokens {
+                    info!(
+                        "✅ Azure reasoning with max_tokens: {} (note: Azure uses effort levels, max_tokens ignored)",
+                        max_tokens
+                    );
+                } else if let Some(effort) = reasoning.to_openai_effort() {
+                    info!(
+                        "✅ Azure reasoning enabled with effort level: \"{}\"",
+                        effort
+                    );
+                } else {
+                    tracing::debug!(
+                        "ℹ️ Azure reasoning config present but no valid parameters (effort: {:?}, max_tokens: {:?})",
+                        reasoning.effort,
+                        reasoning.max_tokens
+                    );
+                }
             }
         }
 

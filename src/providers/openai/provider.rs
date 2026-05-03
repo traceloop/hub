@@ -85,11 +85,14 @@ impl Provider for OpenAIProvider {
         payload: ChatCompletionRequest,
         _model_config: &ModelConfig,
     ) -> Result<ChatCompletionResponse, StatusCode> {
-        // Validate reasoning config if present
-        if let Some(reasoning) = &payload.reasoning {
-            if let Err(e) = reasoning.validate() {
-                tracing::error!("Invalid reasoning config: {}", e);
-                return Err(StatusCode::BAD_REQUEST);
+        // Validate legacy `reasoning` only when top-level `reasoning_effort` isn't set,
+        // mirroring the construction precedence in OpenAIChatCompletionRequest::from.
+        if payload.reasoning_effort.is_none() {
+            if let Some(reasoning) = &payload.reasoning {
+                if let Err(e) = reasoning.validate() {
+                    tracing::error!("Invalid reasoning config: {}", e);
+                    return Err(StatusCode::BAD_REQUEST);
+                }
             }
         }
 
