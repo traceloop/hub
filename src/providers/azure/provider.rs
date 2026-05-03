@@ -24,7 +24,10 @@ struct AzureChatCompletionRequest {
 
 impl From<ChatCompletionRequest> for AzureChatCompletionRequest {
     fn from(mut base: ChatCompletionRequest) -> Self {
-        let reasoning_effort = base.reasoning.as_ref().and_then(|r| r.to_openai_effort());
+        let reasoning_effort = base
+            .reasoning_effort
+            .take()
+            .or_else(|| base.reasoning.as_ref().and_then(|r| r.to_openai_effort()));
 
         // Remove reasoning field from base request since Azure uses reasoning_effort
         base.reasoning = None;
