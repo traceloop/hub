@@ -213,6 +213,7 @@ async fn test_chat_completions_with_tool_calls() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let response_1 = provider
@@ -306,6 +307,7 @@ async fn test_chat_completions_with_tool_calls() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let response_2 = provider

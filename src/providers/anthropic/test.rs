@@ -173,6 +173,7 @@ async fn test_chat_completions_basic() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let response = provider
@@ -301,6 +302,7 @@ async fn test_chat_completions_with_tool_calls() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let response = provider
@@ -461,6 +463,7 @@ fn test_request_drops_top_p_when_both_temperature_and_top_p_set() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let anthropic_request = AnthropicChatCompletionRequest::from(request);
@@ -501,6 +504,7 @@ fn test_request_preserves_top_p_when_temperature_absent() {
         top_logprobs: None,
         response_format: None,
         reasoning: None,
+        reasoning_effort: None,
     };
 
     let anthropic_request = AnthropicChatCompletionRequest::from(request);

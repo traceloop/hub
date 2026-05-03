@@ -125,6 +125,7 @@ mod antropic_tests {
             top_logprobs: None,
             response_format: None,
             reasoning: None,
+            reasoning_effort: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -241,6 +242,7 @@ mod titan_tests {
             top_logprobs: None,
             response_format: None,
             reasoning: None,
+            reasoning_effort: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -368,6 +370,7 @@ mod ai21_tests {
             top_logprobs: None,
             response_format: None,
             reasoning: None,
+            reasoning_effort: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -444,6 +447,7 @@ mod arn_tests {
             top_logprobs: None,
             response_format: None,
             reasoning: None,
+            reasoning_effort: None,
         };
 
         // The test here is that we don't get a transformation error
@@ -497,6 +501,7 @@ mod arn_tests {
             top_logprobs: None,
             response_format: None,
             reasoning: None,
+            reasoning_effort: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -550,6 +555,7 @@ mod arn_tests {
                 max_tokens: None,
                 exclude: None,
             }),
+            reasoning_effort: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -601,6 +607,7 @@ mod arn_tests {
                 max_tokens: Some(1000),
                 exclude: None,
             }),
+            reasoning_effort: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -652,6 +659,7 @@ mod arn_tests {
                 max_tokens: None,
                 exclude: None,
             }),
+            reasoning_effort: None,
         };
 
         let result = provider.chat_completions(payload, &model_config).await;
@@ -784,6 +792,7 @@ mod arn_tests {
                 max_tokens: None,
                 exclude: None,
             }),
+            reasoning_effort: None,
         };
 
         // Transform the request to Anthropic format
@@ -851,6 +860,7 @@ mod arn_tests {
                 max_tokens: None,
                 exclude: None,
             }),
+            reasoning_effort: None,
         };
 
         let anthropic_request = AnthropicChatCompletionRequest::from(payload);
