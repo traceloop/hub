@@ -452,10 +452,10 @@ mod tests {
     #[test]
     fn test_vendor_mapping_integration() {
         assert_eq!(get_vendor_name(&ProviderType::OpenAI), "openai");
-        assert_eq!(get_vendor_name(&ProviderType::Anthropic), "Anthropic");
-        assert_eq!(get_vendor_name(&ProviderType::Azure), "Azure");
-        assert_eq!(get_vendor_name(&ProviderType::Bedrock), "AWS");
-        assert_eq!(get_vendor_name(&ProviderType::VertexAI), "Google");
+        assert_eq!(get_vendor_name(&ProviderType::Anthropic), "anthropic");
+        assert_eq!(get_vendor_name(&ProviderType::Azure), "azure.ai.openai");
+        assert_eq!(get_vendor_name(&ProviderType::Bedrock), "aws.bedrock");
+        assert_eq!(get_vendor_name(&ProviderType::VertexAI), "gcp.vertex_ai");
     }
 
     // ── Configurable mock provider for header tests ──────────────────────

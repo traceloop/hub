@@ -35,13 +35,13 @@ pub trait Provider: Send + Sync {
     ) -> Result<EmbeddingsResponse, StatusCode>;
 }
 
-/// Maps provider type enum to standardized vendor names for OTEL reporting
+/// Maps provider type enum to OTel GenAI `gen_ai.provider.name` well-known values.
 pub fn get_vendor_name(provider_type: &ProviderType) -> Cow<'static, str> {
     match provider_type {
         ProviderType::OpenAI => Cow::Borrowed("openai"),
-        ProviderType::Azure => Cow::Borrowed("Azure"),
-        ProviderType::Anthropic => Cow::Borrowed("Anthropic"),
-        ProviderType::Bedrock => Cow::Borrowed("AWS"),
-        ProviderType::VertexAI => Cow::Borrowed("Google"),
+        ProviderType::Azure => Cow::Borrowed("azure.ai.openai"),
+        ProviderType::Anthropic => Cow::Borrowed("anthropic"),
+        ProviderType::Bedrock => Cow::Borrowed("aws.bedrock"),
+        ProviderType::VertexAI => Cow::Borrowed("gcp.vertex_ai"),
     }
 }
