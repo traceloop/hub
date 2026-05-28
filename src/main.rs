@@ -144,7 +144,10 @@ async fn main() -> anyhow::Result<()> {
         .and_then(|level| level.parse::<Level>().ok())
         .unwrap_or(Level::WARN);
 
-    tracing_subscriber::fmt().with_max_level(log_level).init();
+    tracing_subscriber::fmt()
+        .json()
+        .with_max_level(log_level)
+        .init();
 
     info!("Starting Traceloop Hub Gateway...");
 
