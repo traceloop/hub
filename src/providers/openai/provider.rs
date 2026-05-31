@@ -11,7 +11,7 @@ use axum::http::StatusCode;
 use reqwest::Client;
 use reqwest_streams::*;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::warn;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct OpenAIChatCompletionRequest {
@@ -128,7 +128,7 @@ impl Provider for OpenAIProvider {
                     })
             }
         } else {
-            info!(
+            warn!(
                 "OpenAI API request error: {}",
                 response.text().await.unwrap()
             );

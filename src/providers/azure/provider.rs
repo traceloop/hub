@@ -12,7 +12,7 @@ use crate::models::streaming::ChatCompletionChunk;
 use crate::providers::provider::Provider;
 use crate::types::ProviderType;
 use reqwest::Client;
-use tracing::info;
+use tracing::{info, warn};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct AzureChatCompletionRequest {
@@ -152,7 +152,7 @@ impl Provider for AzureProvider {
                     })
             }
         } else {
-            info!(
+            warn!(
                 "Azure OpenAI API request error: {}",
                 response.text().await.unwrap()
             );
