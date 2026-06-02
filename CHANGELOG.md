@@ -1,3 +1,9 @@
+## v0.9.2 (2026-06-01)
+
+### Fix
+
+- **models**: Add slug and provider to the model response schema (#104)
+
 ## v0.9.1 (2026-05-03)
 
 ### Fix

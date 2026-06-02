@@ -50,6 +50,8 @@ impl ModelRegistry {
                     id: model.name.clone(),
                     object: "model".to_string(),
                     owned_by: model.provider.key(),
+                    slug: model.model_type.clone(),
+                    provider: model.provider.r#type().to_string(),
                 })
                 .collect(),
         }

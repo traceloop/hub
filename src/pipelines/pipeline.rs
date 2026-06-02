@@ -357,6 +357,8 @@ mod tests {
         assert_eq!(model["id"], "test-model");
         assert_eq!(model["object"], "model");
         assert_eq!(model["owned_by"], "test-provider");
+        assert_eq!(model["slug"], "test");
+        assert_eq!(model["provider"], "openai");
     }
     #[tokio::test]
     async fn test_models_endpoint_multiple_providers() {
