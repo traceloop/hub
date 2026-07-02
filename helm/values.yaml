@@ -64,6 +64,16 @@ tolerations: []
 
 affinity: {}
 
+# KEDA autoscaling (ScaledObject). Disabled by default; enable and configure
+# per-environment via values-<environment>.yaml.
+keda:
+  enabled: false
+
+# PodDisruptionBudget. Disabled by default; enable per-environment in values-*.yaml.
+pdb:
+  enabled: false
+  minAvailable: 1
+
 # Environment variables to pass to the hub container
 env: []
   # - name: DEBUG
