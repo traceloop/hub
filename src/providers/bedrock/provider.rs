@@ -426,8 +426,8 @@ mod transform_model_identifier_tests {
         let provider = provider(&[]);
         let model_config = model_config(&[("model_provider", "anthropic")]);
 
-        let result =
-            provider.transform_model_identifier("claude-3-haiku-20240307".to_string(), &model_config);
+        let result = provider
+            .transform_model_identifier("claude-3-haiku-20240307".to_string(), &model_config);
 
         assert_eq!(result, "anthropic.claude-3-haiku-20240307-v1:0");
     }
@@ -447,8 +447,7 @@ mod transform_model_identifier_tests {
     #[test]
     fn empty_model_version_opts_out_of_suffix() {
         let provider = provider(&[]);
-        let model_config =
-            model_config(&[("model_provider", "meta"), ("model_version", "")]);
+        let model_config = model_config(&[("model_provider", "meta"), ("model_version", "")]);
 
         let result =
             provider.transform_model_identifier("llama3-8b-instruct".to_string(), &model_config);
@@ -459,8 +458,7 @@ mod transform_model_identifier_tests {
     #[test]
     fn empty_model_version_with_inference_profile_opts_out_of_suffix() {
         let provider = provider(&[("inference_profile_id", "us")]);
-        let model_config =
-            model_config(&[("model_provider", "meta"), ("model_version", "")]);
+        let model_config = model_config(&[("model_provider", "meta"), ("model_version", "")]);
 
         let result =
             provider.transform_model_identifier("llama3-8b-instruct".to_string(), &model_config);
@@ -473,8 +471,8 @@ mod transform_model_identifier_tests {
         let provider = provider(&[("inference_profile_id", "us")]);
         let model_config = model_config(&[("model_provider", "anthropic")]);
 
-        let result =
-            provider.transform_model_identifier("claude-3-haiku-20240307".to_string(), &model_config);
+        let result = provider
+            .transform_model_identifier("claude-3-haiku-20240307".to_string(), &model_config);
 
         assert_eq!(result, "us.anthropic.claude-3-haiku-20240307-v1:0");
     }
@@ -483,7 +481,8 @@ mod transform_model_identifier_tests {
     fn arn_is_passed_through_unchanged() {
         let provider = provider(&[]);
         let model_config = model_config(&[("model_provider", "anthropic")]);
-        let arn = "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0";
+        let arn =
+            "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0";
 
         let result = provider.transform_model_identifier(arn.to_string(), &model_config);
 
