@@ -1,0 +1,12 @@
+# Staging environment overrides for the hub chart.
+# Consumed by Octopus (add as an additional values file on the Helm step, or
+# paste this block into the step's Raw Values YAML). Octopus substitutes
+# #{hubBedrockRoleArn} at deploy time from the environment-scoped project variable.
+#
+# Enables IRSA so the Bedrock provider (use_iam_role: true) assumes the IAM role
+# created in cloud-infrastructure (module.irsa_hub) instead of using static keys.
+serviceAccount:
+  create: true
+  name: "hub" # must match the IRSA trust policy: system:serviceaccount:traceloop:hub
+  annotations:
+    eks.amazonaws.com/role-arn: "#{hubBedrockRoleArn}"
