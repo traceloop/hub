@@ -24,6 +24,19 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 
 {{/*
+Name of the service account to use.
+When serviceAccount.create is true, defaults to serviceAccount.name or the
+fullname; otherwise falls back to the provided name or "default".
+*/}}
+{{- define "app.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "app.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "app.chart" -}}
