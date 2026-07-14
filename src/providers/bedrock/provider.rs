@@ -108,10 +108,18 @@ impl BedrockProvider {
                 .get("model_version")
                 .map_or("v1:0", |s| &**s);
 
-            if let Some(profile_id) = inference_profile_id {
-                format!("{profile_id}.{model_provider}.{model}-{model_version}")
+            let base = if let Some(profile_id) = inference_profile_id {
+                format!("{profile_id}.{model_provider}.{model}")
             } else {
-                format!("{model_provider}.{model}-{model_version}")
+                format!("{model_provider}.{model}")
+            };
+
+            // Some inference profiles have no
+            // version suffix. Setting model_version to "" opts out of the suffix.
+            if model_version.is_empty() {
+                base
+            } else {
+                format!("{base}-{model_version}")
             }
         }
     }
@@ -379,5 +387,116 @@ impl BedrockModelImplementation for AnthropicImplementation {
             .await?;
 
         Ok(ChatCompletionResponse::NonStream(anthropic_response.into()))
+    }
+}
+
+#[cfg(test)]
+mod transform_model_identifier_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn provider(params: &[(&str, &str)]) -> BedrockProvider {
+        BedrockProvider {
+            config: ProviderConfig {
+                key: "test_key".to_string(),
+                r#type: ProviderType::Bedrock,
+                api_key: String::new(),
+                params: params
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            },
+        }
+    }
+
+    fn model_config(params: &[(&str, &str)]) -> ModelConfig {
+        ModelConfig {
+            key: "test-model".to_string(),
+            r#type: "test-model".to_string(),
+            provider: "bedrock".to_string(),
+            params: params
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn defaults_to_v1_0_version_suffix() {
+        let provider = provider(&[]);
+        let model_config = model_config(&[("model_provider", "anthropic")]);
+
+        let result = provider
+            .transform_model_identifier("claude-3-haiku-20240307".to_string(), &model_config);
+
+        assert_eq!(result, "anthropic.claude-3-haiku-20240307-v1:0");
+    }
+
+    #[test]
+    fn uses_explicit_model_version() {
+        let provider = provider(&[]);
+        let model_config =
+            model_config(&[("model_provider", "anthropic"), ("model_version", "v2:0")]);
+
+        let result = provider
+            .transform_model_identifier("claude-3-5-sonnet-20241022".to_string(), &model_config);
+
+        assert_eq!(result, "anthropic.claude-3-5-sonnet-20241022-v2:0");
+    }
+
+    #[test]
+    fn empty_model_version_opts_out_of_suffix() {
+        let provider = provider(&[]);
+        let model_config = model_config(&[("model_provider", "meta"), ("model_version", "")]);
+
+        let result =
+            provider.transform_model_identifier("llama3-8b-instruct".to_string(), &model_config);
+
+        assert_eq!(result, "meta.llama3-8b-instruct");
+    }
+
+    #[test]
+    fn empty_model_version_with_inference_profile_opts_out_of_suffix() {
+        let provider = provider(&[("inference_profile_id", "us")]);
+        let model_config = model_config(&[("model_provider", "meta"), ("model_version", "")]);
+
+        let result =
+            provider.transform_model_identifier("llama3-8b-instruct".to_string(), &model_config);
+
+        assert_eq!(result, "us.meta.llama3-8b-instruct");
+    }
+
+    #[test]
+    fn inference_profile_prepends_profile_and_keeps_default_suffix() {
+        let provider = provider(&[("inference_profile_id", "us")]);
+        let model_config = model_config(&[("model_provider", "anthropic")]);
+
+        let result = provider
+            .transform_model_identifier("claude-3-haiku-20240307".to_string(), &model_config);
+
+        assert_eq!(result, "us.anthropic.claude-3-haiku-20240307-v1:0");
+    }
+
+    #[test]
+    fn arn_is_passed_through_unchanged() {
+        let provider = provider(&[]);
+        let model_config = model_config(&[("model_provider", "anthropic")]);
+        let arn =
+            "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.example.test-model-v1:0";
+
+        let result = provider.transform_model_identifier(arn.to_string(), &model_config);
+
+        assert_eq!(result, arn);
+    }
+
+    #[test]
+    fn inference_profile_identifier_is_passed_through_unchanged() {
+        let provider = provider(&[]);
+        let model_config = model_config(&[("model_provider", "anthropic")]);
+        let identifier = "us-east-1-inference-profile-123";
+
+        let result = provider.transform_model_identifier(identifier.to_string(), &model_config);
+
+        assert_eq!(result, identifier);
     }
 }
