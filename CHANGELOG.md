@@ -1,3 +1,9 @@
+## v0.10.0 (2026-07-14)
+
+### Feat
+
+- **bedrock**: allow opting out of the model version suffix (#109)
+
 ## v0.9.3 (2026-06-04)
 
 ### Fix
