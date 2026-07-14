@@ -94,7 +94,7 @@ impl BedrockProvider {
         provider_implementation
     }
 
-    fn transform_model_identifier(&self, model: String, model_config: &ModelConfig) -> String {
+   fn transform_model_identifier(&self, model: String, model_config: &ModelConfig) -> String {
         // Check if the model is already an ARN or inference profile ID
         if model.starts_with("arn:aws:bedrock:") || model.contains("inference-profile") {
             // Use the model identifier as-is for ARNs and inference profiles
@@ -108,10 +108,18 @@ impl BedrockProvider {
                 .get("model_version")
                 .map_or("v1:0", |s| &**s);
 
-            if let Some(profile_id) = inference_profile_id {
-                format!("{profile_id}.{model_provider}.{model}-{model_version}")
+            let base = if let Some(profile_id) = inference_profile_id {
+                format!("{profile_id}.{model_provider}.{model}")
             } else {
-                format!("{model_provider}.{model}-{model_version}")
+                format!("{model_provider}.{model}")
+            };
+
+            // Some inference profiles have no
+            // version suffix. Setting model_version to "" opts out of the suffix.
+            if model_version.is_empty() {
+                base
+            } else {
+                format!("{base}-{model_version}")
             }
         }
     }
