@@ -16,20 +16,6 @@ image:
 nameOverride: ""
 fullnameOverride: ""
 
-# Kubernetes service account for the hub pod.
-# Defaults (create: false, name: "") leave the pod on the namespace "default"
-# service account, matching prior behavior.
-# For AWS Bedrock via IRSA (use_iam_role: true on the Bedrock provider), set:
-#   create: true
-#   name: "hub"   # MUST be "hub" — the IAM role trust policy created in
-#                 # cloud-infrastructure binds system:serviceaccount:<ns>:hub
-#   annotations."eks.amazonaws.com/role-arn": <irsa_hub_role_arn Terraform output>
-serviceAccount:
-  create: false
-  name: ""
-  annotations: {}
-    # eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/<name-prefix>-hub-<env>-role
-
 podAnnotations: {}
 
 podSecurityContext: {}
