@@ -1,3 +1,9 @@
+## v0.10.1 (2026-07-15)
+
+### Fix
+
+- **helm**: Allow service account name (#110)
+
 ## v0.10.0 (2026-07-14)
 
 ### Feat
