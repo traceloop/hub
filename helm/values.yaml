@@ -16,6 +16,10 @@ image:
 nameOverride: ""
 fullnameOverride: ""
 
+# Name of an existing service account to run the pod under.
+# Leave empty to use the namespace's default service account.
+serviceAccountName: ""
+
 podAnnotations: {}
 
 podSecurityContext: {}
