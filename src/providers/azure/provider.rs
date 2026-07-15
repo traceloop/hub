@@ -58,6 +58,29 @@ impl AzureProvider {
     fn api_version(&self) -> String {
         self.config.params.get("api_version").unwrap().clone()
     }
+
+    /// Whether this provider targets Azure's next-generation v1 API surface
+    /// (`/openai/v1/...`), selected by setting `api_version` to "preview" or "v1".
+    /// The v1 API is required for the latest models and parameters (for example
+    /// `reasoning_effort` on gpt-5.x); dated api-versions keep the legacy
+    /// deployment-in-path form.
+    fn uses_v1_api(&self) -> bool {
+        matches!(self.api_version().as_str(), "preview" | "v1")
+    }
+
+    /// Base URL for the v1 API. When `base_url` is configured it is used verbatim
+    /// (operators point it at the `/openai/v1` root); otherwise it is built from
+    /// `resource_name`.
+    fn v1_base(&self) -> String {
+        if let Some(base_url) = self.config.params.get("base_url") {
+            base_url.trim_end_matches('/').to_string()
+        } else {
+            format!(
+                "https://{}.openai.azure.com/openai/v1",
+                self.config.params.get("resource_name").unwrap(),
+            )
+        }
+    }
 }
 
 #[async_trait]
@@ -113,15 +136,27 @@ impl Provider for AzureProvider {
 
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
-        let url = format!(
-            "{}/{}/chat/completions?api-version={}",
-            self.endpoint(),
-            deployment,
-            api_version
-        );
 
         // Convert to Azure-specific request format
-        let azure_request = AzureChatCompletionRequest::from(payload.clone());
+        let mut azure_request = AzureChatCompletionRequest::from(payload.clone());
+
+        // The v1 API routes by the `model` field in the body rather than a deployment
+        // in the URL path. Legacy dated api-versions keep the deployment-in-path form.
+        let url = if self.uses_v1_api() {
+            azure_request.base.model = deployment.clone();
+            format!(
+                "{}/chat/completions?api-version={}",
+                self.v1_base(),
+                api_version
+            )
+        } else {
+            format!(
+                "{}/{}/chat/completions?api-version={}",
+                self.endpoint(),
+                deployment,
+                api_version
+            )
+        };
 
         let response = self
             .http_client
@@ -209,12 +244,20 @@ impl Provider for AzureProvider {
         let deployment = model_config.params.get("deployment").unwrap();
         let api_version = self.api_version();
 
-        let url = format!(
-            "{}/{}/embeddings?api-version={}",
-            self.endpoint(),
-            deployment,
-            api_version
-        );
+        // The v1 API routes by the `model` field in the body rather than a deployment
+        // in the URL path. Legacy dated api-versions keep the deployment-in-path form.
+        let mut payload = payload;
+        let url = if self.uses_v1_api() {
+            payload.model = deployment.clone();
+            format!("{}/embeddings?api-version={}", self.v1_base(), api_version)
+        } else {
+            format!(
+                "{}/{}/embeddings?api-version={}",
+                self.endpoint(),
+                deployment,
+                api_version
+            )
+        };
 
         let response = self
             .http_client
@@ -241,6 +284,44 @@ impl Provider for AzureProvider {
             );
             Err(StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
         }
+    }
+}
+
+#[cfg(test)]
+mod v1_routing_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn provider(params: &[(&str, &str)]) -> AzureProvider {
+        AzureProvider {
+            config: ProviderConfig {
+                key: "azure".to_string(),
+                r#type: ProviderType::Azure,
+                api_key: "test-key".to_string(),
+                params: params
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<HashMap<_, _>>(),
+            },
+            http_client: Client::new(),
+        }
+    }
+
+    #[test]
+    fn preview_api_version_selects_v1_base() {
+        let p = provider(&[("resource_name", "my-res"), ("api_version", "preview")]);
+        assert!(p.uses_v1_api());
+        assert_eq!(p.v1_base(), "https://my-res.openai.azure.com/openai/v1");
+    }
+
+    #[test]
+    fn dated_api_version_keeps_legacy_deployment_path() {
+        let p = provider(&[("resource_name", "my-res"), ("api_version", "2024-10-21")]);
+        assert!(!p.uses_v1_api());
+        assert_eq!(
+            p.endpoint(),
+            "https://my-res.openai.azure.com/openai/deployments"
+        );
     }
 }
 
