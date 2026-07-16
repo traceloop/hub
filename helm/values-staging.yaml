@@ -1,0 +1,14 @@
+# Staging-specific value overrides.
+
+keda:
+  enabled: true
+  # LLM hub proxy — CPU under-reads long inference calls
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  pollingInterval: 30
+  cooldownPeriod: 300
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"

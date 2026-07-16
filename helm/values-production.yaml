@@ -1,0 +1,18 @@
+# Production-specific value overrides.
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+keda:
+  enabled: true
+  # LLM hub proxy — CPU under-reads long inference calls
+  minReplicaCount: 2
+  maxReplicaCount: 10
+  pollingInterval: 15
+  cooldownPeriod: 600
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
